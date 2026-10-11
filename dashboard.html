@@ -4,7 +4,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="assets/style.css">
-<script src="assets/auth.js"></script><script>SM_AUTH.require();</script></head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="assets/config.js"></script><script src="assets/auth.js"></script>
+<script src="assets/cloud.js"></script><script>SM_AUTH.require();</script></head>
 <body>
 <nav class="nav"><a class="logo" href="index.html"><i class="fa-solid fa-brain"></i>StoryMind</a>
 <div><span class="mut" id="who"></span> <button class="btn ghost" onclick="SM_AUTH.logout()">Sair</button></div></nav>

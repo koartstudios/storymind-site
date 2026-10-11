@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>StoryMind Pro - Mapas Mentais para Histórias</title>
-    <script src="assets/auth.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="assets/config.js"></script><script src="assets/auth.js"></script>
+<script src="assets/cloud.js"></script>
     <script>SM_AUTH.require();</script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -2820,7 +2822,8 @@
         // ==========================================================
         // BOOT
         // ==========================================================
-        window.onload = function() {
+        window.onload = async function() {
+            await SM_CLOUD.pull();
             loadStoriesStorage();
             switchStory(new URLSearchParams(location.search).get('story') || 'default');
             setupKeyboardListeners();
@@ -3961,6 +3964,7 @@
             try {
                 localStorage.setItem('storymind_database_v2', JSON.stringify(storiesDatabase));
                 setSaveStatus('saved');
+                SM_CLOUD.push(currentStoryKey, currentStory);
             } catch(e) {
                 console.warn('Falha ao salvar no localStorage:', e);
                 setSaveStatus('error');
@@ -4061,6 +4065,7 @@
                 showToast("Não é possível excluir a única história.", "error"); return;
             }
             if (!confirm(`Excluir a história "${currentStory.title}"?`)) return;
+            SM_CLOUD.remove(currentStoryKey);
             delete storiesDatabase[currentStoryKey];
             localStorage.setItem('storymind_database_v2', JSON.stringify(storiesDatabase));
             const firstKey = Object.keys(storiesDatabase)[0];

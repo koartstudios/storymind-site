@@ -2,19 +2,30 @@
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Entrar — StoryMind</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/style.css"></head>
+<link rel="stylesheet" href="assets/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="assets/config.js"></script><script src="assets/auth.js"></script></head>
 <body>
 <div class="box"><a href="index.html" class="mut">← Início</a>
-<h2 style="margin:14px 0 6px">Entrar</h2><p class="mut" style="margin-bottom:18px">Seus mapas ficam salvos neste navegador.</p>
-<label>Nome</label><input id="name" placeholder="Seu nome">
+<h2 style="margin:14px 0 6px">Entrar</h2><p class="mut" style="margin-bottom:18px">Suas histórias ficam salvas na sua conta.</p>
 <label>E-mail</label><input id="email" type="email" placeholder="voce@email.com">
-<button class="btn" style="width:100%" id="go">Entrar</button></div>
-<script src="assets/auth.js"></script>
+<label>Senha</label><input id="pw" type="password" placeholder="mínimo 6 caracteres">
+<button class="btn" style="width:100%" id="in">Entrar</button>
+<button class="btn ghost" style="width:100%;margin-top:10px" id="up">Criar conta</button>
+<p id="msg" class="mut" style="margin-top:14px"></p></div>
 <script>
 SM_AUTH.redirectIfLogged();
-document.getElementById('go').onclick=()=>{
-  const n=name.value.trim(), e=email.value.trim();
-  if(!n||!e.includes('@')) return alert('Preencha nome e e-mail válido.');
-  SM_AUTH.login(n,e); location.href='dashboard.html';
+const msg = t => document.getElementById('msg').textContent = t;
+const val = () => ({ e: email.value.trim(), p: pw.value });
+document.getElementById('in').onclick = async () => {
+  const { e, p } = val(); msg('Entrando…');
+  const { error } = await SM_AUTH.signIn(e, p);
+  error ? msg('Erro: ' + error.message) : location.href = 'dashboard.html';
+};
+document.getElementById('up').onclick = async () => {
+  const { e, p } = val(); msg('Criando conta…');
+  const { data, error } = await SM_AUTH.signUp(e, p);
+  if (error) return msg('Erro: ' + error.message);
+  data.session ? location.href = 'dashboard.html' : msg('Conta criada! Confirme o e-mail que enviamos e depois clique em Entrar.');
 };
 </script></body></html>

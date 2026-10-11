@@ -14,6 +14,7 @@
 <div class="card"><b>Canvas livre</b><p class="mut">Arraste, conecte e organize cenas.</p></div>
 <div class="card"><b>Beat sheets</b><p class="mut">Save the Cat, Jornada do Herói e mais.</p></div>
 <div class="card"><b>Curva de tensão</b><p class="mut">Veja o ritmo da trama.</p></div></div></section>
-<script src="assets/auth.js"></script>
-<script>if(SM_AUTH.get()){['cta','cta-nav'].forEach(i=>{const a=document.getElementById(i);a.href='dashboard.html';a.textContent='Abrir meu painel'})}</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="assets/config.js"></script><script src="assets/auth.js"></script>
+<script>SM_AUTH.user().then(u=>{if(u){['cta','cta-nav'].forEach(i=>{const a=document.getElementById(i);a.href='dashboard.html';a.textContent='Abrir meu painel'})}})</script>
 </body></html>
