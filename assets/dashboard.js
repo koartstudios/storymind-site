@@ -1,6 +1,6 @@
 const DB_KEY = 'storymind_database_v2';   // mesma chave usada pelo app.html
 const $ = id => document.getElementById(id);
-$('who').textContent = SM_AUTH.get().name;
+SM_AUTH.user().then(u => { if (u) $('who').textContent = u.email; });
 
 const load = () => { try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch (e) { return {}; } };
 const save = db => localStorage.setItem(DB_KEY, JSON.stringify(db));
@@ -23,15 +23,15 @@ $('list').onclick = e => {
   const k = e.target.dataset.del; if (!k) return;
   const db = load();
   if (Object.keys(db).length <= 1) return alert('Mantenha ao menos uma história.');
-  if (confirm('Excluir "' + db[k].title + '"?')) { delete db[k]; save(db); render(); }
+  if (confirm('Excluir "' + db[k].title + '"?')) { delete db[k]; save(db); SM_CLOUD.remove(k); render(); }
 };
 $('imp').onchange = e => {
   const f = e.target.files[0]; if (!f) return;
   const r = new FileReader();
   r.onload = () => { try {
     const j = JSON.parse(r.result); if (!j.sheets && !j.nodes) throw 0;
-    const db = load(); db['story_' + Date.now()] = j; save(db); render();
+    const db = load(); db['story_' + Date.now()] = j; save(db); SM_CLOUD.push(Object.keys(db).pop(), j); render();
   } catch (_) { alert('JSON inválido.'); } };
   r.readAsText(f);
 };
-render();
+SM_CLOUD.pull().then(render);
