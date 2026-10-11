@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Meus mapas — StoryMind</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/auth.js"></script><script>SM_AUTH.require();</script></head>
+<body>
+<nav class="nav"><a class="logo" href="index.html"><i class="fa-solid fa-brain"></i>StoryMind</a>
+<div><span class="mut" id="who"></span> <button class="btn ghost" onclick="SM_AUTH.logout()">Sair</button></div></nav>
+<div class="wrap"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+<h2>Meus mapas</h2>
+<div><label class="btn ghost" style="cursor:pointer">Importar JSON<input type="file" id="imp" accept=".json" hidden></label>
+<button class="btn" id="new">+ Nova história</button></div></div>
+<div class="grid" id="list"></div></div>
+<script src="assets/dashboard.js"></script></body></html>

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Entrar — StoryMind</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<div class="box"><a href="index.html" class="mut">← Início</a>
+<h2 style="margin:14px 0 6px">Entrar</h2><p class="mut" style="margin-bottom:18px">Seus mapas ficam salvos neste navegador.</p>
+<label>Nome</label><input id="name" placeholder="Seu nome">
+<label>E-mail</label><input id="email" type="email" placeholder="voce@email.com">
+<button class="btn" style="width:100%" id="go">Entrar</button></div>
+<script src="assets/auth.js"></script>
+<script>
+SM_AUTH.redirectIfLogged();
+document.getElementById('go').onclick=()=>{
+  const n=name.value.trim(), e=email.value.trim();
+  if(!n||!e.includes('@')) return alert('Preencha nome e e-mail válido.');
+  SM_AUTH.login(n,e); location.href='dashboard.html';
+};
+</script></body></html>

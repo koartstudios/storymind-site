@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>StoryMind — Mapas mentais para histórias</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="nav"><a class="logo" href="index.html"><i class="fa-solid fa-brain"></i>StoryMind</a>
+<a class="btn" href="login.html" id="cta-nav">Entrar</a></nav>
+<section class="hero"><h1>Planeje sua história em um canvas infinito.</h1>
+<p>Cenas, personagens, relações e estrutura narrativa num só lugar.</p>
+<a class="btn" href="login.html" id="cta">Começar grátis</a></section>
+<section class="feat"><div class="grid">
+<div class="card"><b>Canvas livre</b><p class="mut">Arraste, conecte e organize cenas.</p></div>
+<div class="card"><b>Beat sheets</b><p class="mut">Save the Cat, Jornada do Herói e mais.</p></div>
+<div class="card"><b>Curva de tensão</b><p class="mut">Veja o ritmo da trama.</p></div></div></section>
+<script src="assets/auth.js"></script>
+<script>if(SM_AUTH.get()){['cta','cta-nav'].forEach(i=>{const a=document.getElementById(i);a.href='dashboard.html';a.textContent='Abrir meu painel'})}</script>
+</body></html>
