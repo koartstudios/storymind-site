@@ -1,20 +1,719 @@
 <!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>StoryMind — Mapas mentais para histórias</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="stylesheet" href="assets/style.css"></head>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StoryMind — Mapas mentais para histórias</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="assets/style.css">
+  <style>
+    /* ============================================
+       BASE
+       ============================================ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #fafafc;
+      --ink: #0d0d10;
+      --muted: #6b6f80;
+      --line: #e6e7ec;
+      --coral: #ff6b6b;
+      --rose: #e84393;
+      --teal: #00b8a9;
+      --violet: #7c5cff;
+      --amber: #ffb020;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.6;
+      overflow-x: hidden;
+      position: relative;
+      min-height: 100vh;
+    }
+
+    /* ============================================
+       1. AURORA BACKGROUND (blobs animados)
+       ============================================ */
+    .aurora-bg {
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .aurora-blob {
+      position: absolute;
+      width: 550px;
+      height: 550px;
+      border-radius: 50%;
+      filter: blur(90px);
+      opacity: 0.45;
+      will-change: transform;
+    }
+
+    .aurora-blob.b1 {
+      background: radial-gradient(circle, #ffd1dc, transparent 70%);
+      top: -150px;
+      left: -100px;
+      animation: float1 18s ease-in-out infinite;
+    }
+    .aurora-blob.b2 {
+      background: radial-gradient(circle, #c9e4ff, transparent 70%);
+      top: 20%;
+      right: -150px;
+      animation: float2 22s ease-in-out infinite;
+    }
+    .aurora-blob.b3 {
+      background: radial-gradient(circle, #d5c4ff, transparent 70%);
+      bottom: -200px;
+      left: 30%;
+      animation: float3 25s ease-in-out infinite;
+    }
+
+    @keyframes float1 {
+      0%,100% { transform: translate(0,0) scale(1); }
+      50%     { transform: translate(80px,60px) scale(1.15); }
+    }
+    @keyframes float2 {
+      0%,100% { transform: translate(0,0) scale(1); }
+      50%     { transform: translate(-100px,80px) scale(0.9); }
+    }
+    @keyframes float3 {
+      0%,100% { transform: translate(0,0) scale(1); }
+      50%     { transform: translate(60px,-80px) scale(1.1); }
+    }
+
+    /* ============================================
+       2. NOISE TEXTURE
+       ============================================ */
+    .noise {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      opacity: 0.035;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    /* ============================================
+       3. NAVBAR
+       ============================================ */
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.25rem 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      background: rgba(250, 250, 252, 0.6);
+      border-bottom: 1px solid rgba(230, 231, 236, 0.5);
+    }
+
+    .logo {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--ink);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    .logo i {
+      background: linear-gradient(135deg, var(--coral), var(--rose), var(--violet));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-size: 1.4rem;
+    }
+
+    /* ============================================
+       4. BOTÕES
+       ============================================ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.8rem 1.9rem;
+      border-radius: 999px;
+      font-weight: 600;
+      text-decoration: none;
+      font-size: 0.95rem;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease, background 0.25s ease;
+      position: relative;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.35), transparent 70%);
+      transform: translateX(-100%);
+      transition: transform 0.7s ease;
+    }
+
+    .btn:hover::before { transform: translateX(100%); }
+
+    .btn-primary {
+      background: var(--ink);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(13, 13, 16, 0.15);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 26px rgba(13, 13, 16, 0.25);
+    }
+
+    .btn-outline {
+      background: rgba(255,255,255,0.7);
+      color: var(--ink);
+      border-color: var(--line);
+      backdrop-filter: blur(8px);
+    }
+
+    .btn-outline:hover {
+      border-color: var(--ink);
+      transform: translateY(-2px);
+    }
+
+    /* ============================================
+       5. HERO
+       ============================================ */
+    .hero {
+      text-align: center;
+      padding: 5rem 2rem 3rem;
+      max-width: 900px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.25rem, 6vw, 4rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.035em;
+      margin-bottom: 1.5rem;
+      background: linear-gradient(120deg, #0d0d10 0%, #6b6f80 30%, #0d0d10 50%, #7c5cff 70%, #0d0d10 100%);
+      background-size: 300% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: shimmer 8s linear infinite;
+    }
+
+    @keyframes shimmer {
+      to { background-position: 300% center; }
+    }
+
+    .hero .subtitle {
+      font-size: clamp(1rem, 2vw, 1.2rem);
+      color: var(--muted);
+      max-width: 620px;
+      margin: 0 auto 2rem;
+      min-height: 1.7em;
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1em;
+      background: var(--violet);
+      vertical-align: text-bottom;
+      margin-left: 2px;
+      animation: blink 1s steps(2) infinite;
+      box-shadow: 0 0 8px var(--violet);
+    }
+
+    @keyframes blink {
+      0%, 50%   { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 4rem;
+    }
+
+    /* ============================================
+       6. VÍDEO DEMO (Opção 1 - autoplay/muted/loop)
+       ============================================ */
+    .hero-image {
+      perspective: 1200px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .hero-image-inner {
+      transform-style: preserve-3d;
+      transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow:
+        0 30px 80px -20px rgba(13, 13, 16, 0.25),
+        0 0 0 1px rgba(230, 231, 236, 0.6);
+      background: #fff;
+    }
+
+    /* Estilo aplicado ao vídeo (antes era img) */
+    .hero-image-inner video {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 20px;
+      object-fit: cover;
+    }
+
+    /* ============================================
+       7. RECURSOS
+       ============================================ */
+    .feat {
+      padding: 6rem 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .feat h2 {
+      text-align: center;
+      font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+      font-weight: 800;
+      margin-bottom: 3rem;
+      letter-spacing: -0.03em;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .card {
+      padding: 2rem;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(230, 231, 236, 0.9);
+      transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s ease, border-color 0.3s ease;
+      opacity: 0;
+      transform: translateY(30px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--coral), var(--rose), var(--violet), var(--teal));
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.5s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 20px 45px -15px rgba(13, 13, 16, 0.12);
+      border-color: rgba(124, 92, 255, 0.35);
+    }
+
+    .card:hover::after { transform: scaleX(1); }
+
+    .card.reveal {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .card-icon {
+      font-size: 1.9rem;
+      margin-bottom: 1.1rem;
+      display: inline-block;
+      padding: 0.75rem;
+      border-radius: 14px;
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .card:hover .card-icon { transform: scale(1.15) rotate(-5deg); }
+
+    .card-icon.coral { color: var(--coral); background: rgba(255,107,107,0.1); }
+    .card-icon.rose  { color: var(--rose);  background: rgba(232,67,147,0.1); }
+    .card-icon.teal  { color: var(--teal);  background: rgba(0,184,169,0.1); }
+
+    .card b {
+      display: block;
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+      letter-spacing: -0.01em;
+    }
+
+    .mut { color: var(--muted); }
+
+    /* ============================================
+       8. PROVA SOCIAL — MARQUEE INFINITO
+       ============================================ */
+    .social-proof {
+      padding: 3rem 0;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .social-proof > .mut {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 2rem;
+      font-weight: 600;
+    }
+
+    .marquee {
+      display: flex;
+      overflow: hidden;
+      mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+    }
+
+    .marquee-track {
+      display: flex;
+      gap: 4rem;
+      padding-right: 4rem;
+      animation: scroll 30s linear infinite;
+      flex-shrink: 0;
+    }
+
+    .marquee span {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #b8bbc6;
+      white-space: nowrap;
+      letter-spacing: -0.02em;
+      transition: color 0.3s ease;
+    }
+
+    .marquee span:hover { color: var(--ink); }
+
+    @keyframes scroll {
+      to { transform: translateX(-100%); }
+    }
+
+    /* ============================================
+       9. CTA FINAL
+       ============================================ */
+    .cta-final {
+      text-align: center;
+      padding: 6rem 2rem;
+      margin: 4rem auto;
+      max-width: 1100px;
+      border-radius: 28px;
+      background: linear-gradient(135deg, #0d0d10 0%, #1a1a20 60%, #2a1a3a 100%);
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 30px 80px -20px rgba(13, 13, 16, 0.35);
+    }
+
+    .cta-final::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle at 30% 40%, rgba(124, 92, 255, 0.35), transparent 40%),
+                  radial-gradient(circle at 70% 60%, rgba(255, 107, 107, 0.25), transparent 40%);
+      animation: rotate-bg 25s linear infinite;
+    }
+
+    @keyframes rotate-bg {
+      to { transform: rotate(360deg); }
+    }
+
+    .cta-final > * { position: relative; z-index: 1; }
+
+    .cta-final h2 {
+      font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+      font-weight: 800;
+      margin-bottom: 1.75rem;
+      letter-spacing: -0.03em;
+    }
+
+    .cta-final .btn-primary {
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .cta-final .btn-primary:hover {
+      background: #f0f0f5;
+      box-shadow: 0 10px 30px rgba(255,255,255,0.25);
+    }
+
+    /* ============================================
+       10. FOOTER
+       ============================================ */
+    .footer {
+      padding: 3rem 2rem;
+      border-top: 1px solid var(--line);
+      margin-top: 4rem;
+    }
+
+    .footer-content {
+      max-width: 1100px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin: 1.5rem 0;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.95rem;
+      transition: color 0.2s ease;
+    }
+
+    .footer-links a:hover { color: var(--ink); }
+
+    /* ============================================
+       RESPONSIVO
+       ============================================ */
+    @media (max-width: 768px) {
+      .nav { padding: 1rem 1.25rem; }
+      .hero { padding: 3rem 1.25rem 2rem; }
+      .feat { padding: 4rem 1.25rem; }
+      .cta-final { padding: 4rem 1.5rem; margin: 3rem 1rem; }
+      .marquee span { font-size: 1rem; }
+    }
+  </style>
+</head>
 <body>
-<nav class="nav"><a class="logo" href="index.html"><i class="fa-solid fa-brain"></i>StoryMind</a>
-<a class="btn" href="login.html" id="cta-nav">Entrar</a></nav>
-<section class="hero"><h1>Planeje sua história em um canvas infinito.</h1>
-<p>Cenas, personagens, relações e estrutura narrativa num só lugar.</p>
-<a class="btn" href="login.html" id="cta">Começar grátis</a></section>
-<section class="feat"><div class="grid">
-<div class="card"><b>Canvas livre</b><p class="mut">Arraste, conecte e organize cenas.</p></div>
-<div class="card"><b>Beat sheets</b><p class="mut">Save the Cat, Jornada do Herói e mais.</p></div>
-<div class="card"><b>Curva de tensão</b><p class="mut">Veja o ritmo da trama.</p></div></div></section>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="assets/config.js"></script><script src="assets/auth.js"></script>
-<script>SM_AUTH.user().then(u=>{if(u){['cta','cta-nav'].forEach(i=>{const a=document.getElementById(i);a.href='dashboard.html';a.textContent='Abrir meu painel'})}})</script>
-</body></html>
+
+  <!-- Aurora Background -->
+  <div class="aurora-bg">
+    <div class="aurora-blob b1"></div>
+    <div class="aurora-blob b2"></div>
+    <div class="aurora-blob b3"></div>
+  </div>
+  <div class="noise"></div>
+
+  <!-- Navbar -->
+  <nav class="nav">
+    <a class="logo" href="index.html">
+      <i class="fa-solid fa-brain"></i> StoryMind
+    </a>
+    <a class="btn btn-outline" href="login.html" id="cta-nav">Entrar</a>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <h1>Planeje sua história em um canvas infinito.</h1>
+    <p class="subtitle" id="typewriter"></p>
+    <div class="hero-actions">
+      <a class="btn btn-primary magnetic" href="login.html" id="cta">Começar grátis</a>
+      <a class="btn btn-outline" href="#features">Ver recursos</a>
+    </div>
+
+    <!-- VÍDEO DEMO — Opção 1 -->
+    <div class="hero-image" id="hero3d">
+      <div class="hero-image-inner">
+        <video
+          src="assets/assets/exemplo canva.mp4"
+          poster="assets/mockup-canvas.png"
+          autoplay
+          muted
+          loop
+          playsinline
+          preload="metadata">
+          <!-- Fallback caso o navegador não suporte vídeo -->
+          <img src="assets/mockup-canvas.png" alt="Prévia do canvas do StoryMind">
+        </video>
+      </div>
+    </div>
+  </section>
+
+  <!-- Recursos -->
+  <section class="feat" id="features">
+    <h2>Tudo o que você precisa para planejar</h2>
+    <div class="grid">
+      <div class="card">
+        <i class="fa-solid fa-diagram-project card-icon coral"></i>
+        <b>Canvas livre</b>
+        <p class="mut">Arraste, conecte e organize cenas com total liberdade.</p>
+      </div>
+      <div class="card">
+        <i class="fa-solid fa-clapperboard card-icon rose"></i>
+        <b>Beat sheets</b>
+        <p class="mut">Save the Cat, Jornada do Herói e outras estruturas prontas.</p>
+      </div>
+      <div class="card">
+        <i class="fa-solid fa-chart-line card-icon teal"></i>
+        <b>Curva de tensão</b>
+        <p class="mut">Visualize o ritmo da trama e ajuste cada momento.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Prova Social -->
+  <section class="social-proof">
+    <p class="mut">Usado por escritores e roteiristas</p>
+    <div class="marquee">
+      <div class="marquee-track">
+        <span>Dig Raven Arts</span>
+        <span>K.O. Artstudios</span>
+        <span>Diego Borin</span>
+        <span>Karaktär Academy</span>
+        <span>Petitgatoo</span>
+        <span>The Legacy of Kairyu</span>
+      </div>
+      <div class="marquee-track" aria-hidden="true">
+       <span>Dig Raven Arts</span>
+        <span>K.O. Artstudios</span>
+        <span>Diego Borin</span>
+        <span>Karaktär Academy</span>
+        <span>Petitgatoo</span>
+        <span>The Legacy of Kairyu</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Final -->
+  <section class="cta-final">
+    <h2>Comece a planejar sua próxima história hoje.</h2>
+    <a class="btn btn-primary magnetic" href="login.html">Criar minha conta</a>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-content">
+      <a class="logo" href="index.html">
+        <i class="fa-solid fa-brain"></i> StoryMind
+      </a>
+      <div class="footer-links">
+        <a href="#">Sobre</a>
+        <a href="#features">Recursos</a>
+        <a href="#">Privacidade</a>
+        <a href="#">Contato</a>
+      </div>
+      <p class="mut">&copy; 2026 StoryMind. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="assets/config.js"></script>
+  <script src="assets/auth.js"></script>
+
+  <script>
+    /* ============================================
+       1. TYPEWRITER
+       ============================================ */
+    (function typewriter() {
+      const el = document.getElementById('typewriter');
+      const text = 'Cenas, personagens, relações e estrutura narrativa num só lugar.';
+      let i = 0;
+
+      function type() {
+        if (i < text.length) {
+          el.innerHTML = text.slice(0, i + 1) + '<span class="cursor"></span>';
+          i++;
+          setTimeout(type, 35);
+        } else {
+          el.innerHTML = text + '<span class="cursor"></span>';
+        }
+      }
+      setTimeout(type, 400);
+    })();
+
+    /* ============================================
+       2. SCROLL REVEAL COM STAGGER
+       ============================================ */
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const delay = Array.from(entry.target.parentElement.children).indexOf(entry.target) * 120;
+          setTimeout(() => entry.target.classList.add('reveal'), delay);
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll('.card').forEach(card => observer.observe(card));
+
+    /* ============================================
+       3. MOCKUP 3D — segue o mouse
+       ============================================ */
+    const hero3d = document.getElementById('hero3d');
+    const heroInner = hero3d?.querySelector('.hero-image-inner');
+
+    if (hero3d && heroInner) {
+      hero3d.addEventListener('mousemove', (e) => {
+        const rect = hero3d.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width - 0.5;
+        const y = (e.clientY - rect.top) / rect.height - 0.5;
+        heroInner.style.transform = `rotateY(${x * 8}deg) rotateX(${-y * 8}deg) scale(1.02)`;
+      });
+
+      hero3d.addEventListener('mouseleave', () => {
+        heroInner.style.transform = 'rotateY(0) rotateX(0) scale(1)';
+      });
+    }
+
+    /* ============================================
+       4. BOTÕES MAGNÉTICOS
+       ============================================ */
+    document.querySelectorAll('.magnetic').forEach(btn => {
+      btn.addEventListener('mousemove', (e) => {
+        const rect = btn.getBoundingClientRect();
+        const x = e.clientX - rect.left - rect.width / 2;
+        const y = e.clientY - rect.top - rect.height / 2;
+        btn.style.transform = `translate(${x * 0.25}px, ${y * 0.35 - 2}px)`;
+      });
+      btn.addEventListener('mouseleave', () => {
+        btn.style.transform = '';
+      });
+    });
+
+    /* ============================================
+       5. SUPABASE (seu código original)
+       ============================================ */
+    SM_AUTH.user().then(u => {
+      if (u) {
+        ['cta', 'cta-nav'].forEach(i => {
+          const a = document.getElementById(i);
+          if (a) {
+            a.href = 'dashboard.html';
+            a.textContent = 'Abrir meu painel';
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>
