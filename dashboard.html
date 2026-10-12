@@ -4,15 +4,51 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="assets/style.css">
+<style>
+.bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:22px 0}
+.bar select,.bar input{width:auto;margin:0;padding:9px 12px}
+.bar input{min-width:200px}
+.sp{flex:1}
+.tg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.tg button{background:none;border:0;color:var(--mut);padding:9px 12px;cursor:pointer}
+.tg button.on{background:var(--line);color:var(--tx)}
+.row{display:grid;grid-template-columns:minmax(0,2.6fr) 1fr 1fr 1.4fr 72px;gap:12px;align-items:center;padding:10px 12px;border-radius:12px}
+.row.h{color:var(--mut);font-size:.85rem;border-bottom:1px solid var(--line);border-radius:0}
+.row.it{cursor:pointer}.row.it:hover{background:var(--card)}
+.nm{display:flex;gap:14px;align-items:center;min-width:0}
+.nm b,.nm span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm span{color:var(--mut);font-size:.8rem;margin-top:3px}
+.thumb{width:92px;height:58px;flex:none;background:#eef0f7;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+.thumb svg{width:100%;height:100%;display:block}
+.act{display:flex;gap:6px;justify-content:flex-end;position:relative}
+.ic{background:none;border:0;color:var(--mut);cursor:pointer;padding:6px;border-radius:6px}
+.ic:hover{color:var(--tx)}.ic.fav{color:#fbbf24}
+.menu{position:absolute;right:0;top:34px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px;z-index:5;min-width:160px}
+.menu button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--tx);padding:8px 10px;border-radius:6px;cursor:pointer;font:inherit}
+.menu button:hover{background:var(--line)}
+.gv{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+.gv .card{cursor:pointer;padding:0;overflow:hidden}
+.gv .thumb{width:100%;height:140px;border:0;border-radius:0}
+.gv .in{padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+@media(max-width:760px){.row{grid-template-columns:minmax(0,1fr) 72px}.row>:nth-child(2),.row>:nth-child(3),.row>:nth-child(4){display:none}}
+</style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="assets/config.js"></script><script src="assets/auth.js"></script>
 <script src="assets/cloud.js"></script><script>SM_AUTH.require();</script></head>
 <body>
 <nav class="nav"><a class="logo" href="index.html"><i class="fa-solid fa-brain"></i>StoryMind</a>
 <div><span class="mut" id="who"></span> <button class="btn ghost" onclick="SM_AUTH.logout()">Sair</button></div></nav>
-<div class="wrap"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+<div class="wrap">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
 <h2>Meus mapas</h2>
-<div><label class="btn ghost" style="cursor:pointer">Importar JSON<input type="file" id="imp" accept=".json" hidden></label>
-<button class="btn" id="new">+ Nova história</button></div></div>
-<div class="grid" id="list"></div></div>
+<div><label class="btn ghost" style="cursor:pointer;display:inline-block">Importar JSON<input type="file" id="imp" accept=".json" hidden></label>
+<button class="btn" id="new">+ Criar novo</button></div></div>
+<div class="bar">
+<input id="q" placeholder="Buscar por nome…">
+<select id="sort"><option value="opened">Última abertura</option><option value="modified">Última modificação</option><option value="name">Nome (A–Z)</option></select>
+<label class="mut"><input type="checkbox" id="favs" style="width:auto;margin:0 6px 0 0">Só favoritos</label>
+<span class="sp"></span>
+<div class="tg"><button id="vg" title="Grade"><i class="fa-solid fa-table-cells-large"></i></button><button id="vl" title="Lista"><i class="fa-solid fa-list"></i></button></div>
+</div>
+<div id="list"></div></div>
 <script src="assets/dashboard.js"></script></body></html>
