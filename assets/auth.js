@@ -6,5 +6,5 @@ const SM_AUTH = {
   async redirectIfLogged() { if (await this.user()) location.replace('dashboard.html'); },
   signIn(email, password) { return sb.auth.signInWithPassword({ email, password }); },
   signUp(email, password) { return sb.auth.signUp({ email, password }); },
-  async logout() { await sb.auth.signOut(); localStorage.removeItem('storymind_database_v2'); location.href = 'login.html'; }
+  async logout() { await sb.auth.signOut(); localStorage.removeItem('storymind_database_v2'); localStorage.removeItem('storymind_meta'); location.href = 'login.html'; }
 };
