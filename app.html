@@ -539,7 +539,8 @@
         body.app-theme-dark #reteia-modal .text-slate-800 { color:#e2e8f0 !important; }
 
         /* ==================== Skill Tree ==================== */
-        #skilltree-modal .st-node { cursor: grab; }
+        #skilltree-modal #skilltree-svg { touch-action: none; user-select: none; -webkit-user-select: none; }
+        #skilltree-modal .st-node { cursor: grab; touch-action: none; }
         #skilltree-modal .st-node:active { cursor: grabbing; }
         #skilltree-modal .st-node.selected .st-ring {
             stroke: #6366f1 !important;
@@ -566,9 +567,37 @@
         #skilltree-modal .st-conn.inactive { opacity: 0.35; }
         #skilltree-modal .st-add-child {
             cursor: pointer;
-            transition: transform 0.15s;
+            pointer-events: all;
+            touch-action: manipulation;
         }
-        #skilltree-modal .st-add-child:hover { transform: scale(1.15); }
+        #skilltree-modal .st-add-child circle { pointer-events: all; }
+        #st-node-tooltip {
+            position: fixed;
+            z-index: 280;
+            width: max-content;
+            max-width: min(340px, calc(100vw - 24px));
+            max-height: 55vh;
+            overflow: auto;
+            padding: 11px 13px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #fff;
+            color: #334155;
+            box-shadow: 0 14px 34px rgba(15,23,42,.22);
+            pointer-events: none;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+        #st-node-tooltip .st-tt-title { color: #0f172a; font-size: 13px; font-weight: 800; margin-bottom: 5px; }
+        #st-node-tooltip .st-tt-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 7px; }
+        #st-node-tooltip .st-tt-chip { display: inline-flex; padding: 2px 7px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 10px; font-weight: 700; }
+        #st-node-tooltip .st-tt-desc { white-space: pre-wrap; overflow-wrap: anywhere; color: #475569; }
+        #st-node-tooltip .st-tt-hint { border-top: 1px solid #e2e8f0; padding-top: 6px; margin-top: 7px; color: #94a3b8; font-size: 10px; }
+        body.app-theme-dark #st-node-tooltip { background: #1e293b; border-color: #475569; color: #e2e8f0; }
+        body.app-theme-dark #st-node-tooltip .st-tt-title { color: #f1f5f9; }
+        body.app-theme-dark #st-node-tooltip .st-tt-chip { background: #334155; color: #e2e8f0; }
+        body.app-theme-dark #st-node-tooltip .st-tt-desc { color: #cbd5e1; }
+        body.app-theme-dark #st-node-tooltip .st-tt-hint { border-top-color: #334155; }
         #skilltree-modal .st-rank-pill {
             pointer-events: none;
             user-select: none;
@@ -1467,11 +1496,17 @@
 
             <div class="flex-1 flex overflow-hidden min-h-0">
 
-                <aside class="w-80 bg-slate-50 border-r border-slate-200 flex flex-col shrink-0 overflow-hidden">
-                    <div class="p-3 border-b border-slate-200">
-                        <button onclick="skillTreeAddRoot()" class="w-full bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+                <aside id="st-editor-sidebar" class="w-80 bg-slate-50 border-r border-slate-200 flex flex-col shrink-0 overflow-hidden transition-[width] duration-200">
+                    <div id="st-editor-header" class="p-3 border-b border-slate-200 flex items-center gap-2 shrink-0">
+                        <button id="st-add-root-btn" onclick="skillTreeAddRoot()" class="flex-1 min-w-0 bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
                             <i class="fa-solid fa-plus"></i>
                             <span>Nova Habilidade Raiz</span>
+                        </button>
+                        <button id="st-editor-collapse-btn" onclick="skillTreeToggleEditor()" class="w-8 h-8 shrink-0 rounded-lg text-slate-500 hover:bg-slate-200 hover:text-slate-800 flex items-center justify-center transition" title="Recolher painel de edição" aria-label="Recolher painel de edição">
+                            <i class="fa-solid fa-angles-left"></i>
+                        </button>
+                        <button id="st-editor-expand-btn" onclick="skillTreeToggleEditor()" class="hidden w-8 h-8 rounded-lg text-slate-500 hover:bg-slate-200 hover:text-slate-800 items-center justify-center transition" title="Abrir painel de edição" aria-label="Abrir painel de edição">
+                            <i class="fa-solid fa-angles-right"></i>
                         </button>
                     </div>
 
@@ -1525,15 +1560,19 @@
 
                         <div class="grid grid-cols-2 gap-2">
                             <div>
-                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tier / Nível</label>
-                                <select id="st-edit-tier" onchange="skillTreeOnFieldChange('tier', parseInt(this.value,10))"
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tipo de Habilidade</label>
+                                <select id="st-edit-type" onchange="skillTreeOnFieldChange('type', this.value)"
                                         class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-amber-500">
-                                    <option value="0">🌱 Básico</option>
-                                    <option value="1">📘 Aprendiz</option>
-                                    <option value="2">⚡ Adepto</option>
-                                    <option value="3">🔥 Expert</option>
-                                    <option value="4">💀 Mestre</option>
-                                    <option value="5">👑 Lendário</option>
+                                    <option value="physical">💪 Físico</option>
+                                    <option value="elemental">🔥 Elemental</option>
+                                    <option value="social">🗣️ Social</option>
+                                    <option value="natural">🌿 Cura / Natural</option>
+                                    <option value="psychic">🧠 Psíquico</option>
+                                    <option value="combat">⚔️ Combate</option>
+                                    <option value="stealth">🥷 Furtividade</option>
+                                    <option value="spiritual">☯️ Espiritual</option>
+                                    <option value="knowledge">📚 Conhecimento</option>
+                                    <option value="crafting">🛠️ Técnica / Ofício</option>
                                 </select>
                             </div>
                             <div>
@@ -1593,6 +1632,7 @@
 
     <div id="toast-container"></div>
     <div id="node-tooltip" class="hidden"></div>
+    <div id="st-node-tooltip" class="hidden" role="tooltip"></div>
 
     <script>
         const CANVAS_CENTER_X = 2600;
@@ -8034,13 +8074,17 @@
         // ==============================================================
         // SKILL TREE — Árvore de Habilidades por Personagem
         // ==============================================================
-        const SKILL_TIERS = [
-            { id: 0, label: 'Básico',   icon: '🌱', color: '#10b981', bg: '#d1fae5' },
-            { id: 1, label: 'Aprendiz', icon: '📘', color: '#3b82f6', bg: '#dbeafe' },
-            { id: 2, label: 'Adepto',   icon: '⚡', color: '#8b5cf6', bg: '#ede9fe' },
-            { id: 3, label: 'Expert',   icon: '🔥', color: '#f59e0b', bg: '#fef3c7' },
-            { id: 4, label: 'Mestre',   icon: '💀', color: '#ef4444', bg: '#fee2e2' },
-            { id: 5, label: 'Lendário', icon: '👑', color: '#ec4899', bg: '#fce7f3' }
+        const SKILL_TYPES = [
+            { id: 'physical',  label: 'Físico',             icon: '💪', color: '#f59e0b', bg: '#fef3c7' },
+            { id: 'elemental', label: 'Elemental',          icon: '🔥', color: '#f97316', bg: '#ffedd5' },
+            { id: 'social',    label: 'Social',             icon: '🗣️', color: '#8b5cf6', bg: '#ede9fe' },
+            { id: 'natural',   label: 'Cura / Natural',     icon: '🌿', color: '#10b981', bg: '#d1fae5' },
+            { id: 'psychic',   label: 'Psíquico',           icon: '🧠', color: '#6366f1', bg: '#e0e7ff' },
+            { id: 'combat',    label: 'Combate',            icon: '⚔️', color: '#ef4444', bg: '#fee2e2' },
+            { id: 'stealth',   label: 'Furtividade',        icon: '🥷', color: '#64748b', bg: '#e2e8f0' },
+            { id: 'spiritual', label: 'Espiritual',         icon: '☯️', color: '#ec4899', bg: '#fce7f3' },
+            { id: 'knowledge', label: 'Conhecimento',       icon: '📚', color: '#0ea5e9', bg: '#e0f2fe' },
+            { id: 'crafting',  label: 'Técnica / Ofício',   icon: '🛠️', color: '#a16207', bg: '#fef3c7' }
         ];
 
         const SKILL_COLORS = {
@@ -8062,8 +8106,12 @@
         let stDraggingSkillId = null;
         let stDragStartClientX = 0, stDragStartClientY = 0;
         let stDragMoved = false;
+        let stDragHistoryPushed = false;
+        let stDragPointerId = null;
         let stInitialPositions = new Map();
         let stCanvasListenersAttached = false;
+        let stEditorCollapsed = false;
+        let stHoverSkillId = null;
 
         function ensureSkillTreesArray() {
             if (!mindMapData.skillTrees || typeof mindMapData.skillTrees !== 'object') {
@@ -8083,8 +8131,43 @@
             return 'skill-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
         }
 
-        function getSkillTier(tier) {
-            return SKILL_TIERS[Math.max(0, Math.min(SKILL_TIERS.length - 1, tier || 0))];
+        function getSkillType(type) {
+            // Registros antigos podem ter apenas o campo numérico "tier".
+            // Mantemos esses dados intactos e assumimos Físico até o usuário escolher outro tipo.
+            return SKILL_TYPES.find(item => item.id === type) || SKILL_TYPES[0];
+        }
+
+        function skillTreeSetEditorCollapsed(collapsed) {
+            stEditorCollapsed = !!collapsed;
+            const sidebar = document.getElementById('st-editor-sidebar');
+            const header = document.getElementById('st-editor-header');
+            const rootBtn = document.getElementById('st-add-root-btn');
+            const collapseBtn = document.getElementById('st-editor-collapse-btn');
+            const expandBtn = document.getElementById('st-editor-expand-btn');
+            const emptyEl = document.getElementById('st-empty-panel');
+            const detailEl = document.getElementById('st-detail-panel');
+            if (!sidebar || !header) return;
+
+            sidebar.classList.remove('w-80', 'w-11');
+            sidebar.style.width = stEditorCollapsed ? '44px' : '320px';
+            header.classList.toggle('p-3', !stEditorCollapsed);
+            header.classList.toggle('p-1.5', stEditorCollapsed);
+            header.classList.toggle('flex-col', stEditorCollapsed);
+            rootBtn?.classList.toggle('hidden', stEditorCollapsed);
+            collapseBtn?.classList.toggle('hidden', stEditorCollapsed);
+            expandBtn?.classList.toggle('hidden', !stEditorCollapsed);
+            expandBtn?.classList.toggle('flex', stEditorCollapsed);
+
+            if (stEditorCollapsed) {
+                emptyEl?.classList.add('hidden');
+                detailEl?.classList.add('hidden');
+            } else {
+                renderSkillTreeDetailPanel();
+            }
+        }
+
+        function skillTreeToggleEditor() {
+            skillTreeSetEditorCollapsed(!stEditorCollapsed);
         }
 
         function getSkillsForSelectedCharacter() {
@@ -8127,6 +8210,8 @@
 
             stSelectedSkillId = null;
             stPanX = 0; stPanY = 0; stScale = 1;
+            skillTreeSetEditorCollapsed(false);
+            hideSkillTreeTooltip();
 
             modal.classList.remove('hidden');
             modal.classList.add('flex');
@@ -8143,6 +8228,8 @@
             modal.classList.remove('flex');
             stDraggingSkillId = null;
             stIsPanning = false;
+            stDragPointerId = null;
+            hideSkillTreeTooltip();
         }
 
         function skillTreeSwitchCharacter(charId) {
@@ -8172,7 +8259,7 @@
                 x: 80,
                 y: baseY,
                 parentId: null,
-                tier: 0,
+                type: 'physical',
                 rank: 0,
                 maxRank: 3,
                 color: 'amber'
@@ -8198,7 +8285,7 @@
                 x: parent.x + SKILL_NODE_SPACING_X,
                 y: parent.y + children.length * 100 - 50,
                 parentId: parent.id,
-                tier: Math.min(5, (parent.tier || 0) + 1),
+                type: getSkillType(parent.type).id,
                 rank: 0,
                 maxRank: 3,
                 color: parent.color || 'amber'
@@ -8256,6 +8343,14 @@
             if (field === 'name') {
                 const el = document.getElementById('st-detail-name');
                 if (el) el.textContent = value || '—';
+            }
+            if (field === 'type') {
+                const type = getSkillType(value);
+                const tierEl = document.getElementById('st-detail-tier');
+                if (tierEl) {
+                    tierEl.textContent = `${type.icon} ${type.label}`;
+                    tierEl.style.color = type.color;
+                }
             }
             scheduleSave();
             renderSkillTreeCanvas();
@@ -8483,7 +8578,7 @@
                 if (!parent) return;
 
                 const isActive = stSelectedSkillId === skill.id || stSelectedSkillId === parent.id;
-                const tier = getSkillTier(skill.tier);
+                const type = getSkillType(skill.type);
                 const dx = skill.x - parent.x;
                 const dy = skill.y - parent.y;
                 const len = Math.max(Math.hypot(dx, dy), 1);
@@ -8495,17 +8590,19 @@
 
                 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 path.setAttribute('d', `M ${sx} ${sy} L ${ex} ${ey}`);
-                path.setAttribute('stroke', tier.color);
+                path.setAttribute('stroke', type.color);
                 path.setAttribute('stroke-width', isActive ? '3' : '2');
                 path.setAttribute('stroke-dasharray', '5 4');
                 path.setAttribute('class', 'st-conn ' + (isActive ? 'active' : 'inactive'));
+                path.setAttribute('data-parent-id', parent.id);
+                path.setAttribute('data-child-id', skill.id);
                 connGroup.appendChild(path);
             });
 
             // Nós
             skills.forEach(skill => {
-                const tier = getSkillTier(skill.tier);
-                const color = SKILL_COLORS[skill.color] || tier.color;
+                const type = getSkillType(skill.type);
+                const color = SKILL_COLORS[skill.color] || type.color;
                 const isSelected = stSelectedSkillId === skill.id;
 
                 const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -8548,7 +8645,7 @@
                 } else {
                     const bg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                     bg.setAttribute('r', SKILL_NODE_R - 5);
-                    bg.setAttribute('fill', tier.bg);
+                    bg.setAttribute('fill', type.bg);
                     bg.style.pointerEvents = 'none';
                     g.appendChild(bg);
 
@@ -8569,7 +8666,7 @@
 
                 const badgeCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 badgeCircle.setAttribute('r', 11);
-                badgeCircle.setAttribute('fill', tier.color);
+                badgeCircle.setAttribute('fill', type.color);
                 badgeCircle.setAttribute('stroke', 'white');
                 badgeCircle.setAttribute('stroke-width', '2');
                 tierBadge.appendChild(badgeCircle);
@@ -8581,7 +8678,7 @@
                 badgeText.setAttribute('fill', 'white');
                 badgeText.setAttribute('font-family', 'Inter, sans-serif');
                 badgeText.setAttribute('font-weight', '800');
-                badgeText.textContent = tier.icon;
+                badgeText.textContent = type.icon;
                 tierBadge.appendChild(badgeText);
                 g.appendChild(tierBadge);
 
@@ -8653,54 +8750,25 @@
                 addPlus.textContent = '+';
                 addBtn.appendChild(addPlus);
 
-                addBtn.addEventListener('pointerdown', (ev) => { ev.stopPropagation(); });
-                addBtn.addEventListener('click', (ev) => {
+                addBtn.setAttribute('role', 'button');
+                addBtn.setAttribute('aria-label', `Adicionar habilidade filha de ${skill.name || 'esta habilidade'}`);
+                addBtn.addEventListener('pointerdown', (ev) => {
+                    if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+                    // Dispara no pointerdown: o nó não inicia um arraste e o botão não perde o clique.
+                    ev.preventDefault();
                     ev.stopPropagation();
+                    hideSkillTreeTooltip();
                     stSelectedSkillId = skill.id;
+                    skillTreeSetEditorCollapsed(false);
                     skillTreeAddChildToSelected();
                 });
                 g.appendChild(addBtn);
 
-                // Eventos do nó
-                g.addEventListener('pointerdown', (ev) => {
-                    if (ev.target.closest('[data-add-child]')) return;
-                    ev.stopPropagation();
-                    stDraggingSkillId = skill.id;
-                    stDragStartClientX = ev.clientX;
-                    stDragStartClientY = ev.clientY;
-                    stDragMoved = false;
-                    stInitialPositions.clear();
-                    stInitialPositions.set(skill.id, { x: skill.x, y: skill.y });
-
-                    stSelectedSkillId = skill.id;
-                    renderSkillTreeDetailPanel();
-                    updateSkillTreeSelection();
+                g.addEventListener('pointerenter', (ev) => {
+                    if (!stDraggingSkillId) showSkillTreeTooltip(skill, ev);
                 });
-
-                g.addEventListener('pointermove', (ev) => {
-                    if (stDraggingSkillId !== skill.id) return;
-                    if (!stIsPanning && !ev.buttons) return;
-                    const dx = ev.clientX - stDragStartClientX;
-                    const dy = ev.clientY - stDragStartClientY;
-                    if (!stDragMoved && (dx * dx + dy * dy) < 25) return;
-                    stDragMoved = true;
-                    const init = stInitialPositions.get(skill.id);
-                    if (!init) return;
-                    skill.x = init.x + dx / stScale;
-                    skill.y = init.y + dy / stScale;
-                    g.setAttribute('transform', `translate(${skill.x},${skill.y})`);
-                });
-
-                g.addEventListener('pointerup', (ev) => {
-                    if (stDraggingSkillId !== skill.id) return;
-                    const wasDragged = stDragMoved;
-                    stDraggingSkillId = null;
-                    stDragMoved = false;
-                    if (wasDragged) {
-                        pushHistory();
-                        saveStoriesStorage();
-                        renderSkillTreeCanvas();
-                    }
+                g.addEventListener('pointerleave', () => {
+                    if (!stDraggingSkillId) hideSkillTreeTooltip();
                 });
 
                 nodeGroup.appendChild(g);
@@ -8712,6 +8780,10 @@
                 svgEl.addEventListener('pointermove', onSkillTreeCanvasPointerMove);
                 svgEl.addEventListener('pointerup', onSkillTreeCanvasPointerUp);
                 svgEl.addEventListener('pointercancel', onSkillTreeCanvasPointerUp);
+                svgEl.addEventListener('lostpointercapture', onSkillTreeCanvasPointerUp);
+                svgEl.addEventListener('pointerleave', () => {
+                    if (!stDraggingSkillId && !stIsPanning) hideSkillTreeTooltip();
+                });
                 stCanvasListenersAttached = true;
             }
 
@@ -8728,29 +8800,177 @@
         }
 
         function onSkillTreeCanvasPointerDown(ev) {
-            if (ev.target.closest('.st-node')) return;
             if (ev.button !== 0 && ev.pointerType === 'mouse') return;
+            const svg = document.getElementById('skilltree-svg');
+            const target = ev.target;
+            const nodeEl = target && target.closest ? target.closest('.st-node') : null;
+            if (nodeEl) {
+                const skillId = nodeEl.getAttribute('data-skill-id');
+                const skill = findSkillById(skillId);
+                if (!skill) return;
+
+                ev.preventDefault();
+                stIsPanning = false;
+                stDraggingSkillId = skill.id;
+                stDragStartClientX = ev.clientX;
+                stDragStartClientY = ev.clientY;
+                stDragMoved = false;
+                stDragHistoryPushed = false;
+                stDragPointerId = ev.pointerId;
+                stInitialPositions.clear();
+                stInitialPositions.set(skill.id, { x: Number(skill.x) || 0, y: Number(skill.y) || 0 });
+
+                stSelectedSkillId = skill.id;
+                hideSkillTreeTooltip();
+                skillTreeSetEditorCollapsed(false);
+                updateSkillTreeSelection();
+                try { svg.setPointerCapture(ev.pointerId); } catch (_) {}
+                return;
+            }
+
             stIsPanning = true;
             stPanStartX = ev.clientX - stPanX;
             stPanStartY = ev.clientY - stPanY;
+            stDragPointerId = ev.pointerId;
+            hideSkillTreeTooltip();
+            try { svg.setPointerCapture(ev.pointerId); } catch (_) {}
         }
 
         function onSkillTreeCanvasPointerMove(ev) {
-            if (!stIsPanning) return;
-            stPanX = ev.clientX - stPanStartX;
-            stPanY = ev.clientY - stPanStartY;
-            applySkillTreeTransform();
+            if (stDraggingSkillId) {
+                if (stDragPointerId !== null && ev.pointerId !== stDragPointerId) return;
+                const skill = findSkillById(stDraggingSkillId);
+                const initial = stInitialPositions.get(stDraggingSkillId);
+                if (!skill || !initial) return;
+
+                const dx = ev.clientX - stDragStartClientX;
+                const dy = ev.clientY - stDragStartClientY;
+                if (!stDragMoved && (dx * dx + dy * dy) < 16) return;
+                if (!stDragHistoryPushed) {
+                    // O snapshot anterior ao primeiro movimento permite desfazer o arraste corretamente.
+                    pushHistory();
+                    stDragHistoryPushed = true;
+                }
+                stDragMoved = true;
+                skill.x = initial.x + dx / stScale;
+                skill.y = initial.y + dy / stScale;
+
+                const node = document.querySelector(`#skilltree-svg .st-node[data-skill-id="${CSS.escape(skill.id)}"]`);
+                if (node) node.setAttribute('transform', `translate(${skill.x},${skill.y})`);
+                updateSkillTreeConnections();
+                hideSkillTreeTooltip();
+                return;
+            }
+
+            if (stIsPanning) {
+                if (stDragPointerId !== null && ev.pointerId !== stDragPointerId) return;
+                stPanX = ev.clientX - stPanStartX;
+                stPanY = ev.clientY - stPanStartY;
+                applySkillTreeTransform();
+                return;
+            }
+
+            const nodeEl = ev.target && ev.target.closest ? ev.target.closest('.st-node') : null;
+            if (!nodeEl) {
+                stHoverSkillId = null;
+                hideSkillTreeTooltip();
+                return;
+            }
+            const skill = findSkillById(nodeEl.getAttribute('data-skill-id'));
+            if (skill) showSkillTreeTooltip(skill, ev);
         }
 
-        function onSkillTreeCanvasPointerUp() {
-            if (!stIsPanning) return;
+        function onSkillTreeCanvasPointerUp(ev) {
+            if (stDragPointerId !== null && ev && ev.pointerId !== undefined && ev.pointerId !== stDragPointerId) return;
+            const wasDragged = !!stDraggingSkillId && stDragMoved;
+            const svg = document.getElementById('skilltree-svg');
+            const pointerId = stDragPointerId;
+
+            stDraggingSkillId = null;
+            stDragMoved = false;
+            stDragHistoryPushed = false;
             stIsPanning = false;
+            stDragPointerId = null;
+            stInitialPositions.clear();
+
+            if (wasDragged) {
+                updateSkillTreeConnections();
+                saveStoriesStorage();
+            }
+            if (svg && pointerId !== null) {
+                try { if (svg.hasPointerCapture(pointerId)) svg.releasePointerCapture(pointerId); } catch (_) {}
+            }
+        }
+
+        function updateSkillTreeConnections() {
+            const svg = document.getElementById('skilltree-svg');
+            if (!svg) return;
+            const skills = getSkillsForSelectedCharacter();
+            const byId = new Map(skills.map(skill => [skill.id, skill]));
+            svg.querySelectorAll('.st-conn').forEach(path => {
+                const child = byId.get(path.getAttribute('data-child-id'));
+                const parent = byId.get(path.getAttribute('data-parent-id'));
+                if (!child || !parent) return;
+                const dx = child.x - parent.x;
+                const dy = child.y - parent.y;
+                const len = Math.max(Math.hypot(dx, dy), 1);
+                const ux = dx / len, uy = dy / len;
+                const sx = parent.x + ux * (SKILL_NODE_R + 6);
+                const sy = parent.y + uy * (SKILL_NODE_R + 6);
+                const ex = child.x - ux * (SKILL_NODE_R + 6);
+                const ey = child.y - uy * (SKILL_NODE_R + 6);
+                path.setAttribute('d', `M ${sx} ${sy} L ${ex} ${ey}`);
+            });
+        }
+
+        function showSkillTreeTooltip(skill, event) {
+            const tooltip = document.getElementById('st-node-tooltip');
+            if (!tooltip || !skill || stDraggingSkillId) return;
+            const type = getSkillType(skill.type);
+            const desc = (skill.description || '').trim();
+            tooltip.innerHTML = `
+                <div class="st-tt-title">${escapeHTML(skill.name || 'Habilidade sem nome')}</div>
+                <div class="st-tt-meta">
+                    <span class="st-tt-chip">${escapeHTML(type.icon)} ${escapeHTML(type.label)}</span>
+                    <span class="st-tt-chip">Rank ${Number(skill.rank) || 0}/${Number(skill.maxRank) || 1}</span>
+                </div>
+                <div class="st-tt-desc">${desc ? escapeHTML(desc) : '<span style="color:#94a3b8;font-style:italic">Sem descrição cadastrada.</span>'}</div>
+                <div class="st-tt-hint">Clique para editar · Arraste para mover</div>`;
+            tooltip.classList.remove('hidden');
+            stHoverSkillId = skill.id;
+            positionSkillTreeTooltip(event);
+        }
+
+        function positionSkillTreeTooltip(event) {
+            const tooltip = document.getElementById('st-node-tooltip');
+            if (!tooltip || tooltip.classList.contains('hidden') || !event) return;
+            const margin = 12;
+            const offset = 16;
+            const rect = tooltip.getBoundingClientRect();
+            let left = event.clientX + offset;
+            let top = event.clientY + offset;
+            if (left + rect.width > window.innerWidth - margin) left = event.clientX - rect.width - offset;
+            if (top + rect.height > window.innerHeight - margin) top = Math.max(margin, window.innerHeight - rect.height - margin);
+            tooltip.style.left = `${Math.max(margin, left)}px`;
+            tooltip.style.top = `${Math.max(margin, top)}px`;
+        }
+
+        function hideSkillTreeTooltip() {
+            const tooltip = document.getElementById('st-node-tooltip');
+            if (tooltip) tooltip.classList.add('hidden');
+            stHoverSkillId = null;
         }
 
         function renderSkillTreeDetailPanel() {
             const emptyEl = document.getElementById('st-empty-panel');
             const detailEl = document.getElementById('st-detail-panel');
             const skill = findSkillById(stSelectedSkillId);
+
+            if (stEditorCollapsed) {
+                emptyEl.classList.add('hidden');
+                detailEl.classList.add('hidden');
+                return;
+            }
 
             if (!skill) {
                 emptyEl.classList.remove('hidden');
@@ -8761,9 +8981,9 @@
             emptyEl.classList.add('hidden');
             detailEl.classList.remove('hidden');
 
-            const tier = getSkillTier(skill.tier);
-            document.getElementById('st-detail-tier').textContent = `${tier.icon} ${tier.label}`;
-            document.getElementById('st-detail-tier').style.color = tier.color;
+            const type = getSkillType(skill.type);
+            document.getElementById('st-detail-tier').textContent = `${type.icon} ${type.label}`;
+            document.getElementById('st-detail-tier').style.color = type.color;
             document.getElementById('st-detail-name').textContent = skill.name || '—';
 
             renderSkillTreeDetailIcon();
@@ -8771,7 +8991,7 @@
             document.getElementById('st-edit-name').value = skill.name || '';
             document.getElementById('st-edit-desc').value = skill.description || '';
             document.getElementById('st-edit-icon').value = skill.iconUrl || '';
-            document.getElementById('st-edit-tier').value = String(skill.tier || 0);
+            document.getElementById('st-edit-type').value = type.id;
             document.getElementById('st-edit-rank').value = skill.rank || 0;
             document.getElementById('st-edit-maxrank').value = skill.maxRank || 1;
 
