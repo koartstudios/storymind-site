@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         :root {
             --canvas-bg: #f8fafc;
@@ -495,6 +496,48 @@
         }
         .scene-warn-badge { animation: pulse-warn 2s ease-in-out infinite; }
 
+        /* ==================== Teia de Relações (D3) ==================== */
+        #reteia-modal .reteia-node circle {
+            transition: r 0.15s ease, stroke-width 0.15s ease, filter 0.15s ease;
+            cursor: grab;
+        }
+        #reteia-modal .reteia-node circle:active { cursor: grabbing; }
+        #reteia-modal .reteia-node.selected circle {
+            stroke: #6366f1;
+            stroke-width: 4;
+            filter: drop-shadow(0 0 10px rgba(99,102,241,0.7));
+        }
+        #reteia-modal .reteia-node.relation-source circle {
+            stroke: #f59e0b;
+            stroke-width: 4;
+            filter: drop-shadow(0 0 10px rgba(245,158,11,0.7));
+        }
+        #reteia-modal .reteia-node.dimmed { opacity: 0.18; }
+        #reteia-modal .reteia-node text {
+            pointer-events: none;
+            user-select: none;
+            font-weight: 700;
+            paint-order: stroke;
+            stroke-linejoin: round;
+        }
+        #reteia-modal .reteia-link { cursor: pointer; transition: opacity 0.15s; }
+        #reteia-modal .reteia-link:hover { stroke-width: 4 !important; }
+        #reteia-modal .reteia-link.dimmed { opacity: 0.08; }
+        #reteia-modal .reteia-link-label { pointer-events: none; user-select: none; }
+        #reteia-modal .reteia-avatar-clip { pointer-events: none; }
+        #reteia-modal .reteia-initials {
+            pointer-events: none;
+            font-weight: 800;
+            fill: #ffffff;
+            text-anchor: middle;
+            dominant-baseline: central;
+            user-select: none;
+        }
+        body.app-theme-dark #reteia-modal .bg-white { background:#1e293b !important; }
+        body.app-theme-dark #reteia-modal .bg-slate-50 { background:#0f172a !important; }
+        body.app-theme-dark #reteia-modal .border-slate-200 { border-color:#334155 !important; }
+        body.app-theme-dark #reteia-modal .text-slate-800 { color:#e2e8f0 !important; }
+
         @media (max-width: 768px) {
             #inspector-sidebar { width: 100% !important; max-width: 100vw; }
             #outline-panel { width: 80vw !important; }
@@ -673,6 +716,9 @@
             </button>
             <button onclick="openStoryBible()" class="w-10 h-10 rounded-xl text-purple-600 hover:bg-purple-50 flex items-center justify-center transition" title="Bíblia da História (Ctrl+B)">
                 <i class="fa-solid fa-book-bible"></i>
+            </button>
+            <button onclick="openRelationWeb()" class="w-10 h-10 rounded-xl text-cyan-600 hover:bg-cyan-50 flex items-center justify-center transition" title="Teia de Relações (Ctrl+R)">
+                <i class="fa-solid fa-diagram-project"></i>
             </button>
 
             <div class="w-8 h-px bg-slate-200 my-1"></div>
@@ -866,6 +912,7 @@
                     <div class="hidden md:block">
                         <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">E</kbd> variante · 
                         <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">Ctrl+B</kbd> bíblia · 
+                        <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">Ctrl+R</kbd> teia · 
                         <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">Ctrl+S</kbd> salvar · 
                         <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">P</kbd> preview
                     </div>
@@ -1256,6 +1303,83 @@
         <p class="font-semibold text-sm">Gerando imagem PNG de alta qualidade...</p>
     </div>
 
+    <div id="reteia-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0 flex items-center justify-between">
+                <div>
+                    <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                        <i class="fa-solid fa-diagram-project text-cyan-600"></i>
+                        <span>Teia de Relações</span>
+                        <span id="reteia-char-count" class="text-xs bg-cyan-100 text-cyan-700 font-bold px-2 py-0.5 rounded-full">0</span>
+                    </h3>
+                    <p class="text-[11px] text-slate-500 mt-0.5">Arraste os personagens · Clique numa linha para editar · Clique em dois nós para criar uma relação</p>
+                </div>
+                <button onclick="closeRelationWeb()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="px-6 py-2.5 border-b border-slate-200 bg-white shrink-0 flex flex-wrap items-center gap-2">
+                <div class="text-[10px] font-bold uppercase text-slate-500 tracking-wider">Legenda:</div>
+                <div id="reteia-legend" class="flex flex-wrap items-center gap-2"></div>
+                <div class="ml-auto flex items-center gap-1.5">
+                    <button onclick="reteiaResetZoom()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5" title="Centralizar">
+                        <i class="fa-solid fa-crosshairs"></i><span class="hidden md:inline">Centralizar</span>
+                    </button>
+                    <button onclick="reteiaTogglePhysics()" id="reteia-physics-btn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5" title="Congelar/Mover layout">
+                        <i class="fa-solid fa-snowflake"></i><span class="hidden md:inline">Congelar</span>
+                    </button>
+                    <div class="w-px h-5 bg-slate-200 mx-0.5"></div>
+                    <span class="text-[10px] font-mono text-slate-500" id="reteia-hint">clique em 2 nós para criar relação</span>
+                    <button id="reteia-cancel-btn" onclick="reteiaCancelPending()" class="hidden bg-rose-50 hover:bg-rose-100 text-rose-600 px-2 py-1.5 rounded-lg text-xs font-medium transition">
+                        <i class="fa-solid fa-xmark"></i> Cancelar
+                    </button>
+                </div>
+            </div>
+            <div id="reteia-svg-container" class="flex-1 relative bg-slate-50 overflow-hidden">
+                <svg id="reteia-svg" class="w-full h-full"></svg>
+                <div id="reteia-editor" class="hidden absolute top-4 right-4 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl">
+                    <div class="flex items-center justify-between px-3 py-2 border-b border-slate-200 bg-cyan-50 rounded-t-xl">
+                        <span class="text-xs font-bold text-cyan-800 flex items-center gap-1.5">
+                            <i class="fa-solid fa-link"></i>
+                            <span id="reteia-editor-title">Nova Relação</span>
+                        </span>
+                        <button onclick="reteiaCloseEditor()" class="text-cyan-600 hover:text-cyan-800">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <div class="p-3 space-y-3">
+                        <div class="text-[10px] text-slate-500 leading-snug">
+                            <span id="reteia-editor-from" class="font-semibold text-slate-700">—</span>
+                            <span class="mx-1">→</span>
+                            <span id="reteia-editor-to" class="font-semibold text-slate-700">—</span>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Tipo de Relação</label>
+                            <select id="reteia-type-select" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-cyan-500"></select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Rótulo (opcional)</label>
+                            <input type="text" id="reteia-label-input" placeholder="Ex: Irmãos adotivos, Rivais..." class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-cyan-500">
+                        </div>
+                        <div class="flex gap-1.5">
+                            <button onclick="reteiaSaveRelation()" class="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-check"></i>Salvar
+                            </button>
+                            <button onclick="reteiaDeleteRelation()" id="reteia-delete-btn" class="hidden bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-trash-can"></i>Excluir
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="reteia-empty" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center p-8">
+                    <i class="fa-solid fa-users-slash text-6xl text-slate-300 mb-4"></i>
+                    <h3 class="text-slate-700 font-bold mb-2">Nenhum personagem encontrado</h3>
+                    <p class="text-sm text-slate-500 max-w-sm">Adicione nós do tipo <b>🧙 Personagem</b> ao seu mapa para que eles apareçam aqui.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="toast-container"></div>
     <div id="node-tooltip" class="hidden"></div>
 
@@ -1590,7 +1714,6 @@
 
         // ==============================================================
         // McKEE — Diagnóstico automático de Cena
-        // "Uma cena que não vira um valor é um não-evento." — Robert McKee
         // ==============================================================
         function getSceneDiagnostic(node) {
             if (!node || node.type !== 'scene' || !node.typeData) return null;
@@ -1615,7 +1738,6 @@
             };
         }
 
-        // ✅ FIX: atualiza SOMENTE o banner de diagnóstico, sem recriar os inputs.
         function updateSceneDiagnosticBanner() {
             const wrapper = document.getElementById('scene-diagnostic-wrapper');
             if (!wrapper) return;
@@ -2185,7 +2307,6 @@
                 html += `<div class="tt-empty">Nenhum detalhe preenchido ainda.</div>`;
             }
 
-            // ===== McKee: Análise =====
             const mckeeRows = [];
             if (node.type === 'scene') {
                 const diag = getSceneDiagnostic(node);
@@ -2635,8 +2756,6 @@
                 container.appendChild(wrapper);
             });
 
-            // ===== Diagnóstico McKee para Cenas =====
-            // ✅ FIX: usa um wrapper com ID para permitir atualização isolada (sem destruir inputs)
             if (node.type === 'scene') {
                 const wrapper = document.createElement('div');
                 wrapper.id = 'scene-diagnostic-wrapper';
@@ -2644,14 +2763,11 @@
                 updateSceneDiagnosticBanner();
             }
 
-            // Traços de Personalidade — só para personagens
             if (node.type === 'character') {
                 container.appendChild(buildBigFiveSection(node));
             }
         }
 
-        // ✅ FIX: NÃO re-renderiza o inspector a cada tecla (isso destruiria os inputs e perderia o foco).
-        // Em vez disso, atualiza apenas o banner de diagnóstico no lugar.
         function onTypeFieldChange(key, value) {
             const id = document.getElementById('edit-node-id').value;
             const node = mindMapData.nodes.find(n => n.id === id);
@@ -3208,6 +3324,15 @@
                 renderTensionCurve();
                 renderMinimap();
                 hideNodeTooltip();
+                const modal = document.getElementById('reteia-modal');
+                if (modal && !modal.classList.contains('hidden') && reteiaSimulation) {
+                    const container = document.getElementById('reteia-svg-container');
+                    if (container) {
+                        const w = container.clientWidth, h = container.clientHeight;
+                        reteiaSimulation.force('center', d3.forceCenter(w / 2, h / 2));
+                        reteiaSimulation.alpha(0.1).restart();
+                    }
+                }
             });
 
             window.addEventListener('beforeunload', () => {
@@ -4242,6 +4367,7 @@
                     s.beatSortLastArrangement = s.beatSortLastArrangement && typeof s.beatSortLastArrangement === 'object' ? s.beatSortLastArrangement : null;
                     s.nodes = (s.nodes || []).map(migrateNode);
                     s.relationships = (s.relationships || []).map(r => migrateRelationship(r, s));
+                    if (!s.relations || !Array.isArray(s.relations)) s.relations = [];
                 });
                 if (!story.activeSheetId || !story.sheets.find(s => s.id === story.activeSheetId)) {
                     story.activeSheetId = story.sheets[0].id;
@@ -4254,7 +4380,8 @@
                 beatSheetMode: false, beatSheetFramework: null, beatSheetSavedPositions: null,
                 beatSortMode: false, beatSortSavedPositions: null, beatSortLastArrangement: null,
                 nodes: (story.nodes || []).map(migrateNode),
-                relationships: []
+                relationships: [],
+                relations: []
             };
             sheet.relationships = (story.relationships || []).map(r => migrateRelationship(r, sheet));
             return { title: story.title || 'Nova História', sheets: [sheet], activeSheetId: sheet.id };
@@ -4275,7 +4402,8 @@
                 nodes: options.nodes || [
                     { id: generateNodeId(), title: "NOVO MAPA", content: "", parentId: null, x: CANVAS_CENTER_X, y: CANVAS_CENTER_Y, color: "purple", icons: [], collapsed: false, tension: 0, beatId: null, type: null, pov: "", typeData: {}, isVariant: false, variantOf: null, variantLabel: "" }
                 ],
-                relationships: options.relationships || []
+                relationships: options.relationships || [],
+                relations: []
             };
         }
 
@@ -4859,7 +4987,7 @@
                 layout: mindMapData.layout || 'tree', theme: mindMapData.theme || 'default',
                 beatSheetMode: false, beatSheetFramework: null, beatSheetSavedPositions: null,
                 beatSortMode: false, beatSortSavedPositions: null, beatSortLastArrangement: null,
-                nodes: subtreeNodes, relationships: subtreeRels
+                nodes: subtreeNodes, relationships: subtreeRels, relations: []
             };
             mindMapData.nodes = mindMapData.nodes.filter(n => !sub.has(n.id));
             mindMapData.relationships = (mindMapData.relationships || []).filter(r => !sub.has(r.from) && !sub.has(r.to));
@@ -6101,6 +6229,7 @@
             pushHistory();
             mindMapData.nodes = mindMapData.nodes.filter(n => !toDelete.has(n.id));
             mindMapData.relationships = (mindMapData.relationships || []).filter(r => !toDelete.has(r.from) && !toDelete.has(r.to));
+            mindMapData.relations = (mindMapData.relations || []).filter(r => !toDelete.has(r.from) && !toDelete.has(r.to));
             if (mindMapData.beatSheetSavedPositions) {
                 toDelete.forEach(id => { delete mindMapData.beatSheetSavedPositions[id]; });
             }
@@ -7141,9 +7270,499 @@
             event.target.value = '';
         }
 
+        // ==============================================================
+        // TEIA DE RELAÇÕES (D3 force-directed)
+        // ==============================================================
+        const RELATION_TYPES = {
+            alianca:  { id: 'alianca',  label: 'Aliança',   color: '#10b981', dash: null,  icon: '🤝' },
+            conflito: { id: 'conflito', label: 'Conflito',  color: '#ef4444', dash: null,  icon: '⚔️' },
+            segredo:  { id: 'segredo',  label: 'Segredo',   color: '#a855f7', dash: '6 4', icon: '🤫' },
+            sangue:   { id: 'sangue',   label: 'Sangue',    color: '#f97316', dash: null,  icon: '🩸' },
+            romance:  { id: 'romance',  label: 'Romance',   color: '#ec4899', dash: null,  icon: '💕' },
+            familia:  { id: 'familia',  label: 'Família',   color: '#3b82f6', dash: null,  icon: '👪' },
+            mentoria: { id: 'mentoria', label: 'Mentoria',  color: '#eab308', dash: '2 3', icon: '🎓' },
+            traicao:  { id: 'traicao',  label: 'Traição',   color: '#64748b', dash: '3 3', icon: '🗡️' }
+        };
+
+        let reteiaSimulation = null;
+        let reteiaSvg = null;
+        let reteiaZoomGroup = null;
+        let reteiaZoom = null;
+        let reteiaPendingFrom = null;
+        let reteiaEditingRelId = null;
+        let reteiaPhysicsOn = true;
+        let reteiaSelectedNodeId = null;
+        let reteiaPendingPair = null;
+        let reteiaTickOnce = () => {};
+
+        function ensureRelationsArray() {
+            if (!mindMapData.relations || !Array.isArray(mindMapData.relations)) {
+                mindMapData.relations = [];
+            }
+        }
+
+        function getCharacterNodes() {
+            return mindMapData.nodes.filter(n => {
+                if (n.type !== 'character') return false;
+                let cur = n;
+                const visited = new Set();
+                while (cur) {
+                    if (visited.has(cur.id)) break;
+                    visited.add(cur.id);
+                    if (cur.isVariant) return false;
+                    cur = cur.parentId ? mindMapData.nodes.find(x => x.id === cur.parentId) : null;
+                }
+                return true;
+            });
+        }
+
+        function getCharacterAvatar(node) {
+            const icons = node.icons || [];
+            if (icons.length > 0) return icons[0];
+            return null;
+        }
+
+        function getCharacterInitials(node) {
+            const name = (node.typeData?.fullName) || node.title || '?';
+            const parts = name.trim().split(/\s+/).filter(Boolean);
+            if (parts.length === 0) return '?';
+            if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+
+        function openRelationWeb() {
+            if (!mindMapData) return;
+            const modal = document.getElementById('reteia-modal');
+            if (!modal) return;
+            ensureRelationsArray();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            reteiaPendingFrom = null;
+            reteiaEditingRelId = null;
+            reteiaSelectedNodeId = null;
+            reteiaCloseEditor();
+            reteiaRenderLegend();
+            setTimeout(() => { reteiaDraw(); }, 60);
+        }
+
+        function closeRelationWeb() {
+            const modal = document.getElementById('reteia-modal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            if (reteiaSimulation) { reteiaSimulation.stop(); reteiaSimulation = null; }
+            reteiaPendingFrom = null;
+            reteiaEditingRelId = null;
+            reteiaCloseEditor();
+        }
+
+        function reteiaRenderLegend() {
+            const el = document.getElementById('reteia-legend');
+            if (!el) return;
+            el.innerHTML = Object.values(RELATION_TYPES).map(t => `
+                <span class="inline-flex items-center gap-1 text-[10px] text-slate-600 font-medium">
+                    <span style="display:inline-block; width:18px; height:3px; background:${t.color}; border-radius:2px; ${t.dash ? `background-image: repeating-linear-gradient(90deg, ${t.color} 0 4px, transparent 4px 8px); background-color:transparent;` : ''}"></span>
+                    <span>${t.icon} ${escapeHTML(t.label)}</span>
+                </span>
+            `).join('');
+        }
+
+        function reteiaDraw() {
+            const container = document.getElementById('reteia-svg-container');
+            const svgEl = document.getElementById('reteia-svg');
+            if (!container || !svgEl) return;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            if (width <= 0 || height <= 0) return;
+
+            const charNodes = getCharacterNodes();
+            document.getElementById('reteia-char-count').textContent = charNodes.length;
+
+            const emptyEl = document.getElementById('reteia-empty');
+            if (charNodes.length === 0) {
+                emptyEl.classList.remove('hidden');
+                svgEl.innerHTML = '';
+                return;
+            } else {
+                emptyEl.classList.add('hidden');
+            }
+
+            const charIds = new Set(charNodes.map(n => n.id));
+            const validRelations = (mindMapData.relations || []).filter(r => charIds.has(r.from) && charIds.has(r.to));
+
+            const nodesData = charNodes.map(n => ({
+                id: n.id,
+                title: n.title,
+                fullName: n.typeData?.fullName || n.title,
+                avatar: getCharacterAvatar(n),
+                initials: getCharacterInitials(n),
+                role: n.typeData?.role || '',
+                nodeRef: n
+            }));
+            const linksData = validRelations.map(r => ({
+                id: r.id,
+                source: r.from,
+                target: r.to,
+                type: r.type,
+                label: r.label || RELATION_TYPES[r.type]?.label || '',
+                typeDef: RELATION_TYPES[r.type] || RELATION_TYPES.alianca
+            }));
+
+            svgEl.innerHTML = '';
+            const svg = d3.select(svgEl);
+            reteiaSvg = svg;
+
+            const defs = svg.append('defs');
+            nodesData.forEach(n => {
+                defs.append('clipPath')
+                    .attr('id', 'reteia-clip-' + n.id.replace(/[^a-zA-Z0-9_-]/g, '_'))
+                    .append('circle')
+                    .attr('r', 42)
+                    .attr('cx', 0).attr('cy', 0);
+            });
+
+            reteiaZoomGroup = svg.append('g');
+            reteiaZoom = d3.zoom()
+                .scaleExtent([0.15, 3])
+                .on('zoom', (event) => {
+                    reteiaZoomGroup.attr('transform', event.transform);
+                });
+            svg.call(reteiaZoom);
+            svg.on('dblclick.zoom', null);
+
+            svg.on('click', (event) => {
+                if (event.target === svgEl) {
+                    reteiaCancelPending();
+                    reteiaSelectedNodeId = null;
+                    reteiaUpdateSelection();
+                    reteiaCloseEditor();
+                }
+            });
+
+            reteiaSimulation = d3.forceSimulation(nodesData)
+                .force('link', d3.forceLink(linksData).id(d => d.id).distance(240).strength(0.35))
+                .force('charge', d3.forceManyBody().strength(-800))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collision', d3.forceCollide().radius(65).strength(0.9));
+
+            const linkGroup = reteiaZoomGroup.append('g').attr('class', 'reteia-links');
+            const links = linkGroup.selectAll('path.reteia-link')
+                .data(linksData, d => d.id)
+                .enter()
+                .append('path')
+                .attr('class', 'reteia-link')
+                .attr('fill', 'none')
+                .attr('stroke', d => d.typeDef.color)
+                .attr('stroke-width', 2.5)
+                .attr('stroke-dasharray', d => d.typeDef.dash || null)
+                .attr('stroke-linecap', 'round')
+                .attr('opacity', 0.85)
+                .on('click', (event, d) => {
+                    event.stopPropagation();
+                    reteiaOpenEditorForRelation(d.id);
+                });
+
+            const linkLabels = linkGroup.selectAll('g.reteia-link-label')
+                .data(linksData, d => d.id)
+                .enter()
+                .append('g')
+                .attr('class', 'reteia-link-label');
+
+            linkLabels.append('rect').attr('rx', 8).attr('ry', 8)
+                .attr('fill', d => d.typeDef.color)
+                .attr('stroke', 'white').attr('stroke-width', 1.5).attr('opacity', 0.95);
+
+            linkLabels.append('text')
+                .attr('text-anchor', 'middle').attr('dominant-baseline', 'central')
+                .attr('fill', 'white').attr('font-size', '10').attr('font-weight', '700')
+                .attr('font-family', 'Inter, sans-serif').attr('pointer-events', 'none')
+                .text(d => d.label || d.typeDef.label);
+
+            const nodeGroup = reteiaZoomGroup.append('g').attr('class', 'reteia-nodes');
+            const nodeSel = nodeGroup.selectAll('g.reteia-node')
+                .data(nodesData, d => d.id)
+                .enter()
+                .append('g')
+                .attr('class', 'reteia-node')
+                .call(d3.drag()
+                    .on('start', (event, d) => {
+                        if (!reteiaPhysicsOn) {
+                            d.x = event.x; d.y = event.y;
+                            reteiaTickOnce();
+                            return;
+                        }
+                        if (!event.active) reteiaSimulation.alphaTarget(0.3).restart();
+                        d.fx = d.x; d.fy = d.y;
+                    })
+                    .on('drag', (event, d) => {
+                        if (!reteiaPhysicsOn) {
+                            d.x = event.x; d.y = event.y;
+                            reteiaTickOnce();
+                            return;
+                        }
+                        d.fx = event.x; d.fy = event.y;
+                    })
+                    .on('end', (event, d) => {
+                        if (!reteiaPhysicsOn) return;
+                        if (!event.active) reteiaSimulation.alphaTarget(0);
+                        d.fx = null; d.fy = null;
+                    })
+                );
+
+            nodeSel.append('circle')
+                .attr('r', 46).attr('fill', 'white')
+                .attr('stroke', d => {
+                    const role = (d.role || '').toLowerCase();
+                    if (role.includes('protagonista')) return '#6366f1';
+                    if (role.includes('antagonista')) return '#dc2626';
+                    if (role.includes('mentor')) return '#eab308';
+                    if (role.includes('co-')) return '#8b5cf6';
+                    return '#94a3b8';
+                })
+                .attr('stroke-width', 3);
+
+            nodeSel.each(function(d) {
+                const g = d3.select(this);
+                if (d.avatar) {
+                    g.append('image')
+                        .attr('href', d.avatar).attr('xlink:href', d.avatar)
+                        .attr('x', -42).attr('y', -42)
+                        .attr('width', 84).attr('height', 84)
+                        .attr('preserveAspectRatio', 'xMidYMid slice')
+                        .attr('clip-path', `url(#reteia-clip-${d.id.replace(/[^a-zA-Z0-9_-]/g, '_')})`)
+                        .attr('class', 'reteia-avatar-clip')
+                        .on('error', function() {
+                            d3.select(this).remove();
+                            g.append('circle').attr('r', 42).attr('fill', '#475569');
+                            g.append('text').attr('class', 'reteia-initials').attr('font-size', '24').text(d.initials);
+                        });
+                } else {
+                    g.append('circle').attr('r', 42).attr('fill', '#475569');
+                    g.append('text').attr('class', 'reteia-initials').attr('font-size', '24').text(d.initials);
+                }
+            });
+
+            nodeSel.append('text')
+                .attr('text-anchor', 'middle').attr('y', 62)
+                .attr('fill', '#0f172a').attr('font-size', '12').attr('font-weight', '700')
+                .attr('font-family', 'Inter, sans-serif')
+                .attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke')
+                .text(d => {
+                    const name = d.fullName || d.title;
+                    return name.length > 22 ? name.slice(0, 20) + '…' : name;
+                });
+
+            nodeSel.append('text')
+                .attr('text-anchor', 'middle').attr('y', 76)
+                .attr('fill', '#64748b').attr('font-size', '9').attr('font-weight', '600')
+                .attr('font-family', 'Inter, sans-serif')
+                .attr('stroke', 'white').attr('stroke-width', 2.5).attr('paint-order', 'stroke')
+                .text(d => (d.role || '').toUpperCase());
+
+            nodeSel.on('click', (event, d) => {
+                event.stopPropagation();
+                reteiaHandleNodeClick(d.id);
+            });
+
+            function tick() {
+                links.attr('d', d => {
+                    const dx = d.target.x - d.source.x;
+                    const dy = d.target.y - d.source.y;
+                    const dr = Math.sqrt(dx * dx + dy * dy) * 1.3;
+                    return `M${d.source.x},${d.source.y} A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
+                });
+                linkLabels.attr('transform', d => {
+                    const mx = (d.source.x + d.target.x) / 2;
+                    const my = (d.source.y + d.target.y) / 2;
+                    return `translate(${mx},${my})`;
+                });
+                linkLabels.each(function() {
+                    const g = d3.select(this);
+                    const textEl = g.select('text').node();
+                    if (!textEl) return;
+                    const bbox = textEl.getBBox();
+                    const pad = 6;
+                    g.select('rect')
+                        .attr('x', -(bbox.width / 2 + pad))
+                        .attr('y', -(bbox.height / 2 + pad / 2))
+                        .attr('width', bbox.width + pad * 2)
+                        .attr('height', bbox.height + pad);
+                });
+                nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
+            }
+            reteiaSimulation.on('tick', tick);
+            reteiaTickOnce = tick;
+        }
+
+        function reteiaHandleNodeClick(nodeId) {
+            if (reteiaPendingFrom) {
+                if (reteiaPendingFrom === nodeId) {
+                    reteiaCancelPending();
+                    return;
+                }
+                reteiaOpenEditorForNewRelation(reteiaPendingFrom, nodeId);
+                return;
+            }
+            reteiaPendingFrom = nodeId;
+            reteiaSelectedNodeId = nodeId;
+            reteiaUpdateSelection();
+            document.getElementById('reteia-hint').textContent = 'agora clique no segundo personagem';
+            document.getElementById('reteia-cancel-btn').classList.remove('hidden');
+        }
+
+        function reteiaCancelPending() {
+            reteiaPendingFrom = null;
+            reteiaSelectedNodeId = null;
+            const hint = document.getElementById('reteia-hint');
+            if (hint) hint.textContent = 'clique em 2 nós para criar relação';
+            const btn = document.getElementById('reteia-cancel-btn');
+            if (btn) btn.classList.add('hidden');
+            reteiaUpdateSelection();
+        }
+
+        function reteiaUpdateSelection() {
+            const svg = reteiaSvg;
+            if (!svg) return;
+            svg.selectAll('g.reteia-node').classed('selected', d => d.id === reteiaSelectedNodeId);
+            svg.selectAll('g.reteia-node').classed('relation-source', d => d.id === reteiaPendingFrom);
+        }
+
+        function reteiaOpenEditorForNewRelation(fromId, toId) {
+            reteiaEditingRelId = null;
+            const fromNode = mindMapData.nodes.find(n => n.id === fromId);
+            const toNode = mindMapData.nodes.find(n => n.id === toId);
+            if (!fromNode || !toNode) return;
+
+            document.getElementById('reteia-editor-title').textContent = 'Nova Relação';
+            document.getElementById('reteia-editor-from').textContent = fromNode.typeData?.fullName || fromNode.title;
+            document.getElementById('reteia-editor-to').textContent = toNode.typeData?.fullName || toNode.title;
+
+            const sel = document.getElementById('reteia-type-select');
+            sel.innerHTML = Object.values(RELATION_TYPES).map(t =>
+                `<option value="${t.id}">${t.icon} ${escapeHTML(t.label)}</option>`
+            ).join('');
+
+            document.getElementById('reteia-label-input').value = '';
+            document.getElementById('reteia-delete-btn').classList.add('hidden');
+            document.getElementById('reteia-editor').classList.remove('hidden');
+
+            reteiaPendingPair = { from: fromId, to: toId };
+        }
+
+        function reteiaOpenEditorForRelation(relId) {
+            const rel = (mindMapData.relations || []).find(r => r.id === relId);
+            if (!rel) return;
+            reteiaEditingRelId = rel.id;
+            const fromNode = mindMapData.nodes.find(n => n.id === rel.from);
+            const toNode = mindMapData.nodes.find(n => n.id === rel.to);
+
+            document.getElementById('reteia-editor-title').textContent = 'Editar Relação';
+            document.getElementById('reteia-editor-from').textContent = fromNode ? (fromNode.typeData?.fullName || fromNode.title) : '—';
+            document.getElementById('reteia-editor-to').textContent = toNode ? (toNode.typeData?.fullName || toNode.title) : '—';
+
+            const sel = document.getElementById('reteia-type-select');
+            sel.innerHTML = Object.values(RELATION_TYPES).map(t =>
+                `<option value="${t.id}" ${t.id === rel.type ? 'selected' : ''}>${t.icon} ${escapeHTML(t.label)}</option>`
+            ).join('');
+
+            document.getElementById('reteia-label-input').value = rel.label || '';
+            document.getElementById('reteia-delete-btn').classList.remove('hidden');
+            document.getElementById('reteia-editor').classList.remove('hidden');
+            reteiaPendingPair = null;
+        }
+
+        function reteiaCloseEditor() {
+            const el = document.getElementById('reteia-editor');
+            if (el) el.classList.add('hidden');
+            reteiaEditingRelId = null;
+            reteiaPendingPair = null;
+        }
+
+        function reteiaSaveRelation() {
+            const type = document.getElementById('reteia-type-select').value;
+            const label = document.getElementById('reteia-label-input').value.trim();
+            ensureRelationsArray();
+
+            if (reteiaEditingRelId) {
+                const rel = mindMapData.relations.find(r => r.id === reteiaEditingRelId);
+                if (rel) {
+                    rel.type = type;
+                    rel.label = label;
+                    pushHistory();
+                    saveStoriesStorage();
+                    showToast('Relação atualizada.', 'success', 1500);
+                }
+            } else if (reteiaPendingPair) {
+                const exists = mindMapData.relations.some(r =>
+                    (r.from === reteiaPendingPair.from && r.to === reteiaPendingPair.to) ||
+                    (r.from === reteiaPendingPair.to && r.to === reteiaPendingPair.from)
+                );
+                if (exists) {
+                    showToast('Já existe uma relação entre esses personagens.', 'warn');
+                    return;
+                }
+                mindMapData.relations.push({
+                    id: 'rel-char-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+                    from: reteiaPendingPair.from,
+                    to: reteiaPendingPair.to,
+                    type,
+                    label
+                });
+                pushHistory();
+                saveStoriesStorage();
+                showToast('Relação criada.', 'success', 1500);
+            }
+
+            reteiaCloseEditor();
+            reteiaCancelPending();
+            reteiaDraw();
+        }
+
+        function reteiaDeleteRelation() {
+            if (!reteiaEditingRelId) return;
+            if (!confirm('Excluir esta relação?')) return;
+            mindMapData.relations = (mindMapData.relations || []).filter(r => r.id !== reteiaEditingRelId);
+            pushHistory();
+            saveStoriesStorage();
+            showToast('Relação excluída.', 'success', 1500);
+            reteiaCloseEditor();
+            reteiaDraw();
+        }
+
+        function reteiaResetZoom() {
+            if (!reteiaSvg || !reteiaZoom) return;
+            reteiaSvg.transition().duration(500).call(reteiaZoom.transform, d3.zoomIdentity);
+            const container = document.getElementById('reteia-svg-container');
+            if (container && reteiaSimulation) {
+                const w = container.clientWidth, h = container.clientHeight;
+                reteiaSimulation.force('center', d3.forceCenter(w / 2, h / 2));
+                reteiaSimulation.alpha(0.3).restart();
+            }
+        }
+
+        function reteiaTogglePhysics() {
+            reteiaPhysicsOn = !reteiaPhysicsOn;
+            const btn = document.getElementById('reteia-physics-btn');
+            if (!btn) return;
+            if (reteiaPhysicsOn) {
+                if (reteiaSimulation) {
+                    reteiaSimulation.nodes().forEach(n => { n.fx = null; n.fy = null; });
+                    reteiaSimulation.alpha(0.5).restart();
+                }
+                btn.innerHTML = '<i class="fa-solid fa-snowflake"></i><span class="hidden md:inline">Congelar</span>';
+                btn.className = 'bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5';
+            } else {
+                if (reteiaSimulation) {
+                    reteiaSimulation.nodes().forEach(n => { n.fx = n.x; n.fy = n.y; });
+                    reteiaSimulation.stop();
+                }
+                btn.innerHTML = '<i class="fa-solid fa-play"></i><span class="hidden md:inline">Descongelar</span>';
+                btn.className = 'bg-amber-100 hover:bg-amber-200 text-amber-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5';
+            }
+        }
+
         function setupKeyboardListeners() {
             window.addEventListener('keydown', (e) => {
-                // ✅ FIX: detecta inputs mesmo quando o foco está num filho interno do campo
                 const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'
                              || e.target.isContentEditable
                              || (e.target.closest && e.target.closest('input, textarea, [contenteditable="true"]'));
@@ -7190,6 +7809,18 @@
                     return;
                 }
 
+                if ((e.ctrlKey || e.metaKey) && e.code === 'KeyR' && !e.shiftKey && !e.altKey) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const modal = document.getElementById('reteia-modal');
+                    if (modal && modal.classList.contains('hidden')) {
+                        openRelationWeb();
+                    } else {
+                        closeRelationWeb();
+                    }
+                    return;
+                }
+
                 if ((e.ctrlKey || e.metaKey) && e.code === 'KeyS' && !e.shiftKey && !e.altKey) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -7212,6 +7843,10 @@
                     const bibleModal = document.getElementById('bible-modal');
                     if (bibleModal && !bibleModal.classList.contains('hidden')) {
                         e.preventDefault(); closeStoryBible(); return;
+                    }
+                    const reteiaModal = document.getElementById('reteia-modal');
+                    if (reteiaModal && !reteiaModal.classList.contains('hidden')) {
+                        e.preventDefault(); closeRelationWeb(); return;
                     }
                     const variantModal = document.getElementById('variant-modal');
                     if (variantModal && !variantModal.classList.contains('hidden')) {
