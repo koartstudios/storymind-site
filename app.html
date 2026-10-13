@@ -489,6 +489,12 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
 
+        @keyframes pulse-warn {
+            0%, 100% { transform: scale(1); box-shadow: 0 4px 6px rgba(220,38,38,0.35); }
+            50% { transform: scale(1.12); box-shadow: 0 6px 12px rgba(220,38,38,0.55); }
+        }
+        .scene-warn-badge { animation: pulse-warn 2s ease-in-out infinite; }
+
         @media (max-width: 768px) {
             #inspector-sidebar { width: 100% !important; max-width: 100vw; }
             #outline-panel { width: 80vw !important; }
@@ -1357,7 +1363,10 @@
                 { key: 'timeOfDay',   label: 'Tempo',        type: 'select',   options: ['DIA', 'NOITE', 'AMANHECER', 'ANOITECER', 'CONTÍNUO'] },
                 { key: 'characters',  label: 'Personagens (separe por vírgula)', type: 'text' },
                 { key: 'objective',   label: 'Objetivo da cena', type: 'text' },
-                { key: 'conflict',    label: 'Conflito / obstáculo', type: 'textarea' }
+                { key: 'conflict',    label: 'Conflito / obstáculo', type: 'textarea' },
+                { key: 'valueAtStake', label: '🎯 Valor em Jogo (McKee)', type: 'text', placeholder: 'Ex: Amor, Verdade, Justiça, Liberdade...' },
+                { key: 'valueStart',   label: '⬅ Carga Inicial do Valor', type: 'select', options: ['Positivo (+)', 'Negativo (−)', 'Neutro'] },
+                { key: 'valueEnd',     label: '➡ Carga Final do Valor',   type: 'select', options: ['Positivo (+)', 'Negativo (−)', 'Neutro'] }
             ],
             character: [
                 { key: 'fullName',       label: 'Nome completo',  type: 'text' },
@@ -1367,14 +1376,16 @@
                 { key: 'need',           label: 'Necessidade interna (need)', type: 'text' },
                 { key: 'arc',            label: 'Arco de transformação', type: 'textarea' },
                 { key: 'firstAppearance',label: 'Primeira aparição', type: 'text' },
-                { key: 'lastAppearance', label: 'Última aparição',   type: 'text' }
+                { key: 'lastAppearance', label: 'Última aparição',   type: 'text' },
+                { key: 'conflictValue',  label: '⚔ Valor em Conflito (McKee)', type: 'textarea', placeholder: 'Ex: Honra vs. Sobrevivência · Amor vs. Liberdade' }
             ],
             location: [
                 { key: 'era',          label: 'Época / período',  type: 'text' },
                 { key: 'climate',      label: 'Clima',            type: 'text' },
                 { key: 'atmosphere',   label: 'Atmosfera',        type: 'text' },
                 { key: 'geography',    label: 'Geografia / descrição', type: 'textarea' },
-                { key: 'significance', label: 'Significado na história', type: 'textarea' }
+                { key: 'significance', label: 'Significado na história', type: 'textarea' },
+                { key: 'environmentPressures', label: '🌍 Pressões do Ambiente (McKee)', type: 'textarea', placeholder: 'Ex: Aqui mentir é punido com morte · A escassez torna todos hostis' }
             ],
             event: [
                 { key: 'eventType',    label: 'Tipo de evento',  type: 'select', options: ['Incidente Incitante', 'Catalisador', 'Primeiro Ponto de Virada', 'Midpoint', 'Segundo Ponto de Virada', 'Clímax', 'Desfecho', 'Outro'] },
@@ -1389,13 +1400,19 @@
                 { key: 'target',   label: 'Para quem',           type: 'text' },
                 { key: 'emotion',  label: 'Emoção dominante',    type: 'text' },
                 { key: 'subtext',  label: 'Subtexto',            type: 'textarea' },
-                { key: 'context',  label: 'Contexto',            type: 'text' }
+                { key: 'context',  label: 'Contexto',            type: 'text' },
+                { key: 'speechAction', label: '⚡ Ação da Fala (McKee)', type: 'select', options: [
+                    'Seduzir', 'Ameaçar', 'Testar', 'Esconder', 'Confessar',
+                    'Manipular', 'Desafiar', 'Acusar', 'Consolar', 'Provocar',
+                    'Informar', 'Questionar', 'Persuadir', 'Enganar', 'Revelar'
+                ] }
             ],
             theme: [
                 { key: 'statement',  label: 'Declaração do tema',  type: 'text' },
                 { key: 'motifs',     label: 'Motivos recorrentes (separe por vírgula)', type: 'text' },
                 { key: 'symbolism',  label: 'Simbolismo',          type: 'textarea' },
-                { key: 'examples',   label: 'Exemplos na história', type: 'textarea' }
+                { key: 'examples',   label: 'Exemplos na história', type: 'textarea' },
+                { key: 'coreValue',  label: '💎 Valor Central (McKee)', type: 'text', placeholder: 'Ex: Justiça, Amor, Verdade — o valor que a história afirma' }
             ],
             note: []
         };
@@ -1479,7 +1496,6 @@
             const val = Math.max(1, Math.min(5, parseInt(value, 10) || 3));
             node.typeData.bigFive[key] = val;
 
-            // Atualiza só a UI local (evita perder foco do slider)
             const valueEl = document.getElementById(`bf-value-${key}`);
             if (valueEl) valueEl.textContent = `${val}/5`;
 
@@ -1570,6 +1586,75 @@
                 list.appendChild(row);
             });
             return wrap;
+        }
+
+        // ==============================================================
+        // McKEE — Diagnóstico automático de Cena
+        // "Uma cena que não vira um valor é um não-evento." — Robert McKee
+        // ==============================================================
+        function getSceneDiagnostic(node) {
+            if (!node || node.type !== 'scene' || !node.typeData) return null;
+            const start = (node.typeData.valueStart || '').trim();
+            const end   = (node.typeData.valueEnd || '').trim();
+            if (!start || !end) return null;
+            const normalize = (s) => s.replace(/\s*\(.*\)\s*$/, '').trim();
+            const s = normalize(start);
+            const e = normalize(end);
+            const val = node.typeData.valueAtStake || 'em jogo';
+            if (s === e) {
+                return {
+                    level: 'warn',
+                    title: 'Cena não vira o valor',
+                    message: `O valor "${val}" começa e termina como ${s}. Para McKee, uma cena que não vira um valor é um "não-evento" — considere fundi-la, reescrevê-la ou introduzir um ponto de virada real.`
+                };
+            }
+            return {
+                level: 'ok',
+                title: 'Cena vira o valor',
+                message: `O valor "${val}" muda de ${s} para ${e}. Ponto de virada dramático consistente.`
+            };
+        }
+
+        // ✅ FIX: atualiza SOMENTE o banner de diagnóstico, sem recriar os inputs.
+        function updateSceneDiagnosticBanner() {
+            const wrapper = document.getElementById('scene-diagnostic-wrapper');
+            if (!wrapper) return;
+            const id = document.getElementById('edit-node-id').value;
+            const node = mindMapData.nodes.find(n => n.id === id);
+            if (!node || node.type !== 'scene') { wrapper.innerHTML = ''; return; }
+
+            const diag = getSceneDiagnostic(node);
+            if (diag) {
+                if (diag.level === 'warn') {
+                    wrapper.innerHTML = `
+                        <div class="mt-2 p-2.5 rounded-lg border-2 border-rose-300 bg-rose-50 flex items-start gap-2">
+                            <i class="fa-solid fa-triangle-exclamation text-rose-600 mt-0.5 text-xs"></i>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-[10.5px] font-bold text-rose-800 uppercase tracking-wider">${escapeHTML(diag.title)}</div>
+                                <div class="text-[10px] text-rose-700 leading-snug mt-0.5">${escapeHTML(diag.message)}</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    wrapper.innerHTML = `
+                        <div class="mt-2 p-2.5 rounded-lg border border-emerald-200 bg-emerald-50 flex items-start gap-2">
+                            <i class="fa-solid fa-circle-check text-emerald-600 mt-0.5 text-xs"></i>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-[10.5px] font-bold text-emerald-800 uppercase tracking-wider">${escapeHTML(diag.title)}</div>
+                                <div class="text-[10px] text-emerald-700 leading-snug mt-0.5">${escapeHTML(diag.message)}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            } else {
+                wrapper.innerHTML = `
+                    <div class="mt-2 p-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50">
+                        <div class="text-[10px] text-slate-500 italic leading-snug">
+                            <i class="fa-solid fa-circle-info mr-1"></i>Preencha <b>Carga Inicial</b> e <b>Carga Final</b> para o diagnóstico automático de McKee.
+                        </div>
+                    </div>
+                `;
+            }
         }
 
         function getCurrentFramework() {
@@ -2100,6 +2185,37 @@
                 html += `<div class="tt-empty">Nenhum detalhe preenchido ainda.</div>`;
             }
 
+            // ===== McKee: Análise =====
+            const mckeeRows = [];
+            if (node.type === 'scene') {
+                const diag = getSceneDiagnostic(node);
+                if (diag) {
+                    const color = diag.level === 'warn' ? '#dc2626' : '#059669';
+                    const bg = diag.level === 'warn' ? '#fef2f2' : '#ecfdf5';
+                    mckeeRows.push(`<div style="margin-top:6px; padding:6px 8px; border-radius:6px; background:${bg}; color:${color}; font-size:10.5px; font-weight:600; line-height:1.4;">${escapeHTML(diag.message)}</div>`);
+                } else if (node.typeData.valueAtStake) {
+                    mckeeRows.push(`<div class="tt-row"><span class="tt-label">🎯 Valor em Jogo:</span> <span class="tt-value">${escapeHTML(node.typeData.valueAtStake)}</span></div>`);
+                }
+            }
+            if (node.type === 'character' && node.typeData.conflictValue) {
+                mckeeRows.push(`<div class="tt-row"><span class="tt-label">⚔ Valor em Conflito:</span> <span class="tt-value">${escapeHTML(node.typeData.conflictValue)}</span></div>`);
+            }
+            if (node.type === 'location' && node.typeData.environmentPressures) {
+                mckeeRows.push(`<div class="tt-row"><span class="tt-label">🌍 Pressões:</span> <span class="tt-value">${escapeHTML(node.typeData.environmentPressures)}</span></div>`);
+            }
+            if (node.type === 'dialogue' && node.typeData.speechAction) {
+                mckeeRows.push(`<div class="tt-row"><span class="tt-label">⚡ Ação da Fala:</span> <span class="tt-value">${escapeHTML(node.typeData.speechAction)}</span></div>`);
+            }
+            if (node.type === 'theme' && node.typeData.coreValue) {
+                mckeeRows.push(`<div class="tt-row"><span class="tt-label">💎 Valor Central:</span> <span class="tt-value">${escapeHTML(node.typeData.coreValue)}</span></div>`);
+            }
+            if (mckeeRows.length > 0) {
+                html += `<div style="margin-top:8px; padding-top:8px; border-top:1px dashed #e2e8f0;">
+                    <div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#64748b; margin-bottom:6px;">📖 Análise McKee</div>
+                    ${mckeeRows.join('')}
+                </div>`;
+            }
+
             if (node.type === 'character' && hasBigFiveData(node)) {
                 const bf = node.typeData.bigFive;
                 html += `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e2e8f0;">
@@ -2500,6 +2616,7 @@
             fields.forEach(f => {
                 const value = node.typeData[f.key] || '';
                 const wrapper = document.createElement('div');
+                const ph = f.placeholder ? ` placeholder="${escapeHTML(f.placeholder)}"` : '';
                 let inputHTML = '';
                 if (f.type === 'select') {
                     const options = f.options.map(opt =>
@@ -2510,13 +2627,22 @@
                         ${options}
                     </select>`;
                 } else if (f.type === 'textarea') {
-                    inputHTML = `<textarea rows="2" oninput="onTypeFieldChange('${f.key}', this.value)" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500 resize-y">${escapeHTML(value)}</textarea>`;
+                    inputHTML = `<textarea rows="2"${ph} oninput="onTypeFieldChange('${f.key}', this.value)" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500 resize-y">${escapeHTML(value)}</textarea>`;
                 } else {
-                    inputHTML = `<input type="text" value="${escapeHTML(value)}" oninput="onTypeFieldChange('${f.key}', this.value)" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500">`;
+                    inputHTML = `<input type="text" value="${escapeHTML(value)}"${ph} oninput="onTypeFieldChange('${f.key}', this.value)" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500">`;
                 }
                 wrapper.innerHTML = `<label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">${escapeHTML(f.label)}</label>${inputHTML}`;
                 container.appendChild(wrapper);
             });
+
+            // ===== Diagnóstico McKee para Cenas =====
+            // ✅ FIX: usa um wrapper com ID para permitir atualização isolada (sem destruir inputs)
+            if (node.type === 'scene') {
+                const wrapper = document.createElement('div');
+                wrapper.id = 'scene-diagnostic-wrapper';
+                container.appendChild(wrapper);
+                updateSceneDiagnosticBanner();
+            }
 
             // Traços de Personalidade — só para personagens
             if (node.type === 'character') {
@@ -2524,12 +2650,19 @@
             }
         }
 
+        // ✅ FIX: NÃO re-renderiza o inspector a cada tecla (isso destruiria os inputs e perderia o foco).
+        // Em vez disso, atualiza apenas o banner de diagnóstico no lugar.
         function onTypeFieldChange(key, value) {
             const id = document.getElementById('edit-node-id').value;
             const node = mindMapData.nodes.find(n => n.id === id);
             if (!node) return;
             if (!node.typeData) node.typeData = {};
             node.typeData[key] = value;
+
+            if (node.type === 'scene') {
+                updateSceneDiagnosticBanner();
+            }
+
             scheduleSave();
             renderApp();
         }
@@ -2544,7 +2677,7 @@
                     if (d.location) parts.push(d.location);
                     if (d.timeOfDay) parts.push(d.timeOfDay);
                     break;
-                    case 'character':
+                case 'character':
                     if (d.fullName) parts.push(d.fullName);
                     if (d.role) parts.push(d.role);
                     if (d.age) parts.push(d.age + (String(d.age).match(/\d/) ? ' anos' : ''));
@@ -2730,7 +2863,6 @@
                 }
             }
 
-            // Se estava com um nó variante (ou descendente) selecionado, desmarca
             if (!showVariants) {
                 const selectedAreVariants = Array.from(selectedNodeIds).filter(id => {
                     const n = mindMapData.nodes.find(x => x.id === id);
@@ -3222,12 +3354,10 @@
                 }
                 savePositionsBeforeBeatSort();
                 mindMapData.beatSortMode = true;
-                // Tenta restaurar o último arranjo; se não houver (ou estiver incompleto), aplica o auto-layout
                 if (!restoreBeatSortArrangement()) {
                     applyBeatSortLayout();
                 }
             } else {
-                // Salva o arranjo atual ANTES de sair
                 saveBeatSortArrangement();
                 mindMapData.beatSortMode = false;
                 restorePositionsFromBeatSort();
@@ -3256,9 +3386,6 @@
             mindMapData.beatSortSavedPositions = null;
         }
 
-        // ==============================================================
-        // Preserva o arranjo manual feito pelo usuário no Modo Narrativo
-        // ==============================================================
         function saveBeatSortArrangement() {
             if (!mindMapData) return;
             const saved = {};
@@ -3269,7 +3396,6 @@
         function restoreBeatSortArrangement() {
             if (!mindMapData || !mindMapData.beatSortLastArrangement) return false;
             const saved = mindMapData.beatSortLastArrangement;
-            // Se algum nó novo foi criado (não está no saved), invalida e refaz o layout do zero
             const allPresent = mindMapData.nodes.every(n => saved[n.id]);
             if (!allPresent) return false;
             mindMapData.nodes.forEach(n => { n.x = saved[n.id].x; n.y = saved[n.id].y; });
@@ -3493,7 +3619,6 @@
                 savePositionsBeforeBeatSheet();
             }
             mindMapData.beatSheetMode = true;
-            // ✅ FIX: sempre aplica o layout, mesmo quando nenhum nó tem beat ainda.
             layoutBeatSheet();
             saveStoriesStorage();
             syncBeatSheetUI();
@@ -3687,7 +3812,6 @@
                     }
                 }
             } else if (mindMapData.beatSortMode) {
-                // ✅ FIX: invalida o cache do arranjo para evitar layout antigo
                 mindMapData.beatSortLastArrangement = null;
                 applyBeatSortLayout();
             }
@@ -3811,7 +3935,6 @@
                     });
                 }
             } else if (mindMapData.beatSortMode) {
-                // ✅ FIX: invalida o cache do arranjo para evitar layout antigo
                 mindMapData.beatSortLastArrangement = null;
                 applyBeatSortLayout();
             }
@@ -3945,7 +4068,6 @@
                 }
             }
 
-            // Cache de raiz de variante para filtrar
             const vCache = new Map();
             (function computeVR() {
                 function walk(node, vr) {
@@ -4117,7 +4239,6 @@
                     s.beatSheetSavedPositions = s.beatSheetSavedPositions && typeof s.beatSheetSavedPositions === 'object' ? s.beatSheetSavedPositions : null;
                     s.beatSortMode = !!(s.beatSortMode && s.beatSheetFramework);
                     s.beatSortSavedPositions = s.beatSortSavedPositions && typeof s.beatSortSavedPositions === 'object' ? s.beatSortSavedPositions : null;
-                    // Garante que o cache do arranjo seja um objeto válido
                     s.beatSortLastArrangement = s.beatSortLastArrangement && typeof s.beatSortLastArrangement === 'object' ? s.beatSortLastArrangement : null;
                     s.nodes = (s.nodes || []).map(migrateNode);
                     s.relationships = (s.relationships || []).map(r => migrateRelationship(r, s));
@@ -4562,7 +4683,6 @@
                 if (idMap[r.from]) r.from = idMap[r.from];
                 if (idMap[r.to]) r.to = idMap[r.to];
             });
-            // Se houver cache de arranjo, remapear IDs
             if (clone.beatSortLastArrangement && typeof clone.beatSortLastArrangement === 'object') {
                 const remapped = {};
                 Object.entries(clone.beatSortLastArrangement).forEach(([oldId, pos]) => {
@@ -4820,7 +4940,6 @@
             const nodeMap = new Map();
             mindMapData.nodes.forEach(n => nodeMap.set(n.id, n));
 
-            // Cache de raiz de variante por nó (O(n))
             const variantRootCache = new Map();
             (function computeVariantRoots() {
                 function walk(node, currentVariantRoot) {
@@ -4846,7 +4965,6 @@
                         const from = nodeMap.get(c.from);
                         const to = nodeMap.get(c.to);
                         if (!from || !to) return;
-                        // Se uma das pontas é variante e as variantes estão ocultas, esconde
                         if (!showVariants) {
                             if (variantRootCache.get(from.id) || variantRootCache.get(to.id)) return;
                         }
@@ -4857,7 +4975,6 @@
                     const layout = mindMapData.layout || 'tree';
                     mindMapData.nodes.forEach(node => {
                         if (node.parentId && visible.has(node.id) && visible.has(node.parentId)) {
-                            // Oculta se filho é variante oculta
                             if (!showVariants && variantRootCache.get(node.id)) return;
                             const parent = nodeMap.get(node.parentId);
                             if (parent) {
@@ -4869,7 +4986,6 @@
                 }
             }
 
-            // Conexões de variante (só quando visíveis)
             if (showVariants) {
                 mindMapData.nodes.forEach(n => {
                     if (n.isVariant && n.variantOf) {
@@ -4883,7 +4999,6 @@
 
             (mindMapData.relationships || []).forEach(rel => {
                 if (visible.has(rel.from) && visible.has(rel.to)) {
-                    // Oculta relação que envolve variante oculta
                     if (!showVariants && (variantRootCache.get(rel.from) || variantRootCache.get(rel.to))) return;
                     const dim = focusSet && (!focusSet.has(rel.from) || !focusSet.has(rel.to));
                     drawRelationship(rel, svgLayer, handlesLayer, dim);
@@ -4892,7 +5007,6 @@
 
             mindMapData.nodes.forEach(node => {
                 if (!visible.has(node.id)) return;
-                // Oculta completamente se for variante e o modo variantes estiver desligado
                 if (!showVariants && variantRootCache.get(node.id)) return;
                 const isSelected = selectedNodeIds.has(node.id);
                 const isEditing = editingNodeId === node.id;
@@ -4981,6 +5095,20 @@
                         </div>
                     `;
                 }
+
+                let sceneDiagBadgeHTML = '';
+                if (node.type === 'scene') {
+                    const diag = getSceneDiagnostic(node);
+                    if (diag && diag.level === 'warn') {
+                        sceneDiagBadgeHTML = `
+                            <div class="scene-warn-badge absolute -bottom-2 -right-2 w-6 h-6 bg-rose-500 text-white rounded-full shadow-lg flex items-center justify-center text-[10px] pointer-events-none z-10"
+                                 title="Cena não vira o valor — ${escapeHTML(diag.message)}">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </div>
+                        `;
+                    }
+                }
+
                 let povBadgeHTML = '';
                 if (node.pov && node.pov.trim()) {
                     povBadgeHTML = `
@@ -4996,11 +5124,12 @@
                     ? `<div class="text-[10px] font-semibold mb-1 truncate" style="color:${typeDef ? typeDef.color : '#475569'}" title="${escapeHTML(cardTypeSummary)}">${escapeHTML(cardTypeSummary)}</div>`
                     : '';
 
-                           el.innerHTML = `
+                el.innerHTML = `
                     ${tensionBarHTML}
                     ${variantBadgeHTML}
                     ${beatBadgeHTML}
                     ${typeBadgeHTML}
+                    ${sceneDiagBadgeHTML}
                     <div class="mb-1.5 min-w-0">${titleHTML}</div>
                     ${cardSummaryHTML}
                     ${povBadgeHTML}
@@ -5551,7 +5680,6 @@
                         saveStoriesStorage();
                         renderApp();
                     } else if (mindMapData.beatSortMode) {
-                        // ✅ FIX: ao arrastar no modo narrativo, persiste o arranjo e invalida cache antigo
                         pushHistory();
                         saveBeatSortArrangement();
                         saveStoriesStorage();
@@ -5886,7 +6014,6 @@
             document.getElementById('single-node-actions').classList.remove('hidden');
             document.getElementById('inspector-sidebar').classList.remove('translate-x-full');
 
-            // Alterna entre criar variante (canônico) vs. promover variante
             const createVarBtn = document.getElementById('btn-create-variant');
             const varActions = document.getElementById('variant-actions');
             if (node.isVariant) {
@@ -6170,7 +6297,6 @@
                     break;
                 }
             }
-            // No modo narrativo, o cache do arranjo fica desatualizado após alinhar
             if (mindMapData.beatSortMode) {
                 mindMapData.beatSortLastArrangement = null;
                 saveBeatSortArrangement();
@@ -6216,7 +6342,6 @@
             if (!container) return;
             container.innerHTML = '';
             const byParent = {};
-            // Cache de variantes
             const vCache = new Map();
             (function computeVR() {
                 function walk(node, vr) {
@@ -6335,7 +6460,6 @@
             const nodeInfo = {};
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
-            // Cache de variantes
             const vCache = new Map();
             (function computeVR() {
                 function walk(node, vr) {
@@ -6561,7 +6685,6 @@
 
             const nodeMap = new Map(mindMapData.nodes.map(n => [n.id, n]));
 
-            // Cache de variantes (para filtrar)
             const vCache = new Map();
             (function computeVR() {
                 function walk(node, vr) {
@@ -6826,7 +6949,6 @@
             const sheetName = mindMapData.name || 'Sem nome';
             const titlePrefix = currentStory ? `# ${currentStory.title}\n\n## ${sheetName}\n\n` : `# ${mindMapData.title || ''}\n\n`;
             const byParent = {};
-            // Filtro de variantes
             const vCache = new Map();
             (function computeVR() {
                 function walk(node, vr) {
@@ -6861,6 +6983,16 @@
                             }
                         });
                     }
+
+                    const mckeeBits = [];
+                    if (n.type === 'scene') {
+                        const diag = getSceneDiagnostic(n);
+                        if (diag && diag.level === 'warn') mckeeBits.push(`⚠ ${diag.title}`);
+                    }
+                    if (mckeeBits.length > 0) {
+                        md += '  '.repeat(depth + 1) + `  - **Análise McKee:** ${mckeeBits.join(' · ')}\n`;
+                    }
+
                     if (n.type === 'character' && n.typeData && n.typeData.bigFive && hasBigFiveData(n)) {
                         const bf = n.typeData.bigFive;
                         md += '  '.repeat(depth + 1) + `  - **Traços de Personalidade:** `;
@@ -7011,7 +7143,10 @@
 
         function setupKeyboardListeners() {
             window.addEventListener('keydown', (e) => {
-                const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable;
+                // ✅ FIX: detecta inputs mesmo quando o foco está num filho interno do campo
+                const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'
+                             || e.target.isContentEditable
+                             || (e.target.closest && e.target.closest('input, textarea, [contenteditable="true"]'));
                 if (inInput) return;
 
                 if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
@@ -7044,7 +7179,6 @@
                     return;
                 }
 
-                // Ctrl+B — Bíblia da História
                 if ((e.ctrlKey || e.metaKey) && e.code === 'KeyB' && !e.shiftKey && !e.altKey) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -7056,7 +7190,6 @@
                     return;
                 }
 
-                // Ctrl+S — Salvar como (abre diálogo nativo)
                 if ((e.ctrlKey || e.metaKey) && e.code === 'KeyS' && !e.shiftKey && !e.altKey) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -7064,7 +7197,6 @@
                     return;
                 }
 
-                // Ctrl+O — Abrir JSON
                 if ((e.ctrlKey || e.metaKey) && e.code === 'KeyO' && !e.shiftKey && !e.altKey) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -7136,7 +7268,6 @@
                 }
                 if (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && e.shiftKey) { e.preventDefault(); addSheet(); return; }
 
-                // E — Criar variante "E se..." (só quando 1 nó canônico selecionado)
                 if (e.code === 'KeyE' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
                     if (selectedNodeIds.size === 1) {
                         const id = Array.from(selectedNodeIds)[0];
@@ -7194,7 +7325,9 @@
             });
 
             window.addEventListener('keyup', (e) => {
-                const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable;
+                const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'
+                             || e.target.isContentEditable
+                             || (e.target.closest && e.target.closest('input, textarea, [contenteditable="true"]'));
                 if (inInput) return;
                 if (e.code === 'Space' && activeTool === 'pan') setTool('select');
             });
