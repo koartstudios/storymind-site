@@ -588,60 +588,7 @@
         body.app-theme-dark #skilltree-modal .st-label { fill: #e2e8f0 !important; }
         body.app-theme-dark #skilltree-modal #st-canvas {
             background: #0f172a !important;
-            background-image: radial-gradient(#334155 1.5px, transparent 1.5px);
-        }
-
-        /* ==================== Skill Tree ==================== */
-        #skilltree-modal .st-node { cursor: grab; }
-        #skilltree-modal .st-node:active { cursor: grabbing; }
-        #skilltree-modal .st-node.selected .st-ring {
-            stroke: #6366f1 !important;
-            stroke-width: 4;
-            filter: drop-shadow(0 0 12px rgba(99,102,241,0.8));
-        }
-        #skilltree-modal .st-node:hover .st-ring {
-            stroke-width: 3.5;
-            filter: drop-shadow(0 0 8px rgba(255,255,255,0.5));
-        }
-        #skilltree-modal .st-node .st-label {
-            pointer-events: none;
-            user-select: none;
-            font-weight: 700;
-            paint-order: stroke;
-            stroke-linejoin: round;
-        }
-        #skilltree-modal .st-conn {
-            fill: none;
-            pointer-events: none;
-            transition: opacity 0.15s;
-        }
-        #skilltree-modal .st-conn.active { opacity: 1; }
-        #skilltree-modal .st-conn.inactive { opacity: 0.35; }
-        #skilltree-modal .st-add-child {
-            cursor: pointer;
-            transition: transform 0.15s;
-        }
-        #skilltree-modal .st-add-child:hover { transform: scale(1.15); }
-        #skilltree-modal .st-rank-pill {
-            pointer-events: none;
-            user-select: none;
-            font-weight: 800;
-        }
-        .st-tier-dot {
-            display: inline-block; width: 8px; height: 8px;
-            border-radius: 50%; margin-right: 4px; vertical-align: middle;
-        }
-
-        body.app-theme-dark #skilltree-modal .bg-white { background:#1e293b !important; }
-        body.app-theme-dark #skilltree-modal .bg-slate-50 { background:#0f172a !important; }
-        body.app-theme-dark #skilltree-modal .bg-slate-100 { background:#334155 !important; }
-        body.app-theme-dark #skilltree-modal .border-slate-200 { border-color:#334155 !important; }
-        body.app-theme-dark #skilltree-modal .text-slate-800,
-        body.app-theme-dark #skilltree-modal .text-slate-700 { color:#e2e8f0 !important; }
-        body.app-theme-dark #skilltree-modal .st-label { fill: #e2e8f0 !important; }
-        body.app-theme-dark #skilltree-modal #st-canvas {
-            background: #0f172a !important;
-            background-image: radial-gradient(#334155 1.5px, transparent 1.5px);
+            background-image: radial-gradient(#334155 1.5px, transparent 1.5px) !important;
         }
 
         @media (max-width: 768px) {
@@ -1022,6 +969,7 @@
                         <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">E</kbd> variante · 
                         <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">Ctrl+B</kbd> bíblia · 
                         <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">Ctrl+R</kbd> teia · 
+                        <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">Ctrl+K</kbd> skills · 
                         <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">Ctrl+S</kbd> salvar · 
                         <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">P</kbd> preview
                     </div>
@@ -1492,7 +1440,6 @@
     <div id="skilltree-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] hidden items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden">
 
-            <!-- Header -->
             <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0 flex items-center justify-between gap-3 flex-wrap">
                 <div class="flex items-center gap-3 min-w-0">
                     <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
@@ -1518,10 +1465,8 @@
                 </div>
             </div>
 
-            <!-- Body -->
             <div class="flex-1 flex overflow-hidden min-h-0">
 
-                <!-- Left: descriptions panel -->
                 <aside class="w-80 bg-slate-50 border-r border-slate-200 flex flex-col shrink-0 overflow-hidden">
                     <div class="p-3 border-b border-slate-200">
                         <button onclick="skillTreeAddRoot()" class="w-full bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
@@ -1631,7 +1576,6 @@
                     </div>
                 </aside>
 
-                <!-- Right: canvas -->
                 <div id="st-canvas" class="flex-1 relative bg-slate-50 overflow-hidden"
                      style="background-image: radial-gradient(#cbd5e1 1.5px, transparent 1.5px); background-size: 24px 24px;"
                      onwheel="skillTreeZoom(event)">
@@ -2203,7 +2147,9 @@
                             variantLabel: ""
                         }
                     ],
-                    relationships: []
+                    relationships: [],
+                    relations: [],
+                    skillTrees: {}
                 }
             ],
             activeSheetId: "sheet-default-1"
@@ -3600,6 +3546,10 @@
                         reteiaSimulation.alpha(0.1).restart();
                     }
                 }
+                const stModal = document.getElementById('skilltree-modal');
+                if (stModal && !stModal.classList.contains('hidden')) {
+                    applySkillTreeTransform();
+                }
             });
 
             window.addEventListener('beforeunload', () => {
@@ -4632,7 +4582,7 @@
                     s.beatSortMode = !!(s.beatSortMode && s.beatSheetFramework);
                     s.beatSortSavedPositions = s.beatSortSavedPositions && typeof s.beatSortSavedPositions === 'object' ? s.beatSortSavedPositions : null;
                     s.beatSortLastArrangement = s.beatSortLastArrangement && typeof s.beatSortLastArrangement === 'object' ? s.beatSortLastArrangement : null;
-                                        s.nodes = (s.nodes || []).map(migrateNode);
+                    s.nodes = (s.nodes || []).map(migrateNode);
                     s.relationships = (s.relationships || []).map(r => migrateRelationship(r, s));
                     if (!s.relations || !Array.isArray(s.relations)) s.relations = [];
                     if (!s.skillTrees || typeof s.skillTrees !== 'object' || Array.isArray(s.skillTrees)) s.skillTrees = {};
@@ -5088,6 +5038,38 @@
                 });
                 clone.beatSortLastArrangement = remapped;
             }
+            // Remapeia skill trees
+            if (clone.skillTrees && typeof clone.skillTrees === 'object') {
+                const remappedSkillTrees = {};
+                Object.entries(clone.skillTrees).forEach(([charId, tree]) => {
+                    const newCharId = idMap[charId];
+                    if (newCharId) {
+                        const newSkills = (tree.skills || []).map(sk => {
+                            const newSk = { ...sk, id: 'skill-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) };
+                            if (sk.parentId && idMap[sk.parentId]) newSk.parentId = idMap[sk.parentId];
+                            return newSk;
+                        });
+                        // Corrige parentIds internos das skills (parentId dentro da mesma árvore usa IDs de skill, não de node)
+                        const skillIdMap = {};
+                        (tree.skills || []).forEach((sk, i) => { skillIdMap[sk.id] = newSkills[i].id; });
+                        newSkills.forEach((sk, i) => {
+                            const orig = tree.skills[i];
+                            if (orig.parentId && skillIdMap[orig.parentId]) sk.parentId = skillIdMap[orig.parentId];
+                        });
+                        remappedSkillTrees[newCharId] = { skills: newSkills };
+                    }
+                });
+                clone.skillTrees = remappedSkillTrees;
+            }
+            // Remapeia relations (char)
+            if (clone.relations && Array.isArray(clone.relations)) {
+                clone.relations = clone.relations.map(r => ({
+                    ...r,
+                    id: 'rel-char-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+                    from: idMap[r.from] || r.from,
+                    to: idMap[r.to] || r.to
+                }));
+            }
             const idx = currentStory.sheets.findIndex(s => s.id === sheetId);
             currentStory.sheets.splice(idx + 1, 0, clone);
             mindMapData = clone; currentStory.activeSheetId = clone.id;
@@ -5252,15 +5234,28 @@
             const dy = CANVAS_CENTER_Y - rootNode.y;
             subtreeNodes.forEach(n => { n.x += dx; n.y += dy; });
             subtreeRels.forEach(r => { r.c1x = null; r.c1y = null; r.c2x = null; r.c2y = null; });
+            // Copia skill trees dos personagens que estão sendo movidos
+            const movedSkillTrees = {};
+            sub.forEach(nid => {
+                if (mindMapData.skillTrees && mindMapData.skillTrees[nid]) {
+                    movedSkillTrees[nid] = deepClone(mindMapData.skillTrees[nid]);
+                }
+            });
             const newSheet = {
                 id: generateSheetId(), name: (sheetName.trim() || defaultName),
                 layout: mindMapData.layout || 'tree', theme: mindMapData.theme || 'default',
                 beatSheetMode: false, beatSheetFramework: null, beatSheetSavedPositions: null,
                 beatSortMode: false, beatSortSavedPositions: null, beatSortLastArrangement: null,
-                nodes: subtreeNodes, relationships: subtreeRels, relations: [], skillTrees: {}
+                nodes: subtreeNodes, relationships: subtreeRels, relations: [],
+                skillTrees: movedSkillTrees
             };
             mindMapData.nodes = mindMapData.nodes.filter(n => !sub.has(n.id));
             mindMapData.relationships = (mindMapData.relationships || []).filter(r => !sub.has(r.from) && !sub.has(r.to));
+            mindMapData.relations = (mindMapData.relations || []).filter(r => !sub.has(r.from) && !sub.has(r.to));
+            // Remove skill trees dos nós movidos da aba original
+            if (mindMapData.skillTrees) {
+                sub.forEach(nid => { delete mindMapData.skillTrees[nid]; });
+            }
             const curIdx = currentStory.sheets.findIndex(s => s.id === mindMapData.id);
             if (curIdx >= 0) currentStory.sheets[curIdx] = mindMapData;
             currentStory.sheets.push(newSheet);
@@ -6500,6 +6495,10 @@
             mindMapData.nodes = mindMapData.nodes.filter(n => !toDelete.has(n.id));
             mindMapData.relationships = (mindMapData.relationships || []).filter(r => !toDelete.has(r.from) && !toDelete.has(r.to));
             mindMapData.relations = (mindMapData.relations || []).filter(r => !toDelete.has(r.from) && !toDelete.has(r.to));
+            // Remove skill trees dos nós deletados
+            if (mindMapData.skillTrees) {
+                toDelete.forEach(id => { delete mindMapData.skillTrees[id]; });
+            }
             if (mindMapData.beatSheetSavedPositions) {
                 toDelete.forEach(id => { delete mindMapData.beatSheetSavedPositions[id]; });
             }
@@ -7563,7 +7562,6 @@
         let reteiaPhysicsOn = true;
         let reteiaSelectedNodeId = null;
         let reteiaPendingPair = null;
-        let reteiaTickOnce = () => {};
 
         function ensureRelationsArray() {
             if (!mindMapData.relations || !Array.isArray(mindMapData.relations)) {
@@ -7864,6 +7862,8 @@
             reteiaTickOnce = tick;
         }
 
+        let reteiaTickOnce = () => {};
+
         function reteiaHandleNodeClick(nodeId) {
             if (reteiaPendingFrom) {
                 if (reteiaPendingFrom === nodeId) {
@@ -8030,6 +8030,7 @@
                 btn.className = 'bg-amber-100 hover:bg-amber-200 text-amber-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5';
             }
         }
+
         // ==============================================================
         // SKILL TREE — Árvore de Habilidades por Personagem
         // ==============================================================
@@ -8062,6 +8063,7 @@
         let stDragStartClientX = 0, stDragStartClientY = 0;
         let stDragMoved = false;
         let stInitialPositions = new Map();
+        let stCanvasListenersAttached = false;
 
         function ensureSkillTreesArray() {
             if (!mindMapData.skillTrees || typeof mindMapData.skillTrees !== 'object') {
@@ -8102,7 +8104,6 @@
             const modal = document.getElementById('skilltree-modal');
             if (!modal) return;
 
-            // Popula dropdown
             const characters = getCharacterNodes();
             const select = document.getElementById('skilltree-char-select');
             select.innerHTML = characters.length === 0
@@ -8160,7 +8161,6 @@
             pushHistory();
             const tree = getSkillTreeForCharacter(stCurrentCharacterId);
             const skills = tree.skills;
-            // Posição baseada em raízes existentes
             const roots = skills.filter(s => !s.parentId);
             const baseY = 100 + roots.length * SKILL_NODE_SPACING_Y;
             const newSkill = {
@@ -8207,7 +8207,6 @@
             stSelectedSkillId = newSkill.id;
             saveStoriesStorage();
             renderSkillTree();
-            // Pequeno ajuste automático caso colida
             requestAnimationFrame(() => {
                 skillTreeResolveCollision(newSkill.id);
                 renderSkillTree();
@@ -8217,7 +8216,6 @@
         function skillTreeDeleteSelected() {
             const skill = findSkillById(stSelectedSkillId);
             if (!skill) return;
-            // Conta descendentes
             const toDelete = new Set([skill.id]);
             let changed = true;
             while (changed) {
@@ -8255,14 +8253,24 @@
             const skill = findSkillById(stSelectedSkillId);
             if (!skill) return;
             skill[field] = value;
-            // Atualiza sidepanel imediatamente para feedback
             if (field === 'name') {
                 const el = document.getElementById('st-detail-name');
                 if (el) el.textContent = value || '—';
             }
             scheduleSave();
-            // Re-render só do canvas (para refletir mudanças visuais)
             renderSkillTreeCanvas();
+            renderSkillTreeDetailIcon();
+        }
+
+        function renderSkillTreeDetailIcon() {
+            const skill = findSkillById(stSelectedSkillId);
+            const iconBox = document.getElementById('st-detail-icon');
+            if (!iconBox || !skill) return;
+            if (skill.iconUrl && /^https?:\/\//i.test(skill.iconUrl)) {
+                iconBox.innerHTML = `<img src="${escapeHTML(skill.iconUrl)}" class="w-full h-full object-cover" crossorigin="anonymous" alt="">`;
+            } else {
+                iconBox.innerHTML = `<span style="font-size:32px">${skill.emoji || '⭐'}</span>`;
+            }
         }
 
         function skillTreePasteEmoji() {
@@ -8309,7 +8317,6 @@
             if (skills.length === 0) return;
             pushHistory();
 
-            // BFS por camadas
             const byParent = {};
             skills.forEach(s => { (byParent[s.parentId || '__root__'] ||= []).push(s); });
             const roots = byParent['__root__'] || [];
@@ -8329,7 +8336,6 @@
                 });
             }
 
-            // Agrupa por camada
             const byLayer = new Map();
             skills.forEach(s => {
                 const l = layerOf.get(s.id) ?? 0;
@@ -8356,6 +8362,7 @@
 
             saveStoriesStorage();
             renderSkillTree();
+            setTimeout(skillTreeFitView, 50);
         }
 
         function skillTreeFitView() {
@@ -8392,6 +8399,8 @@
         }
 
         function skillTreeZoom(event) {
+            const modal = document.getElementById('skilltree-modal');
+            if (!modal || modal.classList.contains('hidden')) return;
             event.preventDefault();
             const container = document.getElementById('st-canvas');
             const rect = container.getBoundingClientRect();
@@ -8415,10 +8424,13 @@
 
             const emptyEl = document.getElementById('st-empty-state');
             if (skills.length === 0) {
-                if (stCurrentCharacterId) emptyEl.classList.remove('hidden');
-                else {
+                if (stCurrentCharacterId) {
+                    emptyEl.querySelector('h3').textContent = 'Nenhuma habilidade ainda';
+                    emptyEl.querySelector('p').innerHTML = 'Clique em <b>+ Nova Habilidade Raiz</b> para começar a construir a árvore deste personagem.';
+                    emptyEl.classList.remove('hidden');
+                } else {
                     emptyEl.querySelector('h3').textContent = 'Nenhum personagem';
-                    emptyEl.querySelector('p').textContent = 'Adicione nós do tipo 🧙 Personagem ao mapa para criar árvores de habilidade.';
+                    emptyEl.querySelector('p').innerHTML = 'Adicione nós do tipo <b>🧙 Personagem</b> ao seu mapa para criar árvores de habilidade.';
                     emptyEl.classList.remove('hidden');
                 }
             } else {
@@ -8428,7 +8440,6 @@
             renderSkillTreeCanvas();
             renderSkillTreeDetailPanel();
 
-            // Auto-fit na primeira renderização
             if (skills.length > 0 && stPanX === 0 && stPanY === 0 && stScale === 1) {
                 requestAnimationFrame(() => skillTreeFitView());
             } else {
@@ -8441,14 +8452,17 @@
             if (!svgEl) return;
             const skills = getSkillsForSelectedCharacter();
 
-            // Monta SVG
             svgEl.innerHTML = '';
 
             const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-            // Sombra para nós
             const filter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
             filter.setAttribute('id', 'st-shadow');
-            filter.innerHTML = '<feDropShadow dx="0" dy="3" stdDeviation="4" flood-opacity="0.15"/>';
+            const feDropShadow = document.createElementNS('http://www.w3.org/2000/svg', 'feDropShadow');
+            feDropShadow.setAttribute('dx', '0');
+            feDropShadow.setAttribute('dy', '3');
+            feDropShadow.setAttribute('stdDeviation', '4');
+            feDropShadow.setAttribute('flood-opacity', '0.15');
+            filter.appendChild(feDropShadow);
             defs.appendChild(filter);
             svgEl.appendChild(defs);
 
@@ -8456,15 +8470,13 @@
             zoomGroup.setAttribute('id', 'st-zoom-group');
             svgEl.appendChild(zoomGroup);
 
-            // Camada de conexões
             const connGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             zoomGroup.appendChild(connGroup);
 
-            // Camada de nós
             const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             zoomGroup.appendChild(nodeGroup);
 
-            // Desenha conexões
+            // Conexões
             skills.forEach(skill => {
                 if (!skill.parentId) return;
                 const parent = skills.find(s => s.id === skill.parentId);
@@ -8490,7 +8502,7 @@
                 connGroup.appendChild(path);
             });
 
-            // Desenha nós
+            // Nós
             skills.forEach(skill => {
                 const tier = getSkillTier(skill.tier);
                 const color = SKILL_COLORS[skill.color] || tier.color;
@@ -8501,7 +8513,6 @@
                 g.setAttribute('transform', `translate(${skill.x},${skill.y})`);
                 g.setAttribute('data-skill-id', skill.id);
 
-                // Anel externo
                 const ringOuter = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 ringOuter.setAttribute('class', 'st-ring');
                 ringOuter.setAttribute('r', SKILL_NODE_R);
@@ -8511,7 +8522,6 @@
                 ringOuter.setAttribute('filter', 'url(#st-shadow)');
                 g.appendChild(ringOuter);
 
-                // Avatar / emoji
                 if (skill.iconUrl && /^https?:\/\//i.test(skill.iconUrl)) {
                     const clipId = 'st-clip-' + skill.id.replace(/[^a-zA-Z0-9_-]/g, '_');
                     const clip = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
@@ -8531,6 +8541,9 @@
                     img.setAttribute('preserveAspectRatio', 'xMidYMid slice');
                     img.setAttribute('clip-path', `url(#${clipId})`);
                     img.style.pointerEvents = 'none';
+                    img.onerror = function() {
+                        this.remove();
+                    };
                     g.appendChild(img);
                 } else {
                     const bg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -8549,7 +8562,7 @@
                     g.appendChild(emoji);
                 }
 
-                // Badge de Tier (canto superior direito)
+                // Badge de tier
                 const tierBadge = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                 tierBadge.setAttribute('transform', `translate(${SKILL_NODE_R - 4},${-SKILL_NODE_R + 4})`);
                 tierBadge.style.pointerEvents = 'none';
@@ -8572,7 +8585,7 @@
                 tierBadge.appendChild(badgeText);
                 g.appendChild(tierBadge);
 
-                // Rank pill (parte inferior)
+                // Rank pill
                 const rankText = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                 rankText.setAttribute('transform', `translate(0,${SKILL_NODE_R - 6})`);
                 rankText.style.pointerEvents = 'none';
@@ -8601,7 +8614,7 @@
                 rankText.appendChild(rk);
                 g.appendChild(rankText);
 
-                // Nome abaixo
+                // Nome
                 const nameLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                 nameLabel.setAttribute('y', SKILL_NODE_R + 22);
                 nameLabel.setAttribute('text-anchor', 'middle');
@@ -8617,7 +8630,7 @@
                 nameLabel.textContent = displayName;
                 g.appendChild(nameLabel);
 
-                // Botão + para adicionar filho
+                // Botão +
                 const addBtn = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                 addBtn.setAttribute('class', 'st-add-child');
                 addBtn.setAttribute('transform', `translate(${SKILL_NODE_R - 4},${SKILL_NODE_R - 4})`);
@@ -8640,7 +8653,6 @@
                 addPlus.textContent = '+';
                 addBtn.appendChild(addPlus);
 
-                // Handlers do botão +
                 addBtn.addEventListener('pointerdown', (ev) => { ev.stopPropagation(); });
                 addBtn.addEventListener('click', (ev) => {
                     ev.stopPropagation();
@@ -8649,7 +8661,7 @@
                 });
                 g.appendChild(addBtn);
 
-                // Handlers do nó principal
+                // Eventos do nó
                 g.addEventListener('pointerdown', (ev) => {
                     if (ev.target.closest('[data-add-child]')) return;
                     ev.stopPropagation();
@@ -8660,16 +8672,14 @@
                     stInitialPositions.clear();
                     stInitialPositions.set(skill.id, { x: skill.x, y: skill.y });
 
-                    // Seleciona imediatamente
                     stSelectedSkillId = skill.id;
                     renderSkillTreeDetailPanel();
                     updateSkillTreeSelection();
-
-                    try { g.setPointerCapture(ev.pointerId); } catch(_) {}
                 });
 
                 g.addEventListener('pointermove', (ev) => {
                     if (stDraggingSkillId !== skill.id) return;
+                    if (!stIsPanning && !ev.buttons) return;
                     const dx = ev.clientX - stDragStartClientX;
                     const dy = ev.clientY - stDragStartClientY;
                     if (!stDragMoved && (dx * dx + dy * dy) < 25) return;
@@ -8679,35 +8689,31 @@
                     skill.x = init.x + dx / stScale;
                     skill.y = init.y + dy / stScale;
                     g.setAttribute('transform', `translate(${skill.x},${skill.y})`);
-                    // Re-renderiza conexões (mais simples que recalcular apenas as afetadas)
-                    renderSkillTreeCanvas();
                 });
 
                 g.addEventListener('pointerup', (ev) => {
                     if (stDraggingSkillId !== skill.id) return;
-                    try { g.releasePointerCapture(ev.pointerId); } catch(_) {}
                     const wasDragged = stDragMoved;
                     stDraggingSkillId = null;
                     stDragMoved = false;
                     if (wasDragged) {
                         pushHistory();
                         saveStoriesStorage();
+                        renderSkillTreeCanvas();
                     }
-                });
-
-                g.addEventListener('pointercancel', () => {
-                    stDraggingSkillId = null;
-                    stDragMoved = false;
                 });
 
                 nodeGroup.appendChild(g);
             });
 
-            // Pan por arrastar no fundo
-            svgEl.addEventListener('pointerdown', onSkillTreeCanvasPointerDown);
-            svgEl.addEventListener('pointermove', onSkillTreeCanvasPointerMove);
-            svgEl.addEventListener('pointerup', onSkillTreeCanvasPointerUp);
-            svgEl.addEventListener('pointercancel', onSkillTreeCanvasPointerUp);
+            // Pan no fundo (anexa apenas uma vez)
+            if (!stCanvasListenersAttached) {
+                svgEl.addEventListener('pointerdown', onSkillTreeCanvasPointerDown);
+                svgEl.addEventListener('pointermove', onSkillTreeCanvasPointerMove);
+                svgEl.addEventListener('pointerup', onSkillTreeCanvasPointerUp);
+                svgEl.addEventListener('pointercancel', onSkillTreeCanvasPointerUp);
+                stCanvasListenersAttached = true;
+            }
 
             applySkillTreeTransform();
         }
@@ -8722,13 +8728,11 @@
         }
 
         function onSkillTreeCanvasPointerDown(ev) {
-            // Só pan se clicou no fundo (não num nó ou botão)
             if (ev.target.closest('.st-node')) return;
             if (ev.button !== 0 && ev.pointerType === 'mouse') return;
             stIsPanning = true;
             stPanStartX = ev.clientX - stPanX;
             stPanStartY = ev.clientY - stPanY;
-            try { ev.target.setPointerCapture(ev.pointerId); } catch(_) {}
         }
 
         function onSkillTreeCanvasPointerMove(ev) {
@@ -8738,10 +8742,9 @@
             applySkillTreeTransform();
         }
 
-        function onSkillTreeCanvasPointerUp(ev) {
+        function onSkillTreeCanvasPointerUp() {
             if (!stIsPanning) return;
             stIsPanning = false;
-            try { ev.target.releasePointerCapture(ev.pointerId); } catch(_) {}
         }
 
         function renderSkillTreeDetailPanel() {
@@ -8763,13 +8766,7 @@
             document.getElementById('st-detail-tier').style.color = tier.color;
             document.getElementById('st-detail-name').textContent = skill.name || '—';
 
-            // Ícone
-            const iconBox = document.getElementById('st-detail-icon');
-            if (skill.iconUrl && /^https?:\/\//i.test(skill.iconUrl)) {
-                iconBox.innerHTML = `<img src="${escapeHTML(skill.iconUrl)}" class="w-full h-full object-cover" crossorigin="anonymous" alt="" onerror="this.parentElement.innerHTML='<i class=\\'fa-solid fa-star text-2xl text-amber-500\\'></i>'">`;
-            } else {
-                iconBox.innerHTML = `<span style="font-size:32px">${skill.emoji || '⭐'}</span>`;
-            }
+            renderSkillTreeDetailIcon();
 
             document.getElementById('st-edit-name').value = skill.name || '';
             document.getElementById('st-edit-desc').value = skill.description || '';
@@ -8780,12 +8777,6 @@
 
             updateSkillTreeSelection();
         }
-
-        function setupSkillTreeListenersOnce() {
-            // Handlers globais são anexados dentro de renderSkillTreeCanvas para nós.
-            // Aqui só preparamos o ESC, já tratado globalmente em setupKeyboardListeners.
-        }
-
 
         function setupKeyboardListeners() {
             window.addEventListener('keydown', (e) => {
@@ -8886,12 +8877,10 @@
                     if (reteiaModal && !reteiaModal.classList.contains('hidden')) {
                         e.preventDefault(); closeRelationWeb(); return;
                     }
-
                     const skilltreeModal = document.getElementById('skilltree-modal');
                     if (skilltreeModal && !skilltreeModal.classList.contains('hidden')) {
                         e.preventDefault(); closeSkillTree(); return;
                     }
-
                     const variantModal = document.getElementById('variant-modal');
                     if (variantModal && !variantModal.classList.contains('hidden')) {
                         e.preventDefault(); closeVariantModal(); return;
