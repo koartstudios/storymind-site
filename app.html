@@ -457,6 +457,38 @@
             font-size: 16px; line-height: 1; margin-bottom: 8px;
         }
 
+        /* ==================== Big Five sliders ==================== */
+        input[type="range"].bf-slider {
+            -webkit-appearance: none; appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            outline: none; cursor: pointer;
+            background: linear-gradient(to right,
+                var(--bf-color) 0%,
+                var(--bf-color) var(--bf-fill),
+                #e2e8f0 var(--bf-fill),
+                #e2e8f0 100%);
+        }
+        input[type="range"].bf-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 16px; height: 16px;
+            background: white;
+            border: 3px solid var(--bf-color);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+        }
+        input[type="range"].bf-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+        input[type="range"].bf-slider::-moz-range-thumb {
+            width: 16px; height: 16px;
+            background: white;
+            border: 3px solid var(--bf-color);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
         @media (max-width: 768px) {
             #inspector-sidebar { width: 100% !important; max-width: 100vw; }
             #outline-panel { width: 80vw !important; }
@@ -714,6 +746,9 @@
                             <i class="fa-solid fa-arrows-left-right-to-line text-violet-600"></i>
                             <span>Modo Narrativo:</span>
                             <span id="narrative-pill-fw" class="bg-white/60 rounded px-1.5 py-0.5 font-bold">—</span>
+                            <button onclick="forceBeatSortReorganize()" class="text-violet-700 hover:text-violet-900 shrink-0 text-xs font-semibold bg-white/60 hover:bg-white rounded px-1.5 py-0.5 transition" title="Reorganizar automaticamente">
+                                <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Organizar
+                            </button>
                             <button onclick="toggleBeatSortMode()" class="ml-1 text-violet-700 hover:text-violet-900 shrink-0" title="Sair do modo narrativo">
                                 <i class="fa-solid fa-xmark"></i>
                             </button>
@@ -1365,6 +1400,178 @@
             note: []
         };
 
+        // ==============================================================
+        // BIG FIVE — Traços de Personalidade (1 a 5)
+        // ==============================================================
+        const BIG_FIVE_TRAITS = [
+            {
+                key: 'openness',
+                name: 'Abertura à Experiência',
+                short: 'Abertura',
+                en: 'Openness',
+                icon: '🎨',
+                color: '#8b5cf6',
+                low: 'Pragmático, tradicional, rígido',
+                high: 'Criativo, curioso, imaginativo'
+            },
+            {
+                key: 'conscientiousness',
+                name: 'Conscienciosidade',
+                short: 'Consciência',
+                en: 'Conscientiousness',
+                icon: '📋',
+                color: '#3b82f6',
+                low: 'Desorganizado, impulsivo',
+                high: 'Responsável, focado, persistente'
+            },
+            {
+                key: 'extraversion',
+                name: 'Extroversão',
+                short: 'Extroversão',
+                en: 'Extraversion',
+                icon: '🗣️',
+                color: '#f59e0b',
+                low: 'Reservado, introspectivo',
+                high: 'Sociável, falante, energizado'
+            },
+            {
+                key: 'agreeableness',
+                name: 'Amabilidade',
+                short: 'Amabilidade',
+                en: 'Agreeableness',
+                icon: '🤝',
+                color: '#10b981',
+                low: 'Competitivo, cético, hostil',
+                high: 'Empático, colaborativo, confiável'
+            },
+            {
+                key: 'neuroticism',
+                name: 'Neuroticismo / Estab. Emocional',
+                short: 'Neuroticismo',
+                en: 'Neuroticism',
+                icon: '⚡',
+                color: '#ef4444',
+                low: 'Calmo, resiliente, equilibrado',
+                high: 'Ansioso, inseguro, reativo'
+            }
+        ];
+
+        function getBigFive(node) {
+            if (!node || !node.typeData) return null;
+            return node.typeData.bigFive || null;
+        }
+
+        function hasBigFiveData(node) {
+            const bf = getBigFive(node);
+            if (!bf) return false;
+            return BIG_FIVE_TRAITS.some(t => {
+                const v = bf[t.key];
+                return typeof v === 'number' && v !== 3;
+            });
+        }
+
+        function onBigFiveChange(key, value) {
+            const id = document.getElementById('edit-node-id').value;
+            const node = mindMapData.nodes.find(n => n.id === id);
+            if (!node) return;
+            if (!node.typeData) node.typeData = {};
+            if (!node.typeData.bigFive) node.typeData.bigFive = {};
+            const val = Math.max(1, Math.min(5, parseInt(value, 10) || 3));
+            node.typeData.bigFive[key] = val;
+
+            // Atualiza só a UI local (evita perder foco do slider)
+            const valueEl = document.getElementById(`bf-value-${key}`);
+            if (valueEl) valueEl.textContent = `${val}/5`;
+
+            const descEl = document.getElementById(`bf-desc-${key}`);
+            if (descEl) {
+                const trait = BIG_FIVE_TRAITS.find(t => t.key === key);
+                if (trait) {
+                    let text, color;
+                    if (val <= 2) { text = `Baixa: ${trait.low}`; color = trait.color; }
+                    else if (val >= 4) { text = `Alta: ${trait.high}`; color = trait.color; }
+                    else { text = 'Neutro / Equilibrado'; color = '#94a3b8'; }
+                    descEl.textContent = text;
+                    descEl.style.color = color;
+                }
+            }
+
+            const row = document.getElementById(`bf-row-${key}`);
+            if (row) {
+                const slider = row.querySelector('input[type="range"]');
+                if (slider) slider.style.setProperty('--bf-fill', `${((val - 1) / 4) * 100}%`);
+            }
+
+            scheduleSave();
+            renderApp();
+        }
+
+        function resetBigFive() {
+            const id = document.getElementById('edit-node-id').value;
+            const node = mindMapData.nodes.find(n => n.id === id);
+            if (!node) return;
+            if (!node.typeData) node.typeData = {};
+            node.typeData.bigFive = {};
+            BIG_FIVE_TRAITS.forEach(t => { node.typeData.bigFive[t.key] = 3; });
+            pushHistory();
+            saveStoriesStorage();
+            renderTypeFields();
+            renderApp();
+            showToast('Traços de Personalidade resetado para neutro (3).', 'info', 1800);
+        }
+
+        function buildBigFiveSection(node) {
+            const bf = (node.typeData && node.typeData.bigFive) || {};
+            const wrap = document.createElement('div');
+            wrap.className = 'mt-3 pt-3 border-t-2 border-dashed border-purple-200';
+            wrap.innerHTML = `
+                <div class="flex items-center justify-between mb-3">
+                    <div class="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 text-purple-700">
+                        <span>🎭</span>
+                        <span>Traços de Personalidade</span>
+                    </div>
+                    <button type="button" onclick="resetBigFive()" class="text-[9px] text-slate-500 hover:text-purple-700 px-1.5 py-0.5 rounded hover:bg-purple-50 transition" title="Resetar todos os traços para o valor neutro (3)">
+                        <i class="fa-solid fa-rotate-left mr-0.5"></i>Resetar
+                    </button>
+                </div>
+                <div id="big-five-list"></div>
+            `;
+            const list = wrap.querySelector('#big-five-list');
+            BIG_FIVE_TRAITS.forEach(trait => {
+                const val = (typeof bf[trait.key] === 'number') ? bf[trait.key] : 3;
+                const fillPct = ((val - 1) / 4) * 100;
+                const row = document.createElement('div');
+                row.id = `bf-row-${trait.key}`;
+                row.className = 'mb-3 last:mb-0';
+                let descText, descColor;
+                if (val <= 2) { descText = `Baixa: ${trait.low}`; descColor = trait.color; }
+                else if (val >= 4) { descText = `Alta: ${trait.high}`; descColor = trait.color; }
+                else { descText = 'Neutro / Equilibrado'; descColor = '#94a3b8'; }
+
+                row.innerHTML = `
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-[10.5px] font-bold flex items-center gap-1.5" style="color:${trait.color}">
+                            <span>${trait.icon}</span>
+                            <span>${escapeHTML(trait.name)}</span>
+                        </span>
+                        <span id="bf-value-${trait.key}" class="text-[10px] font-bold text-white rounded-full px-2 py-0.5 min-w-[36px] text-center" style="background:${trait.color}">${val}/5</span>
+                    </div>
+                    <input type="range" min="1" max="5" step="1" value="${val}"
+                           class="bf-slider w-full"
+                           style="--bf-color:${trait.color}; --bf-fill:${fillPct}%;"
+                           oninput="onBigFiveChange('${trait.key}', this.value)">
+                    <div class="flex justify-between text-[8.5px] text-slate-400 mt-0.5 font-semibold uppercase tracking-wide">
+                        <span>1 · Baixa</span>
+                        <span>3 · Média</span>
+                        <span>5 · Alta</span>
+                    </div>
+                    <div id="bf-desc-${trait.key}" class="text-[9.5px] italic mt-0.5 leading-tight" style="color:${descColor}">${escapeHTML(descText)}</div>
+                `;
+                list.appendChild(row);
+            });
+            return wrap;
+        }
+
         function getCurrentFramework() {
             if (!mindMapData || !mindMapData.beatSheetFramework) return null;
             return BEAT_FRAMEWORKS[mindMapData.beatSheetFramework] || null;
@@ -1893,6 +2100,25 @@
                 html += `<div class="tt-empty">Nenhum detalhe preenchido ainda.</div>`;
             }
 
+            if (node.type === 'character' && hasBigFiveData(node)) {
+                const bf = node.typeData.bigFive;
+                html += `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e2e8f0;">
+                    <div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#64748b; margin-bottom:6px;">🎭 Traços de Personalidade</div>`;
+                BIG_FIVE_TRAITS.forEach(t => {
+                    const v = bf[t.key];
+                    const bars = Array.from({length: 5}, (_, i) =>
+                        `<span style="display:inline-block;width:10px;height:6px;border-radius:1px;margin-right:1px;background:${i < v ? t.color : '#e2e8f0'};"></span>`
+                    ).join('');
+                    html += `<div style="display:flex; align-items:center; gap:6px; margin-bottom:3px; font-size:10.5px;">
+                        <span style="min-width:14px;">${t.icon}</span>
+                        <span style="min-width:86px; color:#475569;">${escapeHTML(t.short)}</span>
+                        <span>${bars}</span>
+                        <b style="color:${t.color}; margin-left:2px;">${v}</b>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+
             if (node.content && node.content.trim()) {
                 html += `<div class="tt-content">${escapeHTML(node.content)}</div>`;
             }
@@ -2291,6 +2517,11 @@
                 wrapper.innerHTML = `<label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">${escapeHTML(f.label)}</label>${inputHTML}`;
                 container.appendChild(wrapper);
             });
+
+            // Traços de Personalidade — só para personagens
+            if (node.type === 'character') {
+                container.appendChild(buildBigFiveSection(node));
+            }
         }
 
         function onTypeFieldChange(key, value) {
@@ -2313,7 +2544,8 @@
                     if (d.location) parts.push(d.location);
                     if (d.timeOfDay) parts.push(d.timeOfDay);
                     break;
-                case 'character':
+                    case 'character':
+                    if (d.fullName) parts.push(d.fullName);
                     if (d.role) parts.push(d.role);
                     if (d.age) parts.push(d.age + (String(d.age).match(/\d/) ? ' anos' : ''));
                     break;
@@ -2990,8 +3222,13 @@
                 }
                 savePositionsBeforeBeatSort();
                 mindMapData.beatSortMode = true;
-                applyBeatSortLayout();
+                // Tenta restaurar o último arranjo; se não houver (ou estiver incompleto), aplica o auto-layout
+                if (!restoreBeatSortArrangement()) {
+                    applyBeatSortLayout();
+                }
             } else {
+                // Salva o arranjo atual ANTES de sair
+                saveBeatSortArrangement();
                 mindMapData.beatSortMode = false;
                 restorePositionsFromBeatSort();
             }
@@ -3017,6 +3254,37 @@
                 if (saved[n.id]) { n.x = saved[n.id].x; n.y = saved[n.id].y; }
             });
             mindMapData.beatSortSavedPositions = null;
+        }
+
+        // ==============================================================
+        // Preserva o arranjo manual feito pelo usuário no Modo Narrativo
+        // ==============================================================
+        function saveBeatSortArrangement() {
+            if (!mindMapData) return;
+            const saved = {};
+            mindMapData.nodes.forEach(n => { saved[n.id] = { x: n.x, y: n.y }; });
+            mindMapData.beatSortLastArrangement = saved;
+        }
+
+        function restoreBeatSortArrangement() {
+            if (!mindMapData || !mindMapData.beatSortLastArrangement) return false;
+            const saved = mindMapData.beatSortLastArrangement;
+            // Se algum nó novo foi criado (não está no saved), invalida e refaz o layout do zero
+            const allPresent = mindMapData.nodes.every(n => saved[n.id]);
+            if (!allPresent) return false;
+            mindMapData.nodes.forEach(n => { n.x = saved[n.id].x; n.y = saved[n.id].y; });
+            return true;
+        }
+
+        function forceBeatSortReorganize() {
+            if (!mindMapData || !mindMapData.beatSortMode) return;
+            pushHistory();
+            mindMapData.beatSortLastArrangement = null;
+            applyBeatSortLayout();
+            saveStoriesStorage();
+            renderApp();
+            requestAnimationFrame(() => requestAnimationFrame(fitView));
+            showToast("Modo Narrativo reorganizado.", "success", 1800);
         }
 
         function applyBeatSortLayout() {
@@ -3225,8 +3493,8 @@
                 savePositionsBeforeBeatSheet();
             }
             mindMapData.beatSheetMode = true;
-            const hasBeats = mindMapData.nodes.some(n => n.beatId);
-            if (hasBeats) layoutBeatSheet();
+            // ✅ FIX: sempre aplica o layout, mesmo quando nenhum nó tem beat ainda.
+            layoutBeatSheet();
             saveStoriesStorage();
             syncBeatSheetUI();
             syncBeatSortUI();
@@ -3419,6 +3687,8 @@
                     }
                 }
             } else if (mindMapData.beatSortMode) {
+                // ✅ FIX: invalida o cache do arranjo para evitar layout antigo
+                mindMapData.beatSortLastArrangement = null;
                 applyBeatSortLayout();
             }
             saveStoriesStorage();
@@ -3541,6 +3811,8 @@
                     });
                 }
             } else if (mindMapData.beatSortMode) {
+                // ✅ FIX: invalida o cache do arranjo para evitar layout antigo
+                mindMapData.beatSortLastArrangement = null;
                 applyBeatSortLayout();
             }
             saveStoriesStorage();
@@ -3845,6 +4117,8 @@
                     s.beatSheetSavedPositions = s.beatSheetSavedPositions && typeof s.beatSheetSavedPositions === 'object' ? s.beatSheetSavedPositions : null;
                     s.beatSortMode = !!(s.beatSortMode && s.beatSheetFramework);
                     s.beatSortSavedPositions = s.beatSortSavedPositions && typeof s.beatSortSavedPositions === 'object' ? s.beatSortSavedPositions : null;
+                    // Garante que o cache do arranjo seja um objeto válido
+                    s.beatSortLastArrangement = s.beatSortLastArrangement && typeof s.beatSortLastArrangement === 'object' ? s.beatSortLastArrangement : null;
                     s.nodes = (s.nodes || []).map(migrateNode);
                     s.relationships = (s.relationships || []).map(r => migrateRelationship(r, s));
                 });
@@ -3857,7 +4131,7 @@
                 id: generateSheetId(), name: 'Enredo Principal',
                 layout: story.layout || 'tree', theme: story.theme || 'default',
                 beatSheetMode: false, beatSheetFramework: null, beatSheetSavedPositions: null,
-                beatSortMode: false, beatSortSavedPositions: null,
+                beatSortMode: false, beatSortSavedPositions: null, beatSortLastArrangement: null,
                 nodes: (story.nodes || []).map(migrateNode),
                 relationships: []
             };
@@ -3876,6 +4150,7 @@
                 beatSheetSavedPositions: null,
                 beatSortMode: false,
                 beatSortSavedPositions: null,
+                beatSortLastArrangement: null,
                 nodes: options.nodes || [
                     { id: generateNodeId(), title: "NOVO MAPA", content: "", parentId: null, x: CANVAS_CENTER_X, y: CANVAS_CENTER_Y, color: "purple", icons: [], collapsed: false, tension: 0, beatId: null, type: null, pov: "", typeData: {}, isVariant: false, variantOf: null, variantLabel: "" }
                 ],
@@ -4287,6 +4562,14 @@
                 if (idMap[r.from]) r.from = idMap[r.from];
                 if (idMap[r.to]) r.to = idMap[r.to];
             });
+            // Se houver cache de arranjo, remapear IDs
+            if (clone.beatSortLastArrangement && typeof clone.beatSortLastArrangement === 'object') {
+                const remapped = {};
+                Object.entries(clone.beatSortLastArrangement).forEach(([oldId, pos]) => {
+                    if (idMap[oldId]) remapped[idMap[oldId]] = pos;
+                });
+                clone.beatSortLastArrangement = remapped;
+            }
             const idx = currentStory.sheets.findIndex(s => s.id === sheetId);
             currentStory.sheets.splice(idx + 1, 0, clone);
             mindMapData = clone; currentStory.activeSheetId = clone.id;
@@ -4415,7 +4698,10 @@
             mindMapData.relationships = (mindMapData.relationships || []).concat(newRels);
             selectedNodeIds.clear();
             newNodes.forEach(n => selectedNodeIds.add(n.id));
-            if (mindMapData.beatSortMode) applyBeatSortLayout();
+            if (mindMapData.beatSortMode) {
+                mindMapData.beatSortLastArrangement = null;
+                applyBeatSortLayout();
+            }
             requestAnimationFrame(() => {
                 if (resolveOverlapsForDragged(new Set(newNodes.map(n => n.id)))) renderApp();
             });
@@ -4452,7 +4738,7 @@
                 id: generateSheetId(), name: (sheetName.trim() || defaultName),
                 layout: mindMapData.layout || 'tree', theme: mindMapData.theme || 'default',
                 beatSheetMode: false, beatSheetFramework: null, beatSheetSavedPositions: null,
-                beatSortMode: false, beatSortSavedPositions: null,
+                beatSortMode: false, beatSortSavedPositions: null, beatSortLastArrangement: null,
                 nodes: subtreeNodes, relationships: subtreeRels
             };
             mindMapData.nodes = mindMapData.nodes.filter(n => !sub.has(n.id));
@@ -4710,7 +4996,7 @@
                     ? `<div class="text-[10px] font-semibold mb-1 truncate" style="color:${typeDef ? typeDef.color : '#475569'}" title="${escapeHTML(cardTypeSummary)}">${escapeHTML(cardTypeSummary)}</div>`
                     : '';
 
-                el.innerHTML = `
+                           el.innerHTML = `
                     ${tensionBarHTML}
                     ${variantBadgeHTML}
                     ${beatBadgeHTML}
@@ -5265,7 +5551,9 @@
                         saveStoriesStorage();
                         renderApp();
                     } else if (mindMapData.beatSortMode) {
+                        // ✅ FIX: ao arrastar no modo narrativo, persiste o arranjo e invalida cache antigo
                         pushHistory();
+                        saveBeatSortArrangement();
                         saveStoriesStorage();
                         renderApp();
                     } else {
@@ -5692,6 +5980,9 @@
             if (mindMapData.beatSortSavedPositions) {
                 toDelete.forEach(id => { delete mindMapData.beatSortSavedPositions[id]; });
             }
+            if (mindMapData.beatSortLastArrangement) {
+                toDelete.forEach(id => { delete mindMapData.beatSortLastArrangement[id]; });
+            }
             if (focusModeNodeId && toDelete.has(focusModeNodeId)) { focusModeNodeId = null; updateFocusPill(); }
             selectedNodeIds.clear();
             editingNodeId = null; editingField = null;
@@ -5740,7 +6031,10 @@
         function autoLayoutNodes() {
             pushHistory();
             if (mindMapData.beatSheetMode) layoutBeatSheet();
-            else if (mindMapData.beatSortMode) applyBeatSortLayout();
+            else if (mindMapData.beatSortMode) {
+                mindMapData.beatSortLastArrangement = null;
+                applyBeatSortLayout();
+            }
             else applyLayout();
             saveStoriesStorage(); renderApp();
             requestAnimationFrame(() => requestAnimationFrame(fitView));
@@ -5875,6 +6169,11 @@
                     });
                     break;
                 }
+            }
+            // No modo narrativo, o cache do arranjo fica desatualizado após alinhar
+            if (mindMapData.beatSortMode) {
+                mindMapData.beatSortLastArrangement = null;
+                saveBeatSortArrangement();
             }
             saveStoriesStorage();
             renderApp();
@@ -6561,6 +6860,12 @@
                                 md += '  '.repeat(depth + 1) + `  - **${f.label}:** ${v}\n`;
                             }
                         });
+                    }
+                    if (n.type === 'character' && n.typeData && n.typeData.bigFive && hasBigFiveData(n)) {
+                        const bf = n.typeData.bigFive;
+                        md += '  '.repeat(depth + 1) + `  - **Traços de Personalidade:** `;
+                        md += BIG_FIVE_TRAITS.map(t => `${t.icon} ${t.short} ${bf[t.key] || 3}/5`).join(' · ');
+                        md += '\n';
                     }
                     walk(n.id, depth + 1);
                 });
