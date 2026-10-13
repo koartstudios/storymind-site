@@ -542,6 +542,7 @@
         #skilltree-modal #skilltree-svg { touch-action: none; user-select: none; -webkit-user-select: none; }
         #skilltree-modal .st-node { cursor: grab; touch-action: none; }
         #skilltree-modal .st-node:active { cursor: grabbing; }
+        #skilltree-modal .st-marquee { fill: rgba(99,102,241,0.12); stroke: #6366f1; stroke-width: 1.5; stroke-dasharray: 5 4; pointer-events: none; }
         #skilltree-modal .st-node.selected .st-ring {
             stroke: #6366f1 !important;
             stroke-width: 4;
@@ -1482,6 +1483,9 @@
                     <span id="skilltree-count" class="text-xs bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded-full">0</span>
                 </div>
                 <div class="flex items-center gap-1.5">
+                    <button onclick="skillTreeAddRoot()" class="bg-amber-500 hover:bg-amber-600 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-sm" title="Criar habilidade raiz">
+                        <i class="fa-solid fa-plus"></i><span class="hidden sm:inline">Nova raiz</span>
+                    </button>
                     <button onclick="skillTreeAutoLayout()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5" title="Organizar em camadas">
                         <i class="fa-solid fa-wand-magic-sparkles"></i><span class="hidden md:inline">Auto-organizar</span>
                     </button>
@@ -1516,6 +1520,9 @@
                     </div>
 
                     <div id="st-detail-panel" class="hidden flex-1 flex flex-col overflow-y-auto p-4 space-y-4">
+                        <div id="st-batch-hint" class="hidden rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-[11px] leading-relaxed text-indigo-800">
+                            <i class="fa-solid fa-layer-group mr-1"></i> Edição em lote: os campos alterados são aplicados a todas as habilidades selecionadas. Campos com valores diferentes aparecem vazios.
+                        </div>
 
                         <div class="flex items-center gap-3">
                             <div id="st-detail-icon" class="w-16 h-16 rounded-xl border-2 border-amber-300 bg-white flex items-center justify-center overflow-hidden shrink-0">
@@ -1603,11 +1610,11 @@
                         </div>
 
                         <div class="pt-2 border-t border-slate-200 flex flex-col gap-2">
-                            <button onclick="skillTreeAddChildToSelected()" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5">
+                            <button id="st-add-child-selected-btn" onclick="skillTreeAddChildToSelected()" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5">
                                 <i class="fa-solid fa-code-branch"></i>
                                 <span>Adicionar Habilidade Filha</span>
                             </button>
-                            <button onclick="skillTreeDeleteSelected()" class="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5">
+                            <button id="st-delete-selected-btn" onclick="skillTreeDeleteSelected()" class="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5">
                                 <i class="fa-solid fa-trash-can"></i>
                                 <span>Excluir Habilidade</span>
                             </button>
@@ -8100,9 +8107,15 @@
         const SKILL_NODE_SPACING_Y = 130;
 
         let stCurrentCharacterId = null;
-        let stSelectedSkillId = null;
+        let stSelectedSkillId = null; // habilidade principal para ações de ramo
+        const stSelectedSkillIds = new Set();
         let stPanX = 0, stPanY = 0, stScale = 1;
         let stIsPanning = false, stPanStartX = 0, stPanStartY = 0;
+        let stIsMarquee = false, stMarqueeStartX = 0, stMarqueeStartY = 0;
+        let stMarqueeMoved = false, stMarqueeAdditive = false;
+        let stMarqueeBaseSelection = new Set();
+        let stMarqueeRect = null;
+        let stSpacePressed = false;
         let stDraggingSkillId = null;
         let stDragStartClientX = 0, stDragStartClientY = 0;
         let stDragMoved = false;
@@ -8110,8 +8123,11 @@
         let stDragPointerId = null;
         let stInitialPositions = new Map();
         let stCanvasListenersAttached = false;
-        let stEditorCollapsed = false;
+        let stEditorCollapsed = true;
         let stHoverSkillId = null;
+
+        window.addEventListener('keyup', (ev) => { if (ev.code === 'Space') stSpacePressed = false; });
+        window.addEventListener('blur', () => { stSpacePressed = false; });
 
         function ensureSkillTreesArray() {
             if (!mindMapData.skillTrees || typeof mindMapData.skillTrees !== 'object') {
@@ -8137,8 +8153,39 @@
             return SKILL_TYPES.find(item => item.id === type) || SKILL_TYPES[0];
         }
 
+        function getSkillTreeSelectedSkills() {
+            const skills = getSkillsForSelectedCharacter();
+            const byId = new Map(skills.map(skill => [skill.id, skill]));
+            return [...stSelectedSkillIds].map(id => byId.get(id)).filter(Boolean);
+        }
+
+        function skillTreeSetSelection(ids, primaryId = null) {
+            const validIds = new Set(getSkillsForSelectedCharacter().map(skill => skill.id));
+            stSelectedSkillIds.clear();
+            (ids || []).forEach(id => { if (validIds.has(id)) stSelectedSkillIds.add(id); });
+            stSelectedSkillId = primaryId && stSelectedSkillIds.has(primaryId)
+                ? primaryId
+                : (stSelectedSkillIds.values().next().value || null);
+            updateSkillTreeSelection();
+            skillTreeSetEditorCollapsed(stSelectedSkillIds.size === 0);
+        }
+
+        function skillTreeRefreshSelectionUI() {
+            if (!stSelectedSkillIds.has(stSelectedSkillId)) {
+                stSelectedSkillId = stSelectedSkillIds.values().next().value || null;
+            }
+            updateSkillTreeSelection();
+            if (stSelectedSkillIds.size === 0) {
+                skillTreeSetEditorCollapsed(true);
+            } else {
+                if (stEditorCollapsed) skillTreeSetEditorCollapsed(false);
+                else renderSkillTreeDetailPanel();
+            }
+        }
+
         function skillTreeSetEditorCollapsed(collapsed) {
-            stEditorCollapsed = !!collapsed;
+            // Sem seleção, o inspetor permanece fechado. Um nó selecionado pode reabrir o painel.
+            stEditorCollapsed = !!collapsed || stSelectedSkillIds.size === 0;
             const sidebar = document.getElementById('st-editor-sidebar');
             const header = document.getElementById('st-editor-header');
             const rootBtn = document.getElementById('st-add-root-btn');
@@ -8167,6 +8214,7 @@
         }
 
         function skillTreeToggleEditor() {
+            if (stEditorCollapsed && stSelectedSkillIds.size === 0) return;
             skillTreeSetEditorCollapsed(!stEditorCollapsed);
         }
 
@@ -8209,8 +8257,9 @@
             }
 
             stSelectedSkillId = null;
+            stSelectedSkillIds.clear();
             stPanX = 0; stPanY = 0; stScale = 1;
-            skillTreeSetEditorCollapsed(false);
+            skillTreeSetEditorCollapsed(true);
             hideSkillTreeTooltip();
 
             modal.classList.remove('hidden');
@@ -8228,7 +8277,11 @@
             modal.classList.remove('flex');
             stDraggingSkillId = null;
             stIsPanning = false;
+            stIsMarquee = false;
             stDragPointerId = null;
+            stSelectedSkillIds.clear();
+            stSelectedSkillId = null;
+            skillTreeSetEditorCollapsed(true);
             hideSkillTreeTooltip();
         }
 
@@ -8236,7 +8289,9 @@
             if (!charId) return;
             stCurrentCharacterId = charId;
             stSelectedSkillId = null;
+            stSelectedSkillIds.clear();
             stPanX = 0; stPanY = 0; stScale = 1;
+            skillTreeSetEditorCollapsed(true);
             renderSkillTree();
         }
 
@@ -8266,6 +8321,9 @@
             };
             skills.push(newSkill);
             stSelectedSkillId = newSkill.id;
+            stSelectedSkillIds.clear();
+            stSelectedSkillIds.add(newSkill.id);
+            skillTreeSetEditorCollapsed(false);
             saveStoriesStorage();
             renderSkillTree();
         }
@@ -8292,6 +8350,9 @@
             };
             tree.skills.push(newSkill);
             stSelectedSkillId = newSkill.id;
+            stSelectedSkillIds.clear();
+            stSelectedSkillIds.add(newSkill.id);
+            skillTreeSetEditorCollapsed(false);
             saveStoriesStorage();
             renderSkillTree();
             requestAnimationFrame(() => {
@@ -8301,51 +8362,69 @@
         }
 
         function skillTreeDeleteSelected() {
-            const skill = findSkillById(stSelectedSkillId);
-            if (!skill) return;
-            const toDelete = new Set([skill.id]);
+            const selected = getSkillTreeSelectedSkills();
+            if (!selected.length) return;
+            const toDelete = new Set(selected.map(skill => skill.id));
             let changed = true;
             while (changed) {
                 changed = false;
-                getSkillsForSelectedCharacter().forEach(s => {
-                    if (s.parentId && toDelete.has(s.parentId) && !toDelete.has(s.id)) {
-                        toDelete.add(s.id);
+                getSkillsForSelectedCharacter().forEach(skill => {
+                    if (skill.parentId && toDelete.has(skill.parentId) && !toDelete.has(skill.id)) {
+                        toDelete.add(skill.id);
                         changed = true;
                     }
                 });
             }
-            const msg = toDelete.size > 1
-                ? `Excluir "${skill.name}" + ${toDelete.size - 1} habilidade(s) filha(s)?`
-                : `Excluir "${skill.name}"?`;
+            const msg = toDelete.size > selected.length
+                ? `Excluir ${selected.length} habilidade(s) selecionada(s) e suas descendentes (${toDelete.size} no total)?`
+                : `Excluir ${selected.length === 1 ? 'esta habilidade' : `estas ${selected.length} habilidades`}?`;
             if (!confirm(msg)) return;
 
             pushHistory();
             const tree = getSkillTreeForCharacter(stCurrentCharacterId);
-            tree.skills = tree.skills.filter(s => !toDelete.has(s.id));
+            tree.skills = tree.skills.filter(skill => !toDelete.has(skill.id));
+            stSelectedSkillIds.clear();
             stSelectedSkillId = null;
+            skillTreeSetEditorCollapsed(true);
             saveStoriesStorage();
             renderSkillTree();
         }
 
         function skillTreeSetColor(colorKey) {
-            const skill = findSkillById(stSelectedSkillId);
-            if (!skill) return;
+            const skills = getSkillTreeSelectedSkills();
+            if (!skills.length) return;
             pushHistory();
-            skill.color = colorKey;
+            skills.forEach(skill => { skill.color = colorKey; });
             saveStoriesStorage();
-            renderSkillTree();
+            renderSkillTreeCanvas();
+            updateSkillTreeSelection();
         }
 
         function skillTreeOnFieldChange(field, value) {
-            const skill = findSkillById(stSelectedSkillId);
-            if (!skill) return;
-            skill[field] = value;
-            if (field === 'name') {
-                const el = document.getElementById('st-detail-name');
-                if (el) el.textContent = value || '—';
+            const skills = getSkillTreeSelectedSkills();
+            if (!skills.length) return;
+            if (field === 'type' && !value) return; // placeholder de valores mistos
+            if ((field === 'rank' || field === 'maxRank') && value === '') return;
+
+            let nextValue = value;
+            if (field === 'rank' || field === 'maxRank') {
+                const parsed = Number.parseInt(value, 10);
+                if (!Number.isFinite(parsed)) return;
+                nextValue = field === 'rank'
+                    ? Math.max(0, Math.min(10, parsed))
+                    : Math.max(1, Math.min(10, parsed));
+                const input = document.getElementById(field === 'rank' ? 'st-edit-rank' : 'st-edit-maxrank');
+                if (input && String(nextValue) !== String(value)) input.value = String(nextValue);
             }
-            if (field === 'type') {
-                const type = getSkillType(value);
+
+            skills.forEach(skill => { skill[field] = nextValue; });
+            const isMulti = skills.length > 1;
+            if (field === 'name' && !isMulti) {
+                const el = document.getElementById('st-detail-name');
+                if (el) el.textContent = nextValue || '—';
+            }
+            if (field === 'type' && !isMulti) {
+                const type = getSkillType(nextValue);
                 const tierEl = document.getElementById('st-detail-tier');
                 if (tierEl) {
                     tierEl.textContent = `${type.icon} ${type.label}`;
@@ -8358,9 +8437,18 @@
         }
 
         function renderSkillTreeDetailIcon() {
-            const skill = findSkillById(stSelectedSkillId);
             const iconBox = document.getElementById('st-detail-icon');
-            if (!iconBox || !skill) return;
+            if (!iconBox) return;
+            const skills = getSkillTreeSelectedSkills();
+            if (skills.length > 1) {
+                iconBox.innerHTML = '<i class="fa-solid fa-layer-group text-2xl text-indigo-500"></i>';
+                return;
+            }
+            const skill = skills[0];
+            if (!skill) {
+                iconBox.innerHTML = '<i class="fa-solid fa-star text-2xl text-amber-500"></i>';
+                return;
+            }
             if (skill.iconUrl && /^https?:\/\//i.test(skill.iconUrl)) {
                 iconBox.innerHTML = `<img src="${escapeHTML(skill.iconUrl)}" class="w-full h-full object-cover" crossorigin="anonymous" alt="">`;
             } else {
@@ -8369,17 +8457,21 @@
         }
 
         function skillTreePasteEmoji() {
-            const skill = findSkillById(stSelectedSkillId);
-            if (!skill) return;
-            const emoji = prompt('Cole um emoji (ex: ⚔️ 🛡️ 🔥 💀):', skill.emoji || '⭐');
+            const skills = getSkillTreeSelectedSkills();
+            if (!skills.length) return;
+            const currentEmoji = skills.length === 1 ? (skills[0].emoji || '⭐') : '⭐';
+            const emoji = prompt(`Cole um emoji para ${skills.length === 1 ? 'a habilidade' : `as ${skills.length} habilidades selecionadas`} (ex: ⚔️ 🛡️ 🔥 💀):`, currentEmoji);
             if (emoji === null) return;
             pushHistory();
-            skill.emoji = emoji.trim() || '⭐';
-            skill.iconUrl = '';
+            skills.forEach(skill => {
+                skill.emoji = emoji.trim() || '⭐';
+                skill.iconUrl = '';
+            });
             const iconInput = document.getElementById('st-edit-icon');
             if (iconInput) iconInput.value = '';
             saveStoriesStorage();
-            renderSkillTree();
+            renderSkillTreeCanvas();
+            renderSkillTreeDetailIcon();
         }
 
         function skillTreeResolveCollision(skillId) {
@@ -8577,7 +8669,7 @@
                 const parent = skills.find(s => s.id === skill.parentId);
                 if (!parent) return;
 
-                const isActive = stSelectedSkillId === skill.id || stSelectedSkillId === parent.id;
+                const isActive = stSelectedSkillIds.has(skill.id) || stSelectedSkillIds.has(parent.id);
                 const type = getSkillType(skill.type);
                 const dx = skill.x - parent.x;
                 const dy = skill.y - parent.y;
@@ -8603,7 +8695,7 @@
             skills.forEach(skill => {
                 const type = getSkillType(skill.type);
                 const color = SKILL_COLORS[skill.color] || type.color;
-                const isSelected = stSelectedSkillId === skill.id;
+                const isSelected = stSelectedSkillIds.has(skill.id);
 
                 const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                 g.setAttribute('class', 'st-node' + (isSelected ? ' selected' : ''));
@@ -8759,6 +8851,8 @@
                     ev.stopPropagation();
                     hideSkillTreeTooltip();
                     stSelectedSkillId = skill.id;
+                    stSelectedSkillIds.clear();
+                    stSelectedSkillIds.add(skill.id);
                     skillTreeSetEditorCollapsed(false);
                     skillTreeAddChildToSelected();
                 });
@@ -8774,7 +8868,14 @@
                 nodeGroup.appendChild(g);
             });
 
-            // Pan no fundo (anexa apenas uma vez)
+            // Retângulo de marquee fica fora do grupo de zoom para seguir o ponteiro em coordenadas de tela.
+            stMarqueeRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            stMarqueeRect.setAttribute('id', 'st-marquee-rect');
+            stMarqueeRect.setAttribute('class', 'st-marquee');
+            stMarqueeRect.setAttribute('visibility', 'hidden');
+            svgEl.appendChild(stMarqueeRect);
+
+            // Pan / seleção por marquee no fundo (anexa apenas uma vez)
             if (!stCanvasListenersAttached) {
                 svgEl.addEventListener('pointerdown', onSkillTreeCanvasPointerDown);
                 svgEl.addEventListener('pointermove', onSkillTreeCanvasPointerMove);
@@ -8795,22 +8896,83 @@
             if (!svg) return;
             svg.querySelectorAll('.st-node').forEach(g => {
                 const id = g.getAttribute('data-skill-id');
-                g.classList.toggle('selected', id === stSelectedSkillId);
+                g.classList.toggle('selected', stSelectedSkillIds.has(id));
             });
         }
 
-        function onSkillTreeCanvasPointerDown(ev) {
-            if (ev.button !== 0 && ev.pointerType === 'mouse') return;
+        function skillTreePointerPosition(event) {
             const svg = document.getElementById('skilltree-svg');
+            const rect = svg.getBoundingClientRect();
+            return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+        }
+
+        function skillTreeUpdateMarquee(event) {
+            const svg = document.getElementById('skilltree-svg');
+            if (!svg || !stMarqueeRect) return;
+            const point = skillTreePointerPosition(event);
+            const x1 = Math.min(stMarqueeStartX, point.x);
+            const y1 = Math.min(stMarqueeStartY, point.y);
+            const x2 = Math.max(stMarqueeStartX, point.x);
+            const y2 = Math.max(stMarqueeStartY, point.y);
+            stMarqueeRect.setAttribute('x', x1);
+            stMarqueeRect.setAttribute('y', y1);
+            stMarqueeRect.setAttribute('width', Math.max(1, x2 - x1));
+            stMarqueeRect.setAttribute('height', Math.max(1, y2 - y1));
+            stMarqueeRect.setAttribute('visibility', 'visible');
+            stMarqueeMoved = (x2 - x1) > 3 || (y2 - y1) > 3;
+
+            if (!stMarqueeMoved) return;
+            const nextSelection = new Set(stMarqueeAdditive ? stMarqueeBaseSelection : []);
+            getSkillsForSelectedCharacter().forEach(skill => {
+                const cx = stPanX + (Number(skill.x) || 0) * stScale;
+                const cy = stPanY + (Number(skill.y) || 0) * stScale;
+                const r = (SKILL_NODE_R + 12) * stScale;
+                const intersects = cx + r >= x1 && cx - r <= x2 && cy + r >= y1 && cy - r <= y2;
+                if (intersects) nextSelection.add(skill.id);
+            });
+            stSelectedSkillIds.clear();
+            nextSelection.forEach(id => stSelectedSkillIds.add(id));
+            if (!stSelectedSkillIds.has(stSelectedSkillId)) {
+                stSelectedSkillId = stSelectedSkillIds.values().next().value || null;
+            }
+            updateSkillTreeSelection();
+        }
+
+        function onSkillTreeCanvasPointerDown(ev) {
+            if (ev.pointerType === 'mouse' && ev.button !== 0 && ev.button !== 1) return;
+            const svg = document.getElementById('skilltree-svg');
+            if (!svg) return;
             const target = ev.target;
             const nodeEl = target && target.closest ? target.closest('.st-node') : null;
+
             if (nodeEl) {
                 const skillId = nodeEl.getAttribute('data-skill-id');
                 const skill = findSkillById(skillId);
                 if (!skill) return;
+                const additiveClick = ev.shiftKey || ev.ctrlKey || ev.metaKey;
 
                 ev.preventDefault();
+                hideSkillTreeTooltip();
                 stIsPanning = false;
+                stIsMarquee = false;
+
+                // Shift/Ctrl/Cmd alternam membros da seleção sem iniciar movimento acidental.
+                if (additiveClick) {
+                    const next = new Set(stSelectedSkillIds);
+                    if (next.has(skillId)) next.delete(skillId);
+                    else next.add(skillId);
+                    skillTreeSetSelection(next, next.has(skillId) ? skillId : null);
+                    return;
+                }
+
+                // Clicar num nó já selecionado preserva a seleção múltipla para mover o grupo inteiro.
+                if (!stSelectedSkillIds.has(skillId)) {
+                    stSelectedSkillIds.clear();
+                    stSelectedSkillIds.add(skillId);
+                }
+                stSelectedSkillId = skillId;
+                skillTreeRefreshSelectionUI();
+
                 stDraggingSkillId = skill.id;
                 stDragStartClientX = ev.clientX;
                 stDragStartClientY = ev.clientY;
@@ -8818,47 +8980,80 @@
                 stDragHistoryPushed = false;
                 stDragPointerId = ev.pointerId;
                 stInitialPositions.clear();
-                stInitialPositions.set(skill.id, { x: Number(skill.x) || 0, y: Number(skill.y) || 0 });
-
-                stSelectedSkillId = skill.id;
-                hideSkillTreeTooltip();
-                skillTreeSetEditorCollapsed(false);
-                updateSkillTreeSelection();
+                getSkillTreeSelectedSkills().forEach(selected => {
+                    stInitialPositions.set(selected.id, { x: Number(selected.x) || 0, y: Number(selected.y) || 0 });
+                });
                 try { svg.setPointerCapture(ev.pointerId); } catch (_) {}
                 return;
             }
 
-            stIsPanning = true;
-            stPanStartX = ev.clientX - stPanX;
-            stPanStartY = ev.clientY - stPanY;
-            stDragPointerId = ev.pointerId;
             hideSkillTreeTooltip();
+            stDraggingSkillId = null;
+            stDragMoved = false;
+            stDragHistoryPushed = false;
+            stDragPointerId = ev.pointerId;
+
+            // Espaço + arraste ou botão do meio preserva o pan; arrastar o fundo seleciona por marquee.
+            if (ev.button === 1 || stSpacePressed) {
+                stIsMarquee = false;
+                stIsPanning = true;
+                svg.style.cursor = 'grabbing';
+                stPanStartX = ev.clientX - stPanX;
+                stPanStartY = ev.clientY - stPanY;
+            } else {
+                stIsPanning = false;
+                stIsMarquee = true;
+                svg.style.cursor = 'crosshair';
+                const point = skillTreePointerPosition(ev);
+                stMarqueeStartX = point.x;
+                stMarqueeStartY = point.y;
+                stMarqueeMoved = false;
+                stMarqueeAdditive = ev.shiftKey || ev.ctrlKey || ev.metaKey;
+                stMarqueeBaseSelection = new Set(stSelectedSkillIds);
+                if (!stMarqueeAdditive) {
+                    stSelectedSkillIds.clear();
+                    stSelectedSkillId = null;
+                    updateSkillTreeSelection();
+                }
+                if (stMarqueeRect) {
+                    stMarqueeRect.setAttribute('x', point.x);
+                    stMarqueeRect.setAttribute('y', point.y);
+                    stMarqueeRect.setAttribute('width', 1);
+                    stMarqueeRect.setAttribute('height', 1);
+                    stMarqueeRect.setAttribute('visibility', 'visible');
+                }
+            }
             try { svg.setPointerCapture(ev.pointerId); } catch (_) {}
+            ev.preventDefault();
         }
 
         function onSkillTreeCanvasPointerMove(ev) {
             if (stDraggingSkillId) {
                 if (stDragPointerId !== null && ev.pointerId !== stDragPointerId) return;
-                const skill = findSkillById(stDraggingSkillId);
-                const initial = stInitialPositions.get(stDraggingSkillId);
-                if (!skill || !initial) return;
-
                 const dx = ev.clientX - stDragStartClientX;
                 const dy = ev.clientY - stDragStartClientY;
                 if (!stDragMoved && (dx * dx + dy * dy) < 16) return;
                 if (!stDragHistoryPushed) {
-                    // O snapshot anterior ao primeiro movimento permite desfazer o arraste corretamente.
                     pushHistory();
                     stDragHistoryPushed = true;
                 }
                 stDragMoved = true;
-                skill.x = initial.x + dx / stScale;
-                skill.y = initial.y + dy / stScale;
-
-                const node = document.querySelector(`#skilltree-svg .st-node[data-skill-id="${CSS.escape(skill.id)}"]`);
-                if (node) node.setAttribute('transform', `translate(${skill.x},${skill.y})`);
+                stInitialPositions.forEach((initial, id) => {
+                    const skill = findSkillById(id);
+                    if (!skill) return;
+                    skill.x = initial.x + dx / stScale;
+                    skill.y = initial.y + dy / stScale;
+                    const node = document.querySelector(`#skilltree-svg .st-node[data-skill-id="${CSS.escape(skill.id)}"]`);
+                    if (node) node.setAttribute('transform', `translate(${skill.x},${skill.y})`);
+                });
                 updateSkillTreeConnections();
                 hideSkillTreeTooltip();
+                return;
+            }
+
+            if (stIsMarquee) {
+                if (stDragPointerId !== null && ev.pointerId !== stDragPointerId) return;
+                skillTreeUpdateMarquee(ev);
                 return;
             }
 
@@ -8883,6 +9078,7 @@
         function onSkillTreeCanvasPointerUp(ev) {
             if (stDragPointerId !== null && ev && ev.pointerId !== undefined && ev.pointerId !== stDragPointerId) return;
             const wasDragged = !!stDraggingSkillId && stDragMoved;
+            const wasMarquee = stIsMarquee;
             const svg = document.getElementById('skilltree-svg');
             const pointerId = stDragPointerId;
 
@@ -8890,9 +9086,21 @@
             stDragMoved = false;
             stDragHistoryPushed = false;
             stIsPanning = false;
+            stIsMarquee = false;
+            if (svg) svg.style.cursor = '';
             stDragPointerId = null;
             stInitialPositions.clear();
+            stMarqueeBaseSelection.clear();
+            if (stMarqueeRect) stMarqueeRect.setAttribute('visibility', 'hidden');
 
+            if (wasMarquee) {
+                if (!stMarqueeMoved && !stMarqueeAdditive) {
+                    stSelectedSkillIds.clear();
+                    stSelectedSkillId = null;
+                }
+                stMarqueeMoved = false;
+                skillTreeRefreshSelectionUI();
+            }
             if (wasDragged) {
                 updateSkillTreeConnections();
                 saveStoriesStorage();
@@ -8961,40 +9169,79 @@
             stHoverSkillId = null;
         }
 
+        function skillTreeCommonValue(skills, field, fallback = '') {
+            const values = skills.map(skill => String(skill[field] ?? fallback));
+            return values.every(value => value === values[0])
+                ? { mixed: false, value: values[0] ?? fallback }
+                : { mixed: true, value: '' };
+        }
+
         function renderSkillTreeDetailPanel() {
             const emptyEl = document.getElementById('st-empty-panel');
             const detailEl = document.getElementById('st-detail-panel');
-            const skill = findSkillById(stSelectedSkillId);
+            const batchHint = document.getElementById('st-batch-hint');
+            const addChildBtn = document.getElementById('st-add-child-selected-btn');
+            const deleteBtn = document.getElementById('st-delete-selected-btn');
+            const skills = getSkillTreeSelectedSkills();
 
-            if (stEditorCollapsed) {
-                emptyEl.classList.add('hidden');
-                detailEl.classList.add('hidden');
+            if (stEditorCollapsed || skills.length === 0) {
+                emptyEl?.classList.add('hidden');
+                detailEl?.classList.add('hidden');
                 return;
             }
 
-            if (!skill) {
-                emptyEl.classList.remove('hidden');
-                detailEl.classList.add('hidden');
-                return;
+            emptyEl?.classList.add('hidden');
+            detailEl?.classList.remove('hidden');
+            const isMulti = skills.length > 1;
+            batchHint?.classList.toggle('hidden', !isMulti);
+            addChildBtn?.classList.toggle('hidden', isMulti);
+            if (deleteBtn) {
+                const label = deleteBtn.querySelector('span');
+                if (label) label.textContent = isMulti ? `Excluir ${skills.length} selecionadas` : 'Excluir Habilidade';
             }
 
-            emptyEl.classList.add('hidden');
-            detailEl.classList.remove('hidden');
+            const nameInput = document.getElementById('st-edit-name');
+            const descInput = document.getElementById('st-edit-desc');
+            const iconInput = document.getElementById('st-edit-icon');
+            const typeInput = document.getElementById('st-edit-type');
+            const rankInput = document.getElementById('st-edit-rank');
+            const maxRankInput = document.getElementById('st-edit-maxrank');
+            const detailTier = document.getElementById('st-detail-tier');
+            const detailName = document.getElementById('st-detail-name');
 
-            const type = getSkillType(skill.type);
-            document.getElementById('st-detail-tier').textContent = `${type.icon} ${type.label}`;
-            document.getElementById('st-detail-tier').style.color = type.color;
-            document.getElementById('st-detail-name').textContent = skill.name || '—';
+            if (isMulti) {
+                detailTier.textContent = 'EDIÇÃO EM LOTE';
+                detailTier.style.color = '#6366f1';
+                detailName.textContent = `${skills.length} habilidades selecionadas`;
+            } else {
+                const skill = skills[0];
+                const type = getSkillType(skill.type);
+                detailTier.textContent = `${type.icon} ${type.label}`;
+                detailTier.style.color = type.color;
+                detailName.textContent = skill.name || '—';
+            }
+
+            const nameValue = skillTreeCommonValue(skills, 'name');
+            const descValue = skillTreeCommonValue(skills, 'description');
+            const iconValue = skillTreeCommonValue(skills, 'iconUrl');
+            const typeValues = skills.map(skill => getSkillType(skill.type).id);
+            const typeMixed = !typeValues.every(value => value === typeValues[0]);
+            const rankValue = skillTreeCommonValue(skills, 'rank', 0);
+            const maxRankValue = skillTreeCommonValue(skills, 'maxRank', 1);
+
+            nameInput.value = nameValue.mixed ? '' : nameValue.value;
+            nameInput.placeholder = nameValue.mixed ? 'Valores diferentes — digite para aplicar' : 'Nome da habilidade';
+            descInput.value = descValue.mixed ? '' : descValue.value;
+            descInput.placeholder = descValue.mixed ? 'Descrições diferentes — digite para aplicar' : 'O que essa habilidade faz?';
+            iconInput.value = iconValue.mixed ? '' : iconValue.value;
+            iconInput.placeholder = iconValue.mixed ? 'URLs diferentes — digite para aplicar' : 'https://exemplo.com/habilidade.png';
+            typeInput.value = typeMixed ? '' : typeValues[0];
+            rankInput.value = rankValue.mixed ? '' : rankValue.value;
+            rankInput.placeholder = rankValue.mixed ? 'Vários' : '';
+            maxRankInput.value = maxRankValue.mixed ? '' : maxRankValue.value;
+            maxRankInput.placeholder = maxRankValue.mixed ? 'Vários' : '';
 
             renderSkillTreeDetailIcon();
-
-            document.getElementById('st-edit-name').value = skill.name || '';
-            document.getElementById('st-edit-desc').value = skill.description || '';
-            document.getElementById('st-edit-icon').value = skill.iconUrl || '';
-            document.getElementById('st-edit-type').value = type.id;
-            document.getElementById('st-edit-rank').value = skill.rank || 0;
-            document.getElementById('st-edit-maxrank').value = skill.maxRank || 1;
-
             updateSkillTreeSelection();
         }
 
@@ -9003,6 +9250,12 @@
                 const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'
                              || e.target.isContentEditable
                              || (e.target.closest && e.target.closest('input, textarea, [contenteditable="true"]'));
+                const skillTreeModal = document.getElementById('skilltree-modal');
+                if (e.code === 'Space' && !inInput && skillTreeModal && !skillTreeModal.classList.contains('hidden')) {
+                    stSpacePressed = true;
+                    e.preventDefault();
+                    return;
+                }
                 if (inInput) return;
 
                 if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
@@ -9216,6 +9469,8 @@
                 const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'
                              || e.target.isContentEditable
                              || (e.target.closest && e.target.closest('input, textarea, [contenteditable="true"]'));
+                const skillTreeModal = document.getElementById('skilltree-modal');
+                if (e.code === 'Space' && skillTreeModal && !skillTreeModal.classList.contains('hidden')) return;
                 if (inInput) return;
                 if (e.code === 'Space' && activeTool === 'pan') setTool('select');
             });
