@@ -1483,6 +1483,12 @@
                     <span id="skilltree-count" class="text-xs bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded-full">0</span>
                 </div>
                 <div class="flex items-center gap-1.5">
+                    <button id="st-btn-undo" onclick="skillTreeUndo()" disabled class="bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-35 disabled:cursor-not-allowed px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5" title="Desfazer (Ctrl+Z)" aria-label="Desfazer última ação na Árvore de Habilidades">
+                        <i class="fa-solid fa-rotate-left"></i><span class="hidden sm:inline">Desfazer</span>
+                    </button>
+                    <button id="st-btn-redo" onclick="skillTreeRedo()" disabled class="bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-35 disabled:cursor-not-allowed px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5" title="Refazer (Ctrl+Y)" aria-label="Refazer última ação desfeita na Árvore de Habilidades">
+                        <i class="fa-solid fa-rotate-right"></i><span class="hidden sm:inline">Refazer</span>
+                    </button>
                     <button onclick="skillTreeAddRoot()" class="bg-amber-500 hover:bg-amber-600 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-sm" title="Criar habilidade raiz">
                         <i class="fa-solid fa-plus"></i><span class="hidden sm:inline">Nova raiz</span>
                     </button>
@@ -8147,6 +8153,135 @@
         let stEditorCollapsed = true;
         let stHoverSkillId = null;
 
+        // Histórico independente da Árvore de Habilidades: não interfere no Ctrl+Z do mapa principal.
+        const stHistoryByCharacter = new Map();
+        const ST_HISTORY_LIMIT = 100;
+        let stHistoryApplying = false;
+
+        function skillTreeGetHistoryState(charId = stCurrentCharacterId) {
+            if (!charId) return { undo: [], redo: [], coalesceKey: null, coalesceTimer: null };
+            if (!stHistoryByCharacter.has(charId)) {
+                stHistoryByCharacter.set(charId, { undo: [], redo: [], coalesceKey: null, coalesceTimer: null });
+            }
+            return stHistoryByCharacter.get(charId);
+        }
+
+        function skillTreeCaptureHistorySnapshot(charId = stCurrentCharacterId) {
+            const tree = charId && mindMapData?.skillTrees?.[charId];
+            const skills = tree && Array.isArray(tree.skills) ? tree.skills : [];
+            return {
+                skills: JSON.parse(JSON.stringify(skills)),
+                selectedIds: charId === stCurrentCharacterId ? [...stSelectedSkillIds] : [],
+                primaryId: charId === stCurrentCharacterId ? stSelectedSkillId : null
+            };
+        }
+
+        function skillTreePushHistory(coalesceKey = null) {
+            const charId = stCurrentCharacterId;
+            if (!charId || stHistoryApplying) return;
+            const state = skillTreeGetHistoryState(charId);
+
+            // Agrupa digitação contínua no mesmo campo em uma única ação de desfazer.
+            if (coalesceKey && state.coalesceKey === coalesceKey && state.coalesceTimer) {
+                clearTimeout(state.coalesceTimer);
+                state.coalesceTimer = setTimeout(() => {
+                    state.coalesceKey = null;
+                    state.coalesceTimer = null;
+                }, 850);
+                return;
+            }
+            if (state.coalesceTimer) clearTimeout(state.coalesceTimer);
+            state.coalesceTimer = null;
+            state.coalesceKey = null;
+
+            const snapshot = skillTreeCaptureHistorySnapshot(charId);
+            const last = state.undo[state.undo.length - 1];
+            // Evita registros duplicados quando uma ação não alterou os dados.
+            if (!last || JSON.stringify(last.skills) !== JSON.stringify(snapshot.skills)) {
+                state.undo.push(snapshot);
+                if (state.undo.length > ST_HISTORY_LIMIT) state.undo.shift();
+            }
+            state.redo.length = 0;
+
+            if (coalesceKey) {
+                state.coalesceKey = coalesceKey;
+                state.coalesceTimer = setTimeout(() => {
+                    state.coalesceKey = null;
+                    state.coalesceTimer = null;
+                }, 850);
+            }
+            skillTreeUpdateHistoryButtons();
+        }
+
+        function skillTreeRestoreHistorySnapshot(charId, snapshot) {
+            if (!charId || !snapshot || !mindMapData) return;
+            ensureSkillTreesArray();
+            const existing = mindMapData.skillTrees[charId] || {};
+            mindMapData.skillTrees[charId] = {
+                ...existing,
+                skills: JSON.parse(JSON.stringify(snapshot.skills || []))
+            };
+
+            if (charId === stCurrentCharacterId) {
+                const validIds = new Set(mindMapData.skillTrees[charId].skills.map(skill => skill.id));
+                stSelectedSkillIds.clear();
+                (snapshot.selectedIds || []).forEach(id => { if (validIds.has(id)) stSelectedSkillIds.add(id); });
+                stSelectedSkillId = snapshot.primaryId && stSelectedSkillIds.has(snapshot.primaryId)
+                    ? snapshot.primaryId
+                    : (stSelectedSkillIds.values().next().value || null);
+                skillTreeSetEditorCollapsed(stSelectedSkillIds.size === 0);
+                saveStoriesStorage();
+                renderSkillTree();
+            } else {
+                saveStoriesStorage();
+            }
+        }
+
+        function skillTreeUndo() {
+            const charId = stCurrentCharacterId;
+            if (!charId) return;
+            const state = skillTreeGetHistoryState(charId);
+            if (!state.undo.length) return;
+            if (state.coalesceTimer) clearTimeout(state.coalesceTimer);
+            state.coalesceTimer = null;
+            state.coalesceKey = null;
+            const current = skillTreeCaptureHistorySnapshot(charId);
+            const previous = state.undo.pop();
+            state.redo.push(current);
+            stHistoryApplying = true;
+            try { skillTreeRestoreHistorySnapshot(charId, previous); }
+            finally { stHistoryApplying = false; }
+            skillTreeUpdateHistoryButtons();
+            showToast('Ação desfeita na Árvore de Habilidades.', 'info');
+        }
+
+        function skillTreeRedo() {
+            const charId = stCurrentCharacterId;
+            if (!charId) return;
+            const state = skillTreeGetHistoryState(charId);
+            if (!state.redo.length) return;
+            if (state.coalesceTimer) clearTimeout(state.coalesceTimer);
+            state.coalesceTimer = null;
+            state.coalesceKey = null;
+            const current = skillTreeCaptureHistorySnapshot(charId);
+            const next = state.redo.pop();
+            state.undo.push(current);
+            if (state.undo.length > ST_HISTORY_LIMIT) state.undo.shift();
+            stHistoryApplying = true;
+            try { skillTreeRestoreHistorySnapshot(charId, next); }
+            finally { stHistoryApplying = false; }
+            skillTreeUpdateHistoryButtons();
+            showToast('Ação refeita na Árvore de Habilidades.', 'info');
+        }
+
+        function skillTreeUpdateHistoryButtons() {
+            const state = skillTreeGetHistoryState(stCurrentCharacterId);
+            const undoBtn = document.getElementById('st-btn-undo');
+            const redoBtn = document.getElementById('st-btn-redo');
+            if (undoBtn) undoBtn.disabled = !state.undo.length;
+            if (redoBtn) redoBtn.disabled = !state.redo.length;
+        }
+
         window.addEventListener('keyup', (ev) => { if (ev.code === 'Space') stSpacePressed = false; });
         window.addEventListener('blur', () => { stSpacePressed = false; });
 
@@ -8281,6 +8416,7 @@
             stSelectedSkillIds.clear();
             stPanX = 0; stPanY = 0; stScale = 1;
             skillTreeSetEditorCollapsed(true);
+            skillTreeUpdateHistoryButtons();
             hideSkillTreeTooltip();
 
             modal.classList.remove('hidden');
@@ -8314,6 +8450,7 @@
             stSelectedSkillIds.clear();
             stPanX = 0; stPanY = 0; stScale = 1;
             skillTreeSetEditorCollapsed(true);
+            skillTreeUpdateHistoryButtons();
             renderSkillTree();
         }
 
@@ -8322,7 +8459,7 @@
                 showToast('Adicione um personagem ao mapa primeiro.', 'warn');
                 return;
             }
-            pushHistory();
+            skillTreePushHistory();
             const tree = getSkillTreeForCharacter(stCurrentCharacterId);
             const skills = tree.skills;
             const roots = skills.filter(s => !s.parentId);
@@ -8353,7 +8490,7 @@
         function skillTreeAddChildToSelected() {
             const parent = findSkillById(stSelectedSkillId);
             if (!parent) return;
-            pushHistory();
+            skillTreePushHistory();
             const tree = getSkillTreeForCharacter(stCurrentCharacterId);
             const children = tree.skills.filter(s => s.parentId === parent.id);
             const newSkill = {
@@ -8402,7 +8539,7 @@
                 : `Excluir ${selected.length === 1 ? 'esta habilidade' : `estas ${selected.length} habilidades`}?`;
             if (!confirm(msg)) return;
 
-            pushHistory();
+            skillTreePushHistory();
             const tree = getSkillTreeForCharacter(stCurrentCharacterId);
             tree.skills = tree.skills.filter(skill => !toDelete.has(skill.id));
             stSelectedSkillIds.clear();
@@ -8415,7 +8552,7 @@
         function skillTreeSetColor(colorKey) {
             const skills = getSkillTreeSelectedSkills();
             if (!skills.length) return;
-            pushHistory();
+            skillTreePushHistory();
             skills.forEach(skill => { skill.color = colorKey; });
             saveStoriesStorage();
             renderSkillTreeCanvas();
@@ -8439,6 +8576,8 @@
                 if (input && String(nextValue) !== String(value)) input.value = String(nextValue);
             }
 
+            const selectedKey = skills.map(skill => skill.id).sort().join('|');
+            skillTreePushHistory(`field:${field}:${selectedKey}`);
             skills.forEach(skill => { skill[field] = nextValue; });
             const isMulti = skills.length > 1;
             if (field === 'name' && !isMulti) {
@@ -8484,7 +8623,7 @@
             const currentEmoji = skills.length === 1 ? (skills[0].emoji || '⭐') : '⭐';
             const emoji = prompt(`Cole um emoji para ${skills.length === 1 ? 'a habilidade' : `as ${skills.length} habilidades selecionadas`} (ex: ⚔️ 🛡️ 🔥 💀):`, currentEmoji);
             if (emoji === null) return;
-            pushHistory();
+            skillTreePushHistory();
             skills.forEach(skill => {
                 skill.emoji = emoji.trim() || '⭐';
                 skill.iconUrl = '';
@@ -8524,7 +8663,7 @@
         function skillTreeAutoLayout() {
             const skills = getSkillsForSelectedCharacter();
             if (skills.length === 0) return;
-            pushHistory();
+            skillTreePushHistory();
 
             const byParent = {};
             skills.forEach(s => { (byParent[s.parentId || '__root__'] ||= []).push(s); });
@@ -8654,6 +8793,7 @@
             } else {
                 applySkillTreeTransform();
             }
+            skillTreeUpdateHistoryButtons();
         }
 
         function renderSkillTreeCanvas() {
@@ -9056,7 +9196,7 @@
                 const dy = ev.clientY - stDragStartClientY;
                 if (!stDragMoved && (dx * dx + dy * dy) < 16) return;
                 if (!stDragHistoryPushed) {
-                    pushHistory();
+                    skillTreePushHistory();
                     stDragHistoryPushed = true;
                 }
                 stDragMoved = true;
@@ -9536,6 +9676,15 @@
                     e.preventDefault();
                     e.stopPropagation();
                     skillTreeDeleteSelected();
+                    return;
+                }
+                if (skillTreeModal && !skillTreeModal.classList.contains('hidden') && !inInput
+                    && (e.ctrlKey || e.metaKey) && !e.altKey
+                    && (e.code === 'KeyZ' || e.code === 'KeyY')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.code === 'KeyZ' && !e.shiftKey) skillTreeUndo();
+                    else skillTreeRedo(); // Ctrl+Y / Cmd+Y / Ctrl+Shift+Z / Cmd+Shift+Z
                     return;
                 }
                 if (inInput) return;
