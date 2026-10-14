@@ -1468,13 +1468,13 @@
                 <div class="flex-1 flex flex-col min-w-0">
 
                     <div id="canvas-container" class="flex-1 relative cursor-default" onwheel="zoomCanvas(event)">
-                        <div id="export-wrapper" class="absolute top-0 left-0 w-[6000px] h-[6000px] pointer-events-none">
-                            <svg id="connections-svg" class="absolute top-0 left-0 w-full h-full pointer-events-none z-0"></svg>
-                            <div id="beat-lanes-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none z-[5] hidden"></div>
-                            <div id="nodes-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none z-10"></div>
-                            <svg id="handles-svg" class="absolute top-0 left-0 w-full h-full pointer-events-none z-30"></svg>
-                            <div id="marquee-box" class="absolute border-2 border-indigo-500 bg-indigo-500/10 rounded pointer-events-none z-40 hidden"></div>
-                        </div>
+                        <div id="export-wrapper" class="absolute top-0 left-0 pointer-events-none" style="width: 20000px; height: 20000px; overflow: visible;">
+    <svg id="connections-svg" class="absolute top-0 left-0 pointer-events-none z-0" style="width: 20000px; height: 20000px; overflow: visible;"></svg>
+    <div id="beat-lanes-layer" class="absolute top-0 left-0 pointer-events-none z-[5] hidden" style="width: 20000px; height: 20000px;"></div>
+    <div id="nodes-layer" class="absolute top-0 left-0 pointer-events-none z-10" style="width: 20000px; height: 20000px;"></div>
+    <svg id="handles-svg" class="absolute top-0 left-0 pointer-events-none z-30" style="width: 20000px; height: 20000px; overflow: visible;"></svg>
+    <div id="marquee-box" class="absolute border-2 border-indigo-500 bg-indigo-500/10 rounded pointer-events-none z-40 hidden"></div>
+</div>
 
                         <div id="focus-pill" class="absolute top-4 left-1/2 -translate-x-1/2 bg-amber-100 border-2 border-amber-400 text-amber-900 px-3 py-1.5 rounded-full shadow-lg z-40 hidden items-center gap-2 text-xs font-semibold max-w-[80%]">
                             <i class="fa-solid fa-eye"></i>
@@ -6508,7 +6508,7 @@
             const dist = Math.hypot(a.x - b.x, a.y - b.y);
             const centerX = (a.x + b.x) / 2, centerY = (a.y + b.y) / 2;
             const rawScale = pinchState.startScale * (dist / pinchState.startDist);
-            const newScale = Math.max(0.3, Math.min(2.5, rawScale));
+            const newScale = Math.max(0.05, Math.min(2.5, rawScale));
             const newPanX = centerX - pinchState.containerLeft - pinchState.canvasCenterX * newScale;
             const newPanY = centerY - pinchState.containerTop - pinchState.canvasCenterY * newScale;
             scale = newScale; panX = newPanX; panY = newPanY;
@@ -6669,8 +6669,8 @@
             initialDragPositions.forEach((offsets, id) => {
                 const node = mindMapData.nodes.find(n => n.id === id);
                 if (node) {
-                    const newX = Math.max(0, canvasX - offsets.offsetX);
-                    const newY = Math.max(0, canvasY - offsets.offsetY);
+                    const newX = Math.max(0, Math.min(19700, canvasX - offsets.offsetX));
+const newY = Math.max(0, Math.min(19700, canvasY - offsets.offsetY));
                     deltas.set(id, { dx: newX - node.x, dy: newY - node.y, newX, newY });
                 }
             });
@@ -6692,7 +6692,7 @@
             const factor = 1.1;
             let newScale;
             if (event.deltaY < 0) newScale = Math.min(scale * factor, 2.5);
-            else newScale = Math.max(scale / factor, 0.3);
+else newScale = Math.max(scale / factor, 0.05);
             panX = cursorX - canvasX * newScale;
             panY = cursorY - canvasY * newScale;
             scale = newScale;
@@ -6700,7 +6700,7 @@
         }
 
         function zoomIn() { scale = Math.min(scale * 1.15, 2.5); updateCanvasTransform(); }
-        function zoomOut() { scale = Math.max(scale / 1.15, 0.3); updateCanvasTransform(); }
+        function zoomOut() { scale = Math.max(scale / 1.15, 0.05); updateCanvasTransform(); }
         function resetView() {
             const container = document.getElementById('canvas-container');
             const cw = container.clientWidth, ch = container.clientHeight;
@@ -6749,7 +6749,7 @@
             const cw = container.clientWidth, ch = container.clientHeight;
             if (cw === 0 || ch === 0) return;
             const newScale = Math.min(cw / contentW, ch / contentH, 1.5);
-            scale = Math.max(newScale, 0.3);
+            scale = Math.max(newScale, 0.05);
             const centerContentX = (minX + maxX) / 2, centerContentY = (minY + maxY) / 2;
             panX = cw / 2 - centerContentX * scale;
             panY = ch / 2 - centerContentY * scale;
@@ -8896,7 +8896,7 @@
             const factor = 1.1;
             let newScale;
             if (event.deltaY < 0) newScale = Math.min(stScale * factor, 2.5);
-            else newScale = Math.max(stScale / factor, 0.3);
+            else newScale = Math.max(stScale / factor, 0.15);
             stPanX = cursorX - canvasX * newScale;
             stPanY = cursorY - canvasY * newScale;
             stScale = newScale;
