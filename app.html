@@ -543,6 +543,19 @@
         #skilltree-modal .st-node { cursor: grab; touch-action: none; }
         #skilltree-modal .st-node:active { cursor: grabbing; }
         #skilltree-modal .st-marquee { fill: rgba(99,102,241,0.12); stroke: #6366f1; stroke-width: 1.5; stroke-dasharray: 5 4; pointer-events: none; }
+        #skilltree-modal .st-node.drop-target .st-ring {
+            stroke: #10b981 !important;
+            stroke-width: 5;
+            filter: drop-shadow(0 0 14px rgba(16,185,129,0.85));
+        }
+        #st-node-tooltip .st-tt-costs { margin-top: 7px; padding: 6px 8px; border-radius: 8px; background: #fff7ed; color: #9a3412; font-size: 11px; white-space: pre-wrap; overflow-wrap: anywhere; }
+        #st-node-tooltip .st-tt-costs b { font-weight: 800; }
+        body.app-theme-dark #st-node-tooltip .st-tt-costs { background: #431407; color: #fdba74; }
+        body.app-theme-dark #st-copy-modal .bg-white { background: #1e293b !important; }
+        body.app-theme-dark #st-copy-modal .text-slate-800,
+        body.app-theme-dark #st-copy-modal .text-slate-700 { color: #e2e8f0 !important; }
+        body.app-theme-dark #st-copy-modal .text-slate-500 { color: #94a3b8 !important; }
+        body.app-theme-dark #st-copy-modal select { background: #0f172a !important; color: #e2e8f0 !important; border-color: #334155 !important; }
         #skilltree-modal .st-node.selected .st-ring {
             stroke: #6366f1 !important;
             stroke-width: 4;
@@ -2157,6 +2170,28 @@
                             </div>
                         </div>
 
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Nível de Periculosidade</label>
+                            <select id="st-edit-danger" onchange="skillTreeOnFieldChange('danger', this.value)"
+                                    class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-amber-500">
+                                <option value="0">— Não definido</option>
+                                <option value="1">1 · Baixa</option>
+                                <option value="2">2 · Moderada</option>
+                                <option value="3">3 · Alta</option>
+                                <option value="4">4 · Severa</option>
+                                <option value="5">5 · Extrema</option>
+                            </select>
+                            <p style="font-size:10px;color:#94a3b8;font-style:italic;margin-top:4px;line-height:1.35;">Aparece só aqui no painel e ao passar o mouse sobre o nó.</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Custos</label>
+                            <textarea id="st-edit-costs" rows="3"
+                                      oninput="skillTreeOnFieldChange('costs', this.value)"
+                                      placeholder="Ex.: exaustão física, confusão mental, perda de memória..."
+                                      class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-700 focus:ring-2 focus:ring-amber-500 outline-none resize-y leading-relaxed"></textarea>
+                        </div>
+
                         <div id="st-requirements-panel">
                             <div class="st-req-title">
                                 <i class="fa-solid fa-lock"></i>
@@ -2181,6 +2216,14 @@
                         </div>
 
                         <div class="pt-2 border-t border-slate-200 flex flex-col gap-2">
+                            <button id="st-duplicate-btn" onclick="skillTreeDuplicateSelected()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5" title="Duplica como nó solto (Ctrl+D · ou Alt+arrastar)">
+                                <i class="fa-solid fa-clone"></i>
+                                <span>Duplicar (Ctrl+D)</span>
+                            </button>
+                            <button id="st-copy-char-btn" onclick="skillTreeOpenCopyModal()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-user-group"></i>
+                                <span>Duplicar para outro personagem</span>
+                            </button>
                             <button id="st-add-child-selected-btn" onclick="skillTreeAddChildToSelected()" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5">
                                 <i class="fa-solid fa-code-branch"></i>
                                 <span>Adicionar Habilidade Filha</span>
@@ -2282,6 +2325,23 @@
 
     <div id="toast-container"></div>
     <div id="node-tooltip" class="hidden"></div>
+    <div id="st-copy-modal" class="fixed inset-0 z-[300] hidden items-center justify-center bg-slate-900/50 p-4" onclick="if(event.target===this) skillTreeCloseCopyModal()">
+        <div class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+            <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2"><i class="fa-solid fa-user-group text-indigo-500"></i> Duplicar para outro personagem</h3>
+            <p id="st-copy-summary" class="text-xs text-slate-500 mb-3"></p>
+            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Personagem de destino</label>
+            <select id="st-copy-target" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"></select>
+            <label class="mt-3 flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
+                <input type="checkbox" id="st-copy-branch" class="mt-0.5">
+                <span>Incluir também as habilidades filhas (a ramificação inteira)</span>
+            </label>
+            <p class="mt-2 text-[10px] leading-snug text-slate-500">As cópias entram soltas no final da árvore do destino, sem alterar a árvore atual.</p>
+            <div class="mt-4 flex justify-end gap-2">
+                <button onclick="skillTreeCloseCopyModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg text-xs font-semibold">Cancelar</button>
+                <button onclick="skillTreeConfirmCopy()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-xs font-semibold">Duplicar</button>
+            </div>
+        </div>
+    </div>
     <div id="st-node-tooltip" class="hidden" role="tooltip"></div>
 
     <script>
@@ -7989,6 +8049,15 @@
         let stCanvasListenersAttached = false;
         let stEditorCollapsed = true;
         let stHoverSkillId = null;
+        let stDropTargetId = null;
+        let stAltCopyPending = false;
+        const ST_DANGER_LEVELS = {
+            1: { label: 'Baixa',    bg: '#dcfce7', fg: '#166534' },
+            2: { label: 'Moderada', bg: '#ecfccb', fg: '#3f6212' },
+            3: { label: 'Alta',     bg: '#fef3c7', fg: '#92400e' },
+            4: { label: 'Severa',   bg: '#ffedd5', fg: '#9a3412' },
+            5: { label: 'Extrema',  bg: '#fee2e2', fg: '#991b1b' }
+        };
 
         const stHistoryByCharacter = new Map();
         const ST_HISTORY_LIMIT = 100;
@@ -8218,7 +8287,7 @@
             const skills = tree.skills;
             const roots = skills.filter(s => !s.parentId);
             const baseY = 100 + roots.length * SKILL_NODE_SPACING_Y;
-            const newSkill = { id: generateSkillId(), name: 'Nova Habilidade', description: '', iconUrl: '', emoji: '⭐', x: 80, y: baseY, parentId: null, type: 'physical', rank: 0, maxRank: 3, color: 'amber', requires: [] };
+            const newSkill = { id: generateSkillId(), name: 'Nova Habilidade', description: '', iconUrl: '', emoji: '⭐', x: 80, y: baseY, parentId: null, type: 'physical', rank: 0, maxRank: 3, color: 'amber', requires: [], danger: 0, costs: '' };
             skills.push(newSkill);
             stSelectedSkillId = newSkill.id;
             stSelectedSkillIds.clear(); stSelectedSkillIds.add(newSkill.id);
@@ -8232,7 +8301,7 @@
             skillTreePushHistory();
             const tree = getSkillTreeForCharacter(stCurrentCharacterId);
             const children = tree.skills.filter(s => s.parentId === parent.id);
-            const newSkill = { id: generateSkillId(), name: 'Nova Habilidade', description: '', iconUrl: '', emoji: '⭐', x: parent.x + SKILL_NODE_SPACING_X, y: parent.y + children.length * 100 - 50, parentId: parent.id, type: getSkillType(parent.type).id, rank: 0, maxRank: 3, color: parent.color || 'amber', requires: [] };
+            const newSkill = { id: generateSkillId(), name: 'Nova Habilidade', description: '', iconUrl: '', emoji: '⭐', x: parent.x + SKILL_NODE_SPACING_X, y: parent.y + children.length * 100 - 50, parentId: parent.id, type: getSkillType(parent.type).id, rank: 0, maxRank: 3, color: parent.color || 'amber', requires: [], danger: 0, costs: '' };
             tree.skills.push(newSkill);
             stSelectedSkillId = newSkill.id;
             stSelectedSkillIds.clear(); stSelectedSkillIds.add(newSkill.id);
@@ -8282,6 +8351,11 @@
                 nextValue = field === 'rank' ? Math.max(0, Math.min(10, parsed)) : Math.max(1, Math.min(10, parsed));
                 const input = document.getElementById(field === 'rank' ? 'st-edit-rank' : 'st-edit-maxrank');
                 if (input && String(nextValue) !== String(value)) input.value = String(nextValue);
+            }
+            if (field === 'danger') {
+                const parsedDanger = Number.parseInt(value, 10);
+                if (!Number.isFinite(parsedDanger)) return;
+                nextValue = Math.max(0, Math.min(5, parsedDanger));
             }
             const selectedKey = skills.map(skill => skill.id).sort().join('|');
             skillTreePushHistory(`field:${field}:${selectedKey}`);
@@ -8818,6 +8892,8 @@
                 stDragStartClientX = ev.clientX; stDragStartClientY = ev.clientY;
                 stDragMoved = false; stDragHistoryPushed = false;
                 stDragPointerId = ev.pointerId;
+                stAltCopyPending = !!(ev.altKey && ev.pointerType !== 'touch');
+                stDropTargetId = null;
                 stInitialPositions.clear();
                 getSkillTreeSelectedSkills().forEach(selected => { stInitialPositions.set(selected.id, { x: Number(selected.x) || 0, y: Number(selected.y) || 0 }); });
                 try { svg.setPointerCapture(ev.pointerId); } catch (_) {}
@@ -8854,6 +8930,7 @@
                 if (stDragPointerId !== null && ev.pointerId !== stDragPointerId) return;
                 const dx = ev.clientX - stDragStartClientX, dy = ev.clientY - stDragStartClientY;
                 if (!stDragMoved && (dx * dx + dy * dy) < 16) return;
+                if (stAltCopyPending) { stAltCopyPending = false; skillTreeStartAltCopy(); }
                 if (!stDragHistoryPushed) { skillTreePushHistory(); stDragHistoryPushed = true; }
                 stDragMoved = true;
                 stInitialPositions.forEach((initial, id) => {
@@ -8865,6 +8942,7 @@
                     if (node) node.setAttribute('transform', `translate(${skill.x},${skill.y})`);
                 });
                 updateSkillTreeConnections();
+                skillTreeUpdateDropTarget(ev);
                 hideSkillTreeTooltip();
                 return;
             }
@@ -8888,6 +8966,11 @@
         function onSkillTreeCanvasPointerUp(ev) {
             if (stDragPointerId !== null && ev && ev.pointerId !== undefined && ev.pointerId !== stDragPointerId) return;
             const wasDragged = !!stDraggingSkillId && stDragMoved;
+            const dragId = stDraggingSkillId;
+            const dropId = stDropTargetId;
+            const movedIds = [...stInitialPositions.keys()];
+            stDropTargetId = null; stAltCopyPending = false;
+            document.querySelectorAll('#skilltree-svg .st-node.drop-target').forEach(el => el.classList.remove('drop-target'));
             const wasMarquee = stIsMarquee;
             const svg = document.getElementById('skilltree-svg');
             const pointerId = stDragPointerId;
@@ -8902,9 +8985,180 @@
                 stMarqueeMoved = false;
                 skillTreeRefreshSelectionUI();
             }
-            if (wasDragged) { updateSkillTreeConnections(); saveStoriesStorage(); }
+            if (wasDragged) {
+                if (dragId && dropId) skillTreeApplyDrop(dragId, dropId, movedIds);
+                else { updateSkillTreeConnections(); saveStoriesStorage(); }
+            }
             if (svg && pointerId !== null) { try { if (svg.hasPointerCapture(pointerId)) svg.releasePointerCapture(pointerId); } catch (_) {} }
         }
+
+
+        // ---------- Conectar arrastando para dentro de outro nó ----------
+        function skillTreeIsDescendant(ancestorId, candidateId) {
+            const byId = new Map(getSkillsForSelectedCharacter().map(sk => [sk.id, sk]));
+            const seen = new Set();
+            let cur = byId.get(candidateId);
+            while (cur && cur.parentId && !seen.has(cur.id)) {
+                if (cur.parentId === ancestorId) return true;
+                seen.add(cur.id);
+                cur = byId.get(cur.parentId);
+            }
+            return false;
+        }
+
+        function skillTreeUpdateDropTarget(ev) {
+            const point = skillTreePointerPosition(ev);
+            const cx = (point.x - stPanX) / stScale, cy = (point.y - stPanY) / stScale;
+            const moving = new Set(stInitialPositions.keys());
+            let hit = null, best = Infinity;
+            getSkillsForSelectedCharacter().forEach(sk => {
+                if (moving.has(sk.id)) return;
+                const d = Math.hypot((Number(sk.x) || 0) - cx, (Number(sk.y) || 0) - cy);
+                if (d <= SKILL_NODE_R + 4 && d < best) { hit = sk; best = d; }
+            });
+            if (hit) {
+                for (const id of moving) { if (skillTreeIsDescendant(id, hit.id)) { hit = null; break; } }
+            }
+            const newId = hit ? hit.id : null;
+            if (newId === stDropTargetId) return;
+            stDropTargetId = newId;
+            document.querySelectorAll('#skilltree-svg .st-node').forEach(el => {
+                el.classList.toggle('drop-target', !!newId && el.getAttribute('data-skill-id') === newId);
+            });
+        }
+
+        function skillTreeApplyDrop(dragId, targetId, movedIds) {
+            const dragged = findSkillById(dragId), target = findSkillById(targetId);
+            if (!dragged || !target) { saveStoriesStorage(); return; }
+            const alreadyChild = dragged.parentId === target.id;
+            if (!alreadyChild) {
+                const siblings = getSkillsForSelectedCharacter().filter(sk => sk.parentId === target.id && sk.id !== dragged.id).length;
+                const nx = (Number(target.x) || 0) + SKILL_NODE_SPACING_X;
+                const ny = (Number(target.y) || 0) + siblings * 100;
+                const dx = nx - dragged.x, dy = ny - dragged.y;
+                dragged.parentId = target.id;
+                (movedIds && movedIds.length ? movedIds : [dragged.id]).forEach(id => {
+                    const sk = findSkillById(id);
+                    if (sk) { sk.x += dx; sk.y += dy; }
+                });
+            }
+            if (!movedIds || movedIds.length <= 1) skillTreeResolveCollision(dragged.id);
+            saveStoriesStorage();
+            renderSkillTreeCanvas();
+            showToast(alreadyChild ? `"${dragged.name || 'Habilidade'}" já é filha de "${target.name || 'Habilidade'}".` : `"${dragged.name || 'Habilidade'}" conectada a "${target.name || 'Habilidade'}".`, alreadyChild ? 'info' : 'success');
+        }
+
+        // ---------- Duplicação ----------
+        function skillTreeCloneSkills(source) {
+            const idMap = new Map();
+            source.forEach(sk => idMap.set(sk.id, generateSkillId()));
+            const clones = source.map(sk => {
+                const copy = JSON.parse(JSON.stringify(sk));
+                copy.id = idMap.get(sk.id);
+                copy.parentId = sk.parentId && idMap.has(sk.parentId) ? idMap.get(sk.parentId) : null;
+                copy.requires = (Array.isArray(sk.requires) ? sk.requires : [])
+                    .filter(r => r && r.id && idMap.has(r.id))
+                    .map(r => ({ id: idMap.get(r.id), minRank: r.minRank || 1 }));
+                return copy;
+            });
+            return { clones, idMap };
+        }
+
+        function skillTreeStartAltCopy() {
+            const selected = getSkillTreeSelectedSkills();
+            if (!selected.length) return;
+            skillTreePushHistory();
+            stDragHistoryPushed = true;
+            const primaryIdx = Math.max(0, selected.findIndex(sk => sk.id === stDraggingSkillId));
+            const { clones } = skillTreeCloneSkills(selected);
+            getSkillTreeForCharacter(stCurrentCharacterId).skills.push(...clones);
+            stSelectedSkillIds.clear();
+            clones.forEach(c => stSelectedSkillIds.add(c.id));
+            stSelectedSkillId = clones[primaryIdx].id;
+            stDraggingSkillId = stSelectedSkillId;
+            stInitialPositions.clear();
+            clones.forEach(c => stInitialPositions.set(c.id, { x: Number(c.x) || 0, y: Number(c.y) || 0 }));
+            renderSkillTreeCanvas();
+            skillTreeRefreshSelectionUI();
+        }
+
+        function skillTreeDuplicateSelected() {
+            const selected = getSkillTreeSelectedSkills();
+            if (!selected.length) return;
+            skillTreePushHistory();
+            const { clones } = skillTreeCloneSkills(selected);
+            clones.forEach(c => { c.x = (Number(c.x) || 0) + 60; c.y = (Number(c.y) || 0) + 60; });
+            getSkillTreeForCharacter(stCurrentCharacterId).skills.push(...clones);
+            stSelectedSkillIds.clear();
+            clones.forEach(c => stSelectedSkillIds.add(c.id));
+            stSelectedSkillId = clones[0].id;
+            saveStoriesStorage();
+            renderSkillTreeCanvas();
+            skillTreeRefreshSelectionUI();
+            showToast(clones.length === 1 ? 'Habilidade duplicada.' : `${clones.length} habilidades duplicadas.`, 'success');
+        }
+
+        function skillTreeOpenCopyModal() {
+            const selected = getSkillTreeSelectedSkills();
+            if (!selected.length) return;
+            const chars = getCharacterNodes().filter(c => c.id !== stCurrentCharacterId);
+            if (!chars.length) { showToast('Não há outro personagem no mapa para receber a cópia.', 'warn'); return; }
+            const select = document.getElementById('st-copy-target');
+            select.innerHTML = chars.map(c => `<option value="${c.id}">${escapeHTML(c.typeData?.fullName || c.title || 'Sem nome')}</option>`).join('');
+            document.getElementById('st-copy-summary').textContent = selected.length === 1 ? `Habilidade: ${selected[0].name || 'sem nome'}` : `${selected.length} habilidades selecionadas`;
+            document.getElementById('st-copy-branch').checked = false;
+            const modal = document.getElementById('st-copy-modal');
+            modal.classList.remove('hidden'); modal.classList.add('flex');
+        }
+
+        function skillTreeCloseCopyModal() {
+            const modal = document.getElementById('st-copy-modal');
+            if (!modal) return;
+            modal.classList.add('hidden'); modal.classList.remove('flex');
+        }
+
+        function skillTreeConfirmCopy() {
+            const targetId = document.getElementById('st-copy-target').value;
+            const selected = getSkillTreeSelectedSkills();
+            if (!targetId || !selected.length) { skillTreeCloseCopyModal(); return; }
+            const all = getSkillsForSelectedCharacter();
+            const ids = new Set(selected.map(sk => sk.id));
+            if (document.getElementById('st-copy-branch').checked) {
+                let changed = true;
+                while (changed) {
+                    changed = false;
+                    all.forEach(sk => { if (sk.parentId && ids.has(sk.parentId) && !ids.has(sk.id)) { ids.add(sk.id); changed = true; } });
+                }
+            }
+            const ordered = all.filter(sk => ids.has(sk.id));
+            const { clones } = skillTreeCloneSkills(ordered);
+            const minX = Math.min(...ordered.map(sk => Number(sk.x) || 0));
+            const minY = Math.min(...ordered.map(sk => Number(sk.y) || 0));
+            const targetTree = getSkillTreeForCharacter(targetId);
+            const baseX = 80;
+            const baseY = targetTree.skills.length ? Math.max(...targetTree.skills.map(sk => Number(sk.y) || 0)) + SKILL_NODE_SPACING_Y : 100;
+            clones.forEach((c, i) => {
+                c.x = baseX + ((Number(ordered[i].x) || 0) - minX);
+                c.y = baseY + ((Number(ordered[i].y) || 0) - minY);
+            });
+            const previousChar = stCurrentCharacterId;
+            stCurrentCharacterId = targetId;
+            try { skillTreePushHistory(); } finally { stCurrentCharacterId = previousChar; }
+            targetTree.skills.push(...clones);
+            saveStoriesStorage();
+            skillTreeUpdateHistoryButtons();
+            skillTreeCloseCopyModal();
+            const targetNode = getCharacterNodes().find(c => c.id === targetId);
+            const targetName = targetNode ? (targetNode.typeData?.fullName || targetNode.title || 'personagem') : 'personagem';
+            showToast(`${clones.length} habilidade(s) duplicada(s) para ${targetName}.`, 'success');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            const modal = document.getElementById('st-copy-modal');
+            if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+                e.preventDefault(); e.stopImmediatePropagation(); skillTreeCloseCopyModal();
+            }
+        }, true);
 
         function updateSkillTreeConnections() {
             const svg = document.getElementById('skilltree-svg');
@@ -8929,7 +9183,12 @@
             if (!tooltip || !skill || stDraggingSkillId) return;
             const type = getSkillType(skill.type);
             const desc = (skill.description || '').trim();
-            tooltip.innerHTML = `<div class="st-tt-title">${escapeHTML(skill.name || 'Habilidade sem nome')}</div><div class="st-tt-meta"><span class="st-tt-chip">${escapeHTML(type.icon)} ${escapeHTML(type.label)}</span><span class="st-tt-chip">Rank ${Number(skill.rank) || 0}/${Number(skill.maxRank) || 1}</span></div><div class="st-tt-desc">${desc ? escapeHTML(desc) : '<span style="color:#94a3b8;font-style:italic">Sem descrição cadastrada.</span>'}</div><div class="st-tt-hint">Clique para editar · Arraste para mover</div>`;
+            const dangerLevel = Math.max(0, Math.min(5, Number(skill.danger) || 0));
+            const dangerInfo = ST_DANGER_LEVELS[dangerLevel];
+            const dangerChip = dangerInfo ? `<span class="st-tt-chip" style="background:${dangerInfo.bg};color:${dangerInfo.fg}">☠️ Periculosidade ${dangerLevel}/5 · ${dangerInfo.label}</span>` : '';
+            const costsText = (skill.costs || '').trim();
+            const costsHtml = costsText ? `<div class="st-tt-costs"><b>Custos:</b> ${escapeHTML(costsText)}</div>` : '';
+            tooltip.innerHTML = `<div class="st-tt-title">${escapeHTML(skill.name || 'Habilidade sem nome')}</div><div class="st-tt-meta"><span class="st-tt-chip">${escapeHTML(type.icon)} ${escapeHTML(type.label)}</span><span class="st-tt-chip">Rank ${Number(skill.rank) || 0}/${Number(skill.maxRank) || 1}</span>${dangerChip}</div><div class="st-tt-desc">${desc ? escapeHTML(desc) : '<span style="color:#94a3b8;font-style:italic">Sem descrição cadastrada.</span>'}</div>${costsHtml}<div class="st-tt-hint">Clique para editar · Arraste para mover · Solte sobre outra para conectar · Alt+arrastar duplica</div>`;
             tooltip.classList.remove('hidden');
             stHoverSkillId = skill.id;
             positionSkillTreeTooltip(event);
@@ -9191,6 +9450,15 @@
             rankInput.placeholder = rankValue.mixed ? 'Vários' : '';
             maxRankInput.value = maxRankValue.mixed ? '' : maxRankValue.value;
             maxRankInput.placeholder = maxRankValue.mixed ? 'Vários' : '';
+            const dangerInput = document.getElementById('st-edit-danger');
+            const costsInput = document.getElementById('st-edit-costs');
+            const dangerValue = skillTreeCommonValue(skills, 'danger', 0);
+            const costsValue = skillTreeCommonValue(skills, 'costs');
+            if (dangerInput) dangerInput.value = dangerValue.mixed ? '' : String(Number(dangerValue.value) || 0);
+            if (costsInput) {
+                costsInput.value = costsValue.mixed ? '' : costsValue.value;
+                costsInput.placeholder = costsValue.mixed ? 'Custos diferentes — digite para aplicar' : 'Ex.: exaustão física, confusão mental, perda de memória...';
+            }
             renderSkillTreeDetailIcon();
             renderSkillTreeRequirements();
             updateSkillTreeSelection();
@@ -9205,6 +9473,11 @@
                 if (skillTreeModal && !skillTreeModal.classList.contains('hidden') && !inInput && (e.ctrlKey || e.metaKey) && !e.altKey && (e.code === 'KeyZ' || e.code === 'KeyY')) {
                     e.preventDefault(); e.stopPropagation();
                     if (e.code === 'KeyZ' && !e.shiftKey) skillTreeUndo(); else skillTreeRedo();
+                    return;
+                }
+                if (skillTreeModal && !skillTreeModal.classList.contains('hidden') && !inInput && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.code === 'KeyD') {
+                    e.preventDefault(); e.stopPropagation();
+                    if (stSelectedSkillIds.size > 0 && document.getElementById('st-copy-modal')?.classList.contains('hidden')) skillTreeDuplicateSelected();
                     return;
                 }
                 if (inInput) return;
