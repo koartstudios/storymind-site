@@ -458,7 +458,6 @@
             font-size: 16px; line-height: 1; margin-bottom: 8px;
         }
 
-        /* ==================== Big Five sliders ==================== */
         input[type="range"].bf-slider {
             -webkit-appearance: none; appearance: none;
             height: 6px;
@@ -496,7 +495,6 @@
         }
         .scene-warn-badge { animation: pulse-warn 2s ease-in-out infinite; }
 
-        /* ==================== Teia de Relações (D3) ==================== */
         #reteia-modal .reteia-node circle {
             transition: r 0.15s ease, stroke-width 0.15s ease, filter 0.15s ease;
             cursor: grab;
@@ -538,7 +536,6 @@
         body.app-theme-dark #reteia-modal .border-slate-200 { border-color:#334155 !important; }
         body.app-theme-dark #reteia-modal .text-slate-800 { color:#e2e8f0 !important; }
 
-        /* ==================== Skill Tree ==================== */
         #skilltree-modal #skilltree-svg { touch-action: none; user-select: none; -webkit-user-select: none; }
         #skilltree-modal .st-node { cursor: grab; touch-action: none; }
         #skilltree-modal .st-node:active { cursor: grabbing; }
@@ -634,7 +631,6 @@
             background-image: radial-gradient(#334155 1.5px, transparent 1.5px) !important;
         }
 
-        /* ==================== Skill Tree — requisitos + lock ==================== */
         #skilltree-modal .st-node.locked .st-ring {
             stroke: #94a3b8 !important;
             stroke-dasharray: 6 4;
@@ -714,7 +710,6 @@
         body.app-theme-dark #st-requirements-panel .st-req-item input { background: #334155; border-color: #475569; color: #e2e8f0; }
         body.app-theme-dark #st-requirements-panel .st-req-add { background: #312e81; color: #c7d2fe; border-color: #4338ca; }
 
-        /* ==================== Mover para outra aba ==================== */
         #move-to-sheet-menu {
             position: fixed;
             background: white;
@@ -764,7 +759,6 @@
         body.app-theme-dark #move-to-sheet-menu .mts-item:hover { background: #334155; }
         body.app-theme-dark #move-to-sheet-menu .mts-item .mts-count { background: #334155; color: #cbd5e1; }
 
-        /* ==================== Busca avançada ==================== */
         #advanced-search-panel {
             position: fixed;
             top: 56px;
@@ -962,7 +956,6 @@
         body.app-theme-dark #advanced-search-panel .as-result .as-title { color: #f1f5f9; }
         body.app-theme-dark #advanced-search-panel .as-footer { background: #0f172a; border-color: #334155; }
 
-        /* ==================== Grafo de menções ==================== */
         #mentions-modal .mm-section { margin-bottom: 24px; }
         #mentions-modal .mm-section-title {
             font-size: 11px;
@@ -1107,6 +1100,138 @@
         body.app-theme-dark #mentions-modal .mm-heatmap th { background: #0f172a; color: #cbd5e1; border-bottom-color: #334155; }
         body.app-theme-dark #mentions-modal .mm-heatmap td { border-bottom-color: #334155; }
         body.app-theme-dark #mentions-modal .mm-warn { background: #422006; border-color: #78350f; color: #fde68a; }
+
+        /* ==================== NEW: Links de referência em personagens ==================== */
+        .node-card .ref-badge {
+            position: absolute;
+            bottom: -10px;
+            right: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            background: #0891b2;
+            color: white;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 999px;
+            box-shadow: 0 2px 6px rgba(8,145,178,0.4);
+            z-index: 15;
+            pointer-events: none;
+        }
+        #reference-links-panel {
+            margin-top: 12px;
+            padding: 10px;
+            background: #ecfeff;
+            border: 1px solid #a5f3fc;
+            border-radius: 8px;
+        }
+        #reference-links-panel .ref-title {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #0e7490;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+        }
+        #reference-links-panel .ref-row {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 5px;
+            align-items: center;
+        }
+        #reference-links-panel .ref-row input {
+            background: white;
+            border: 1px solid #67e8f9;
+            border-radius: 6px;
+            padding: 5px 8px;
+            font-size: 11px;
+            outline: none;
+            min-width: 0;
+        }
+        #reference-links-panel .ref-row input:focus { border-color: #06b6d4; }
+        #reference-links-panel .ref-row .ref-label-input { flex: 0 0 40%; }
+        #reference-links-panel .ref-row .ref-url-input { flex: 1; font-family: ui-monospace, monospace; font-size: 10.5px; }
+        #reference-links-panel .ref-row .ref-open-btn,
+        #reference-links-panel .ref-row .ref-del-btn {
+            width: 24px; height: 24px;
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            border: none; cursor: pointer;
+            font-size: 10px;
+            flex-shrink: 0;
+            transition: background 0.12s;
+        }
+        #reference-links-panel .ref-row .ref-open-btn { background: #0891b2; color: white; }
+        #reference-links-panel .ref-row .ref-open-btn:hover { background: #0e7490; }
+        #reference-links-panel .ref-row .ref-del-btn { background: white; color: #dc2626; border: 1px solid #fecaca; }
+        #reference-links-panel .ref-row .ref-del-btn:hover { background: #fee2e2; }
+        #reference-links-panel .ref-add {
+            width: 100%;
+            background: white;
+            border: 1px dashed #22d3ee;
+            color: #0e7490;
+            padding: 5px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.12s;
+        }
+        #reference-links-panel .ref-add:hover { background: #cffafe; }
+        #reference-links-panel .ref-empty {
+            font-size: 10.5px;
+            color: #64748b;
+            font-style: italic;
+            padding: 4px 0 6px;
+            line-height: 1.35;
+        }
+        body.app-theme-dark #reference-links-panel { background: #083344; border-color: #155e75; }
+        body.app-theme-dark #reference-links-panel .ref-title { color: #67e8f9; }
+        body.app-theme-dark #reference-links-panel .ref-row input { background: #0f172a; border-color: #155e75; color: #e2e8f0; }
+        body.app-theme-dark #reference-links-panel .ref-row .ref-del-btn { background: #1e293b; border-color: #7f1d1d; }
+        body.app-theme-dark #reference-links-panel .ref-add { background: #0f172a; border-color: #155e75; color: #67e8f9; }
+        body.app-theme-dark #reference-links-panel .ref-add:hover { background: #164e63; }
+
+        #node-tooltip .tt-links {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #e2e8f0;
+        }
+        #node-tooltip .tt-links-title {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #0e7490;
+            margin-bottom: 5px;
+        }
+        #node-tooltip .tt-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            color: #0e7490;
+            text-decoration: none;
+            background: #ecfeff;
+            border: 1px solid #a5f3fc;
+            padding: 3px 8px;
+            border-radius: 6px;
+            margin: 2px 3px 2px 0;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            pointer-events: auto;
+        }
+        #node-tooltip .tt-link:hover { background: #cffafe; }
+        body.app-theme-dark #node-tooltip .tt-links { border-top-color: #334155; }
+        body.app-theme-dark #node-tooltip .tt-links-title { color: #67e8f9; }
+        body.app-theme-dark #node-tooltip .tt-link { background: #083344; border-color: #155e75; color: #67e8f9; }
 
         @media (max-width: 768px) {
             #inspector-sidebar { width: 100% !important; max-width: 100vw; }
@@ -2599,6 +2724,121 @@
             return wrap;
         }
 
+        // ==============================================================
+        // NEW: LINKS DE REFERÊNCIA (Personagens)
+        // ==============================================================
+        function getReferenceLinks(node) {
+            if (!node || !node.typeData) return [];
+            const links = node.typeData.referenceLinks;
+            if (!Array.isArray(links)) return [];
+            return links.filter(l => l && typeof l === 'object' && typeof l.url === 'string' && l.url.trim());
+        }
+
+        function isSafeExternalUrl(url) {
+            if (!url) return false;
+            try {
+                const u = new URL(url, location.origin);
+                return u.protocol === 'http:' || u.protocol === 'https:';
+            } catch { return false; }
+        }
+
+        function buildReferenceLinksSection(node) {
+            if (!node.typeData) node.typeData = {};
+            if (!Array.isArray(node.typeData.referenceLinks)) node.typeData.referenceLinks = [];
+            const links = node.typeData.referenceLinks;
+            const wrap = document.createElement('div');
+            wrap.id = 'reference-links-panel';
+            wrap.innerHTML = `
+                <div class="ref-title">
+                    <span><i class="fa-solid fa-link"></i> Links de referência</span>
+                    <span style="font-weight:500;text-transform:none;letter-spacing:0;font-size:10px;color:#64748b;">${links.length} ${links.length === 1 ? 'link' : 'links'}</span>
+                </div>
+                <div id="ref-links-list"></div>
+                <button type="button" class="ref-add" onclick="addReferenceLink()">
+                    <i class="fa-solid fa-plus mr-1"></i>Adicionar link
+                </button>
+                <p style="font-size:10px;color:#64748b;font-style:italic;margin-top:6px;line-height:1.35;">
+                    Fichas externas, wikis, imagens de referência. Abra com o botão <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:9px;"></i> (abre em nova aba).
+                </p>
+            `;
+            const list = wrap.querySelector('#ref-links-list');
+            if (links.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'ref-empty';
+                empty.textContent = 'Nenhum link adicionado ainda.';
+                list.appendChild(empty);
+            } else {
+                links.forEach((link, idx) => {
+                    const row = document.createElement('div');
+                    row.className = 'ref-row';
+                    row.innerHTML = `
+                        <input type="text" class="ref-label-input" value="${escapeHTML(link.label || '')}" placeholder="Rótulo" oninput="updateReferenceLink(${idx}, 'label', this.value)">
+                        <input type="url" class="ref-url-input" value="${escapeHTML(link.url || '')}" placeholder="https://..." oninput="updateReferenceLink(${idx}, 'url', this.value)">
+                        <button type="button" class="ref-open-btn" title="Abrir link" onclick="openReferenceLink(${idx})"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+                        <button type="button" class="ref-del-btn" title="Remover link" onclick="removeReferenceLink(${idx})"><i class="fa-solid fa-xmark"></i></button>
+                    `;
+                    list.appendChild(row);
+                });
+            }
+            return wrap;
+        }
+
+        function addReferenceLink() {
+            const id = document.getElementById('edit-node-id').value;
+            const node = mindMapData.nodes.find(n => n.id === id);
+            if (!node) return;
+            if (!node.typeData) node.typeData = {};
+            if (!Array.isArray(node.typeData.referenceLinks)) node.typeData.referenceLinks = [];
+            pushHistory();
+            node.typeData.referenceLinks.push({ label: '', url: '' });
+            domCache.invalidateHeight(node.id);
+            saveStoriesStorage();
+            renderTypeFields();
+            renderApp();
+            setTimeout(() => {
+                const rows = document.querySelectorAll('#reference-links-panel .ref-row');
+                const last = rows[rows.length - 1];
+                if (last) last.querySelector('.ref-label-input')?.focus();
+            }, 30);
+        }
+
+        function updateReferenceLink(idx, key, value) {
+            const id = document.getElementById('edit-node-id').value;
+            const node = mindMapData.nodes.find(n => n.id === id);
+            if (!node || !node.typeData || !Array.isArray(node.typeData.referenceLinks)) return;
+            const link = node.typeData.referenceLinks[idx];
+            if (!link) return;
+            link[key] = value;
+            domCache.invalidateHeight(node.id);
+            scheduleSave();
+            clearTimeout(updateReferenceLink._t);
+            updateReferenceLink._t = setTimeout(() => { renderApp(); }, 250);
+        }
+
+        function removeReferenceLink(idx) {
+            const id = document.getElementById('edit-node-id').value;
+            const node = mindMapData.nodes.find(n => n.id === id);
+            if (!node || !node.typeData || !Array.isArray(node.typeData.referenceLinks)) return;
+            pushHistory();
+            node.typeData.referenceLinks.splice(idx, 1);
+            domCache.invalidateHeight(node.id);
+            saveStoriesStorage();
+            renderTypeFields();
+            renderApp();
+        }
+
+        function openReferenceLink(idx) {
+            const id = document.getElementById('edit-node-id').value;
+            const node = mindMapData.nodes.find(n => n.id === id);
+            if (!node || !node.typeData || !Array.isArray(node.typeData.referenceLinks)) return;
+            const link = node.typeData.referenceLinks[idx];
+            if (!link || !link.url || !isSafeExternalUrl(link.url)) {
+                showToast('URL inválida — use http:// ou https://', 'warn');
+                return;
+            }
+            window.open(link.url, '_blank', 'noopener,noreferrer');
+        }
+
         function getSceneDiagnostic(node) {
             if (!node || node.type !== 'scene' || !node.typeData) return null;
             const start = (node.typeData.valueStart || '').trim();
@@ -2777,6 +3017,7 @@
                     id: sheetId, name: "Enredo Principal", layout: "tree", theme: "default",
                     beatSheetMode: false, beatSheetFramework: null, beatSheetSavedPositions: null,
                     beatSortMode: false, beatSortSavedPositions: null,
+                    relationWebPositions: {},
                     nodes: [{
                         id: generateNodeId(), title: "MINHA HISTÓRIA",
                         content: "Ponto central da narrativa. Clique com o botão direito, use o botão + ao lado, ou pressione Tab para adicionar nós filhos.",
@@ -2836,13 +3077,7 @@
         let showVariants = true;
         let variantModalAnchorId = null;
 
-        // ==========================================================
-        // RELAÇÕES E EDIÇÃO INLINE
-        // ==========================================================
-
-        function startInlineEdit(nodeId, field) {
-            editingNodeId = nodeId; editingField = field || 'title'; renderApp();
-        }
+        function startInlineEdit(nodeId, field) { editingNodeId = nodeId; editingField = field || 'title'; renderApp(); }
 
         function setupInlineEdit(el, node) {
             const target = el.querySelector(`[data-edit-target="${editingField}"]`);
@@ -2901,10 +3136,7 @@
             if (editor) editor.classList.remove('hidden');
         }
 
-        function closeRelationshipEditor() {
-            selectedRelationshipId = null;
-            const editor = document.getElementById('rel-editor'); if (editor) editor.classList.add('hidden');
-        }
+        function closeRelationshipEditor() { selectedRelationshipId = null; const editor = document.getElementById('rel-editor'); if (editor) editor.classList.add('hidden'); }
 
         function refreshRelationshipEditor() {
             if (!selectedRelationshipId) return;
@@ -3040,9 +3272,6 @@
             saveStoriesStorage(); pushHistory(); refreshRelationshipEditor();
         }
 
-        // ==========================================================
-        // TOOLTIP DE PREVIEW
-        // ==========================================================
         function buildTooltipHTML(node) {
             if (!node) return '';
             if (!node.type && !node.pov) return '';
@@ -3081,6 +3310,21 @@
                     const v = bf[t.key];
                     const bars = Array.from({length: 5}, (_, i) => `<span style="display:inline-block;width:10px;height:6px;border-radius:1px;margin-right:1px;background:${i < v ? t.color : '#e2e8f0'};"></span>`).join('');
                     html += `<div style="display:flex; align-items:center; gap:6px; margin-bottom:3px; font-size:10.5px;"><span style="min-width:14px;">${t.icon}</span><span style="min-width:86px; color:#475569;">${escapeHTML(t.short)}</span><span>${bars}</span><b style="color:${t.color}; margin-left:2px;">${v}</b></div>`;
+                });
+                html += `</div>`;
+            }
+            // NEW: Links de referência
+            const refLinks = node.type === 'character' ? getReferenceLinks(node) : [];
+            if (refLinks.length > 0) {
+                html += `<div class="tt-links"><div class="tt-links-title">🔗 Links de referência</div>`;
+                refLinks.forEach(link => {
+                    const safeUrl = isSafeExternalUrl(link.url) ? link.url : '';
+                    const label = link.label && link.label.trim() ? link.label.trim() : (safeUrl || link.url);
+                    if (safeUrl) {
+                        html += `<a class="tt-link" href="${escapeHTML(safeUrl)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:9px;"></i><span>${escapeHTML(label)}</span></a>`;
+                    } else {
+                        html += `<span class="tt-link" style="opacity:0.6;cursor:default;"><i class="fa-solid fa-triangle-exclamation" style="font-size:9px;"></i><span>${escapeHTML(label)} (URL inválida)</span></span>`;
+                    }
                 });
                 html += `</div>`;
             }
@@ -3180,9 +3424,6 @@
             window.addEventListener('blur', () => { previewHeld = false; hideNodeTooltip(); });
         }
 
-        // ==========================================================
-        // BUSCA SIMPLES
-        // ==========================================================
         function handleSearch(value) {
             clearTimeout(searchDebounceTimer);
             searchDebounceTimer = setTimeout(() => {
@@ -3240,9 +3481,6 @@
             } catch(e) { el.textContent = '—'; }
         }
 
-        // ==========================================================
-        // TIPOS DE NÓ E POV
-        // ==========================================================
         function renderTypePicker() {
             const container = document.getElementById('node-type-picker');
             if (!container) return;
@@ -3333,9 +3571,6 @@
             showToast(`POV removido de ${count} nó(s).`, "success", 2200);
         }
 
-        // ==========================================================
-        // CAMPOS ESPECÍFICOS POR TIPO
-        // ==========================================================
         function renderTypeFields() {
             const container = document.getElementById('type-fields-container');
             if (!container) return;
@@ -3376,6 +3611,7 @@
                 updateSceneDiagnosticBanner();
             }
             if (node.type === 'character') container.appendChild(buildBigFiveSection(node));
+            if (node.type === 'character') container.appendChild(buildReferenceLinksSection(node));
         }
 
         function onTypeFieldChange(key, value) {
@@ -3404,9 +3640,6 @@
             return parts.join(' · ');
         }
 
-        // ==========================================================
-        // VARIANTES
-        // ==========================================================
         function openVariantModal() {
             const id = document.getElementById('edit-node-id').value;
             const node = mindMapData.nodes.find(n => n.id === id);
@@ -3537,9 +3770,6 @@
             svgContainer.appendChild(path);
         }
 
-        // ==============================================================
-        // BÍBLIA DA HISTÓRIA
-        // ==============================================================
         function openStoryBible() {
             const modal = document.getElementById('bible-modal');
             if (!modal) return;
@@ -3742,12 +3972,7 @@
             showToast("Bíblia exportada como Markdown.", "success");
         }
 
-        // ==============================================================
-        // GRAFO DE MENÇÕES
-        // ==============================================================
-        function normalizeName(s) {
-            return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        }
+        function normalizeName(s) { return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
 
         function getCharacterAliases(node) {
             const set = new Set();
@@ -3880,9 +4105,6 @@
             container.innerHTML = html;
         }
 
-        // ==========================================================
-        // BOOT
-        // ==========================================================
         window.onload = async function() {
             await SM_CLOUD.pull();
             loadStoriesStorage();
@@ -4020,9 +4242,6 @@
             requestAnimationFrame(() => { updateCanvasTransform(); renderMinimap(); });
         }
 
-        // ==============================================================
-        // MOVER NÓS ENTRE ABAS
-        // ==============================================================
         let moveToSheetMenuEl = null;
 
         function openMoveToSheetMenu(event) {
@@ -4112,6 +4331,16 @@
             target.relations = (target.relations || []).concat(charRelsToMove);
             if (!target.skillTrees) target.skillTrees = {};
             Object.assign(target.skillTrees, skillTreesToMove);
+            // Copia posições da teia para personagens movidos
+            if (mindMapData.relationWebPositions) {
+                if (!target.relationWebPositions) target.relationWebPositions = {};
+                movingIds.forEach(id => {
+                    if (mindMapData.relationWebPositions[id]) {
+                        target.relationWebPositions[id] = mindMapData.relationWebPositions[id];
+                        delete mindMapData.relationWebPositions[id];
+                    }
+                });
+            }
             selectedNodeIds.clear();
             closeInspector();
             domCache.clear(); domCache.invalidateHeights();
@@ -4132,9 +4361,6 @@
             switchSheet(newSheet.id);
         }
 
-        // ==============================================================
-        // BUSCA AVANÇADA
-        // ==============================================================
         let asDebounceTimer = null;
         let asSelectedTypes = new Set();
         let asSelectedBeats = new Set();
@@ -4398,9 +4624,6 @@
             }
         });
 
-        // ==============================================================
-        // BEAT SORT
-        // ==============================================================
         function isBeatSortAvailable() { return !!(mindMapData && mindMapData.beatSheetFramework); }
 
         function toggleBeatSortMode() {
@@ -4530,9 +4753,6 @@
             }
         }
 
-        // ==============================================================
-        // BEAT SHEET
-        // ==============================================================
         function savePositionsBeforeBeatSheet() {
             if (!mindMapData) return;
             if (mindMapData.beatSheetSavedPositions) return;
@@ -4772,9 +4992,6 @@
             invalidateStructure(); saveStoriesStorage(); renderApp();
         }
 
-        // ==================================================================
-        // MULTI-EDIT
-        // ==================================================================
         function openMultiInspector() {
             if (!mindMapData || selectedNodeIds.size < 2) return;
             document.getElementById('multi-count').textContent = selectedNodeIds.size;
@@ -5089,6 +5306,7 @@
                     s.beatSortMode = !!(s.beatSortMode && s.beatSheetFramework);
                     s.beatSortSavedPositions = s.beatSortSavedPositions && typeof s.beatSortSavedPositions === 'object' ? s.beatSortSavedPositions : null;
                     s.beatSortLastArrangement = s.beatSortLastArrangement && typeof s.beatSortLastArrangement === 'object' ? s.beatSortLastArrangement : null;
+                    if (!s.relationWebPositions || typeof s.relationWebPositions !== 'object') s.relationWebPositions = {};
                     s.nodes = (s.nodes || []).map(migrateNode);
                     s.relationships = (s.relationships || []).map(r => migrateRelationship(r, s));
                     if (!s.relations || !Array.isArray(s.relations)) s.relations = [];
@@ -5106,7 +5324,7 @@
                 id: generateSheetId(), name: 'Enredo Principal',
                 layout: story.layout || 'tree', theme: story.theme || 'default',
                 beatSheetMode: false, beatSheetFramework: null, beatSheetSavedPositions: null,
-                beatSortMode: false, beatSortSavedPositions: null,
+                beatSortMode: false, beatSortSavedPositions: null, relationWebPositions: {},
                 nodes: (story.nodes || []).map(migrateNode),
                 relationships: [], relations: [], skillTrees: {}
             };
@@ -5122,6 +5340,7 @@
                 theme: options.theme || 'default',
                 beatSheetMode: false, beatSheetFramework: null, beatSheetSavedPositions: null,
                 beatSortMode: false, beatSortSavedPositions: null,
+                relationWebPositions: {},
                 nodes: options.nodes || [
                     { id: generateNodeId(), title: "NOVO MAPA", content: "", parentId: null, x: CANVAS_CENTER_X, y: CANVAS_CENTER_Y, color: "purple", icons: [], collapsed: false, tension: 0, beatId: null, type: null, pov: "", typeData: {}, isVariant: false, variantOf: null, variantLabel: "" }
                 ],
@@ -5525,6 +5744,13 @@
                 Object.entries(clone.beatSortLastArrangement).forEach(([oldId, pos]) => { if (idMap[oldId]) remapped[idMap[oldId]] = pos; });
                 clone.beatSortLastArrangement = remapped;
             }
+            if (clone.relationWebPositions && typeof clone.relationWebPositions === 'object') {
+                const remapped = {};
+                Object.entries(clone.relationWebPositions).forEach(([oldId, pos]) => {
+                    if (idMap[oldId]) remapped[idMap[oldId]] = pos;
+                });
+                clone.relationWebPositions = remapped;
+            }
             if (clone.skillTrees && typeof clone.skillTrees === 'object') {
                 const remappedSkillTrees = {};
                 Object.entries(clone.skillTrees).forEach(([charId, tree]) => {
@@ -5701,17 +5927,21 @@
             subtreeRels.forEach(r => { r.c1x = null; r.c1y = null; r.c2x = null; r.c2y = null; });
             const movedSkillTrees = {};
             sub.forEach(nid => { if (mindMapData.skillTrees && mindMapData.skillTrees[nid]) movedSkillTrees[nid] = deepClone(mindMapData.skillTrees[nid]); });
+            const movedWebPositions = {};
+            sub.forEach(nid => { if (mindMapData.relationWebPositions && mindMapData.relationWebPositions[nid]) movedWebPositions[nid] = deepClone(mindMapData.relationWebPositions[nid]); });
             const newSheet = {
                 id: generateSheetId(), name: (sheetName.trim() || defaultName),
                 layout: mindMapData.layout || 'tree', theme: mindMapData.theme || 'default',
                 beatSheetMode: false, beatSheetFramework: null, beatSheetSavedPositions: null,
                 beatSortMode: false, beatSortSavedPositions: null,
+                relationWebPositions: movedWebPositions,
                 nodes: subtreeNodes, relationships: subtreeRels, relations: [], skillTrees: movedSkillTrees
             };
             mindMapData.nodes = mindMapData.nodes.filter(n => !sub.has(n.id));
             mindMapData.relationships = (mindMapData.relationships || []).filter(r => !sub.has(r.from) && !sub.has(r.to));
             mindMapData.relations = (mindMapData.relations || []).filter(r => !sub.has(r.from) && !sub.has(r.to));
             if (mindMapData.skillTrees) sub.forEach(nid => { delete mindMapData.skillTrees[nid]; });
+            if (mindMapData.relationWebPositions) sub.forEach(nid => { delete mindMapData.relationWebPositions[nid]; });
             const curIdx = currentStory.sheets.findIndex(s => s.id === mindMapData.id);
             if (curIdx >= 0) currentStory.sheets[curIdx] = mindMapData;
             currentStory.sheets.push(newSheet);
@@ -5890,6 +6120,11 @@
                 }
                 let povBadgeHTML = '';
                 if (node.pov && node.pov.trim()) povBadgeHTML = `<div class="inline-flex items-center gap-1 bg-violet-100 border border-violet-300 text-violet-800 rounded-full px-2 py-0.5 text-[9px] font-semibold mb-1.5 pointer-events-none max-w-full self-start"><i class="fa-solid fa-eye text-[8px]"></i><span class="truncate">${escapeHTML(node.pov)}</span></div>`;
+                // NEW: reference links badge
+                const refLinksArr = (node.type === 'character') ? getReferenceLinks(node) : [];
+                const refBadgeHTML = refLinksArr.length > 0
+                    ? `<div class="ref-badge" title="${refLinksArr.length} link(s) de referência"><i class="fa-solid fa-link text-[8px]"></i><span>${refLinksArr.length}</span></div>`
+                    : '';
                 const cardTypeSummary = getCardTypeSummary(node);
                 const cardSummaryHTML = cardTypeSummary ? `<div class="text-[10px] font-semibold mb-1 truncate" style="color:${typeDef ? typeDef.color : '#475569'}" title="${escapeHTML(cardTypeSummary)}">${escapeHTML(cardTypeSummary)}</div>` : '';
                 el.innerHTML = `
@@ -5898,6 +6133,7 @@
                     ${beatBadgeHTML}
                     ${typeBadgeHTML}
                     ${sceneDiagBadgeHTML}
+                    ${refBadgeHTML}
                     <div class="mb-1.5 min-w-0">${titleHTML}</div>
                     ${cardSummaryHTML}
                     ${povBadgeHTML}
@@ -6727,6 +6963,7 @@
             if (mindMapData.beatSheetSavedPositions) toDelete.forEach(id => { delete mindMapData.beatSheetSavedPositions[id]; });
             if (mindMapData.beatSortSavedPositions) toDelete.forEach(id => { delete mindMapData.beatSortSavedPositions[id]; });
             if (mindMapData.beatSortLastArrangement) toDelete.forEach(id => { delete mindMapData.beatSortLastArrangement[id]; });
+            if (mindMapData.relationWebPositions) toDelete.forEach(id => { delete mindMapData.relationWebPositions[id]; });
             if (focusModeNodeId && toDelete.has(focusModeNodeId)) { focusModeNodeId = null; updateFocusPill(); }
             selectedNodeIds.clear();
             editingNodeId = null; editingField = null;
@@ -7416,6 +7653,16 @@
                         md += BIG_FIVE_TRAITS.map(t => `${t.icon} ${t.short} ${bf[t.key] || 3}/5`).join(' · ');
                         md += '\n';
                     }
+                    if (n.type === 'character') {
+                        const refLinks = getReferenceLinks(n);
+                        if (refLinks.length > 0) {
+                            md += '  '.repeat(depth + 1) + `  - **Links de referência:**\n`;
+                            refLinks.forEach(link => {
+                                const label = (link.label || '').trim() || link.url;
+                                md += '  '.repeat(depth + 2) + `    - [${label}](${link.url})\n`;
+                            });
+                        }
+                    }
                     walk(n.id, depth + 1);
                 });
             }
@@ -7557,6 +7804,7 @@
         let reteiaPhysicsOn = true;
         let reteiaSelectedNodeId = null;
         let reteiaPendingPair = null;
+        let reteiaSaveDebounce = null;
 
         function ensureRelationsArray() {
             if (!mindMapData.relations || !Array.isArray(mindMapData.relations)) mindMapData.relations = [];
@@ -7587,6 +7835,29 @@
             return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
         }
 
+        // NEW: Persistência das posições da teia
+        function reteiaSavePositions() {
+            if (!mindMapData || !reteiaSimulation) return;
+            if (!mindMapData.relationWebPositions || typeof mindMapData.relationWebPositions !== 'object') {
+                mindMapData.relationWebPositions = {};
+            }
+            const nodes = reteiaSimulation.nodes();
+            nodes.forEach(n => {
+                if (typeof n.x === 'number' && typeof n.y === 'number' && isFinite(n.x) && isFinite(n.y)) {
+                    mindMapData.relationWebPositions[n.id] = { x: n.x, y: n.y };
+                }
+            });
+        }
+
+        function reteiaSchedulePositionSave() {
+            if (reteiaSaveDebounce) return;
+            reteiaSaveDebounce = setTimeout(() => {
+                reteiaSaveDebounce = null;
+                reteiaSavePositions();
+                scheduleSave();
+            }, 800);
+        }
+
         function openRelationWeb() {
             if (!mindMapData) return;
             const modal = document.getElementById('reteia-modal');
@@ -7602,6 +7873,10 @@
         function closeRelationWeb() {
             const modal = document.getElementById('reteia-modal');
             if (!modal) return;
+            // Salva posições antes de fechar
+            try { reteiaSavePositions(); } catch(_) {}
+            if (reteiaSaveDebounce) { clearTimeout(reteiaSaveDebounce); reteiaSaveDebounce = null; }
+            saveStoriesStorage();
             modal.classList.add('hidden'); modal.classList.remove('flex');
             if (reteiaSimulation) { reteiaSimulation.stop(); reteiaSimulation = null; }
             reteiaPendingFrom = null; reteiaEditingRelId = null;
@@ -7637,6 +7912,25 @@
                 avatar: getCharacterAvatar(n), initials: getCharacterInitials(n),
                 role: n.typeData?.role || '', nodeRef: n
             }));
+            // NEW: Restaurar posições salvas
+            const savedPositions = (mindMapData.relationWebPositions && typeof mindMapData.relationWebPositions === 'object') ? mindMapData.relationWebPositions : {};
+            let restoredCount = 0;
+            nodesData.forEach(n => {
+                const pos = savedPositions[n.id];
+                if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
+                    n.x = pos.x;
+                    n.y = pos.y;
+                    n.fx = pos.x;
+                    n.fy = pos.y;
+                    restoredCount++;
+                }
+            });
+            // Se todos os nós têm posição salva, começa "congelado"
+            if (restoredCount > 0 && restoredCount === nodesData.length) {
+                reteiaPhysicsOn = false;
+            } else {
+                reteiaPhysicsOn = true;
+            }
             const linksData = validRelations.map(r => ({
                 id: r.id, source: r.from, target: r.to, type: r.type,
                 label: r.label || RELATION_TYPES[r.type]?.label || '',
@@ -7726,9 +8020,10 @@
                         d.fx = event.x; d.fy = event.y;
                     })
                     .on('end', (event, d) => {
-                        if (!reteiaPhysicsOn) return;
+                        if (!reteiaPhysicsOn) { reteiaSavePositions(); scheduleSave(); return; }
                         if (!event.active) reteiaSimulation.alphaTarget(0);
                         d.fx = null; d.fy = null;
+                        reteiaSavePositions(); scheduleSave();
                     })
                 );
             nodeSel.append('circle')
@@ -7801,7 +8096,22 @@
                 nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
             }
             reteiaSimulation.on('tick', tick);
+            reteiaSimulation.on('end', () => {
+                reteiaSavePositions();
+                scheduleSave();
+            });
             reteiaTickOnce = tick;
+            // Atualiza o botão de física de acordo com o estado inicial
+            const physBtn = document.getElementById('reteia-physics-btn');
+            if (physBtn) {
+                if (reteiaPhysicsOn) {
+                    physBtn.innerHTML = '<i class="fa-solid fa-snowflake"></i><span class="hidden md:inline">Congelar</span>';
+                    physBtn.className = 'bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5';
+                } else {
+                    physBtn.innerHTML = '<i class="fa-solid fa-play"></i><span class="hidden md:inline">Descongelar</span>';
+                    physBtn.className = 'bg-amber-100 hover:bg-amber-200 text-amber-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5';
+                }
+            }
         }
 
         let reteiaTickOnce = () => {};
@@ -7956,6 +8266,8 @@
                 btn.innerHTML = '<i class="fa-solid fa-play"></i><span class="hidden md:inline">Descongelar</span>';
                 btn.className = 'bg-amber-100 hover:bg-amber-200 text-amber-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5';
             }
+            reteiaSavePositions();
+            scheduleSave();
         }
 
         async function reteiaExportPNG() {
@@ -8633,7 +8945,6 @@
             zoomGroup.appendChild(connGroup);
             const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             zoomGroup.appendChild(nodeGroup);
-            // conexões pai→filho
             skills.forEach(skill => {
                 if (!skill.parentId) return;
                 const parent = skills.find(s => s.id === skill.parentId);
@@ -8655,7 +8966,6 @@
                 path.setAttribute('data-child-id', skill.id);
                 connGroup.appendChild(path);
             });
-            // conexões cruzadas de pré-requisitos
             skills.forEach(skill => {
                 if (!Array.isArray(skill.requires)) return;
                 skill.requires.forEach(req => {
@@ -8675,7 +8985,6 @@
                     connGroup.appendChild(path);
                 });
             });
-            // nós
             skills.forEach(skill => {
                 const type = getSkillType(skill.type);
                 const color = SKILL_COLORS[skill.color] || type.color;
@@ -8751,7 +9060,6 @@
                 rk.setAttribute('class', 'st-rank-pill');
                 rk.textContent = `${skill.rank || 0}/${skill.maxRank || 1}`;
                 rankText.appendChild(rk); g.appendChild(rankText);
-                // cadeado de requisitos
                 const hasReqs = Array.isArray(skill.requires) && skill.requires.some(r => r.id);
                 if (hasReqs) {
                     const lockG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -8992,8 +9300,6 @@
             if (svg && pointerId !== null) { try { if (svg.hasPointerCapture(pointerId)) svg.releasePointerCapture(pointerId); } catch (_) {} }
         }
 
-
-        // ---------- Conectar arrastando para dentro de outro nó ----------
         function skillTreeIsDescendant(ancestorId, candidateId) {
             const byId = new Map(getSkillsForSelectedCharacter().map(sk => [sk.id, sk]));
             const seen = new Set();
@@ -9048,7 +9354,6 @@
             showToast(alreadyChild ? `"${dragged.name || 'Habilidade'}" já é filha de "${target.name || 'Habilidade'}".` : `"${dragged.name || 'Habilidade'}" conectada a "${target.name || 'Habilidade'}".`, alreadyChild ? 'info' : 'success');
         }
 
-        // ---------- Duplicação ----------
         function skillTreeCloneSkills(source) {
             const idMap = new Map();
             source.forEach(sk => idMap.set(sk.id, generateSkillId()));
