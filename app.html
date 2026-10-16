@@ -3449,7 +3449,11 @@ let eyedropperCopyWithIcons = true;
                 tt.addEventListener('mouseenter', () => { cancelNodeTooltip(); });
                 tt.addEventListener('mouseleave', () => { hideNodeTooltip(); hoveredNodeId = null; });
             }
-            window.addEventListener('pointerdown', () => { hideNodeTooltip(); }, true);
+            window.addEventListener('pointerdown', (e) => {
+    // Não fecha o tooltip se o clique foi dentro dele (ex.: num link)
+    if (e.target && e.target.closest && e.target.closest('#node-tooltip')) return;
+    hideNodeTooltip();
+}, true);
             canvas.addEventListener('wheel', () => { hideNodeTooltip(); }, { passive: true });
             canvas.addEventListener('scroll', () => { hideNodeTooltip(); }, { passive: true });
             window.addEventListener('keydown', (e) => {
