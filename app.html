@@ -6261,8 +6261,8 @@ document.addEventListener('pointerdown', (e) => {
                 const isVariantRootNode = node.isVariant;
                 const variantLabel = isVariantRootNode ? (node.variantLabel || '') : '';
                 const el = document.createElement('div');
-const isEyedropperTarget = eyedropperArmed && eyedropperSourceId === node.id;
-el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md border cursor-pointer flex flex-col ${isSelected ? 'ring-4 ring-indigo-400 is-selected shadow-xl' : ''} ${isDropTarget ? 'drop-target' : ''} ${isRelSource ? 'rel-source' : ''} ${isSearchMiss ? 'opacity-30' : ''} ${isFocusDim ? 'focus-dim' : ''} ${isInVariant ? 'is-variant' : ''} ${isEyedropperSource ? 'eyedropper-target' : ''}`;
+const isEyedropperTarget = eyedropperArmed && eyedropperTargetIds.has(node.id);
+el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md border cursor-pointer flex flex-col ${isSelected ? 'ring-4 ring-indigo-400 is-selected shadow-xl' : ''} ${isDropTarget ? 'drop-target' : ''} ${isRelSource ? 'rel-source' : ''} ${isSearchMiss ? 'opacity-30' : ''} ${isFocusDim ? 'focus-dim' : ''} ${isInVariant ? 'is-variant' : ''} ${isEyedropperTarget ? 'eyedropper-target' : ''}`;
                 el.style.left = `${node.x}px`;
                 el.style.top = `${node.y}px`;
                 el.style.width = NODE_W + 'px';
