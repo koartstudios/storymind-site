@@ -181,6 +181,40 @@
         body.app-theme-dark #node-tooltip .tt-empty { color: #64748b; }
         body.app-theme-dark #node-tooltip .tt-hint { border-top-color: #334155; color: #64748b; }
 
+/* ==================== Conta-gotas ==================== */
+body.eyedropper-armed #canvas-container,
+body.eyedropper-armed #canvas-container * {
+    cursor: crosshair !important;
+}
+body.eyedropper-armed #canvas-container .node-card {
+    cursor: crosshair !important;
+}
+.node-card.eyedropper-source {
+    box-shadow: 0 0 0 3px rgba(217, 70, 239, 0.85), 0 10px 25px -5px rgba(217, 70, 239, 0.5) !important;
+}
+.node-card.eyedropper-source::after {
+    content: '🎯 origem';
+    position: absolute;
+    top: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #d946ef;
+    color: white;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(217, 70, 239, 0.5);
+    pointer-events: none;
+    z-index: 30;
+}
+body.eyedropper-armed #tool-eyedropper {
+    background: #fae8ff !important;
+    color: #a21caf !important;
+    box-shadow: 0 0 0 2px rgba(217, 70, 239, 0.4);
+}
+
         /* ==================== Variantes "E se..." ==================== */
         .node-card.is-variant {
             border-style: dashed !important;
@@ -1368,6 +1402,9 @@
             <button id="tool-relation" onclick="setTool('relation')" class="w-10 h-10 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 transition" title="Criar Relação (R)">
                 <i class="fa-solid fa-link"></i>
             </button>
+		<button id="tool-eyedropper" onclick="toggleEyedropper()" class="w-10 h-10 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 transition" title="Conta-gotas: copiar estilo (I)">
+    <i class="fa-solid fa-eye-dropper"></i>
+</button>
 
             <div class="w-8 h-px bg-slate-200 my-1"></div>
 
@@ -2574,7 +2611,7 @@
                 { key: 'characters',  label: 'Personagens (separe por vírgula)', type: 'text' },
                 { key: 'objective',   label: 'Objetivo da cena', type: 'text' },
                 { key: 'conflict',    label: 'Conflito / obstáculo', type: 'textarea' },
-                { key: 'valueAtStake', label: '🎯 Valor em Jogo (McKee)', type: 'text', placeholder: 'Ex: Amor, Verdade, Justiça, Liberdade...' },
+               { key: 'valueAtStake', label: '🎯 Valor em Jogo', type: 'text', placeholder: 'Ex: Amor, Verdade, Justiça, Liberdade...' },
                 { key: 'valueStart',   label: '⬅ Carga Inicial do Valor', type: 'select', options: ['Positivo (+)', 'Negativo (−)', 'Neutro'] },
                 { key: 'valueEnd',     label: '➡ Carga Final do Valor',   type: 'select', options: ['Positivo (+)', 'Negativo (−)', 'Neutro'] }
             ],
@@ -2587,7 +2624,7 @@
                 { key: 'arc',            label: 'Arco de transformação', type: 'textarea' },
                 { key: 'firstAppearance',label: 'Primeira aparição', type: 'text' },
                 { key: 'lastAppearance', label: 'Última aparição',   type: 'text' },
-                { key: 'conflictValue',  label: '⚔ Valor em Conflito (McKee)', type: 'textarea', placeholder: 'Ex: Honra vs. Sobrevivência · Amor vs. Liberdade' }
+                { key: 'conflictValue',  label: '⚔ Valor em Conflito', type: 'textarea', placeholder: 'Ex: Honra vs. Sobrevivência · Amor vs. Liberdade' }
             ],
             location: [
                 { key: 'era',          label: 'Época / período',  type: 'text' },
@@ -2595,7 +2632,7 @@
                 { key: 'atmosphere',   label: 'Atmosfera',        type: 'text' },
                 { key: 'geography',    label: 'Geografia / descrição', type: 'textarea' },
                 { key: 'significance', label: 'Significado na história', type: 'textarea' },
-                { key: 'environmentPressures', label: '🌍 Pressões do Ambiente (McKee)', type: 'textarea', placeholder: 'Ex: Aqui mentir é punido com morte · A escassez torna todos hostis' }
+                { key: 'environmentPressures', label: '🌍 Pressões do Ambiente', type: 'textarea', placeholder: 'Ex: Aqui mentir é punido com morte · A escassez torna todos hostis' }
             ],
             event: [
                 { key: 'eventType',    label: 'Tipo de evento',  type: 'select', options: ['Incidente Incitante', 'Catalisador', 'Primeiro Ponto de Virada', 'Midpoint', 'Segundo Ponto de Virada', 'Clímax', 'Desfecho', 'Outro'] },
@@ -2611,7 +2648,7 @@
                 { key: 'emotion',  label: 'Emoção dominante',    type: 'text' },
                 { key: 'subtext',  label: 'Subtexto',            type: 'textarea' },
                 { key: 'context',  label: 'Contexto',            type: 'text' },
-                { key: 'speechAction', label: '⚡ Ação da Fala (McKee)', type: 'select', options: [
+                { key: 'speechAction', label: '⚡ Ação da Fala', type: 'select', options: [
                     'Seduzir', 'Ameaçar', 'Testar', 'Esconder', 'Confessar',
                     'Manipular', 'Desafiar', 'Acusar', 'Consolar', 'Provocar',
                     'Informar', 'Questionar', 'Persuadir', 'Enganar', 'Revelar'
@@ -2622,7 +2659,7 @@
                 { key: 'motifs',     label: 'Motivos recorrentes (separe por vírgula)', type: 'text' },
                 { key: 'symbolism',  label: 'Simbolismo',          type: 'textarea' },
                 { key: 'examples',   label: 'Exemplos na história', type: 'textarea' },
-                { key: 'coreValue',  label: '💎 Valor Central (McKee)', type: 'text', placeholder: 'Ex: Justiça, Amor, Verdade — o valor que a história afirma' }
+                { key: 'coreValue',  label: '💎 Valor Central', type: 'text', placeholder: 'Ex: Justiça, Amor, Verdade — o valor que a história afirma' }
             ],
             note: []
         };
@@ -2848,7 +2885,7 @@
             const s = normalize(start), e = normalize(end);
             const val = node.typeData.valueAtStake || 'em jogo';
             if (s === e) {
-                return { level: 'warn', title: 'Cena não vira o valor', message: `O valor "${val}" começa e termina como ${s}. Para McKee, uma cena que não vira um valor é um "não-evento" — considere fundi-la, reescrevê-la ou introduzir um ponto de virada real.` };
+                return { level: 'warn', title: 'Cena não vira o valor', message: `O valor "${val}" começa e termina como ${s}. Uma cena que não vira um valor tende a soar como "não-evento" — considere fundi-la, reescrevê-la ou introduzir um ponto de virada real.` };
             }
             return { level: 'ok', title: 'Cena vira o valor', message: `O valor "${val}" muda de ${s} para ${e}. Ponto de virada dramático consistente.` };
         }
@@ -2886,7 +2923,7 @@
                 wrapper.innerHTML = `
                     <div class="mt-2 p-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50">
                         <div class="text-[10px] text-slate-500 italic leading-snug">
-                            <i class="fa-solid fa-circle-info mr-1"></i>Preencha <b>Carga Inicial</b> e <b>Carga Final</b> para o diagnóstico automático de McKee.
+                            <i class="fa-solid fa-circle-info mr-1"></i>Preencha <b>Carga Inicial</b> e <b>Carga Final</b> para o diagnóstico automático de virada de valor.
                         </div>
                     </div>
                 `;
@@ -3076,6 +3113,11 @@
         let previewHeld = false;
         let showVariants = true;
         let variantModalAnchorId = null;
+
+// Conta-gotas
+let eyedropperArmed = false;
+let eyedropperSourceId = null;
+let eyedropperCopyWithIcons = true;
 
         function startInlineEdit(nodeId, field) { editingNodeId = nodeId; editingField = field || 'title'; renderApp(); }
 
@@ -3302,7 +3344,7 @@
             if (node.type === 'location' && node.typeData.environmentPressures) mckeeRows.push(`<div class="tt-row"><span class="tt-label">🌍 Pressões:</span> <span class="tt-value">${escapeHTML(node.typeData.environmentPressures)}</span></div>`);
             if (node.type === 'dialogue' && node.typeData.speechAction) mckeeRows.push(`<div class="tt-row"><span class="tt-label">⚡ Ação da Fala:</span> <span class="tt-value">${escapeHTML(node.typeData.speechAction)}</span></div>`);
             if (node.type === 'theme' && node.typeData.coreValue) mckeeRows.push(`<div class="tt-row"><span class="tt-label">💎 Valor Central:</span> <span class="tt-value">${escapeHTML(node.typeData.coreValue)}</span></div>`);
-            if (mckeeRows.length > 0) html += `<div style="margin-top:8px; padding-top:8px; border-top:1px dashed #e2e8f0;"><div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#64748b; margin-bottom:6px;">📖 Análise McKee</div>${mckeeRows.join('')}</div>`;
+            if (mckeeRows.length > 0) html += `<div style="margin-top:8px; padding-top:8px; border-top:1px dashed #e2e8f0;"><div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#64748b; margin-bottom:6px;">📖 Análise Dramática</div>${mckeeRows.join('')}</div>`;
             if (node.type === 'character' && hasBigFiveData(node)) {
                 const bf = node.typeData.bigFive;
                 html += `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e2e8f0;"><div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#64748b; margin-bottom:6px;">🎭 Traços de Personalidade</div>`;
@@ -5973,6 +6015,120 @@
             if (activeTool !== 'relation') { relationshipSourceId = null; renderApp(); }
         }
 
+// ==============================================================
+// CONTA-GOTAS: copiar estilo visual de um nó para outro
+// ==============================================================
+const EYEDROPPER_PROPS = ['color', 'type', 'pov', 'tension'];
+
+function toggleEyedropper() {
+    if (eyedropperArmed) {
+        cancelEyedropper();
+        return;
+    }
+    armEyedropper();
+}
+
+function armEyedropper() {
+    eyedropperArmed = true;
+    eyedropperSourceId = null;
+    document.body.classList.add('eyedropper-armed');
+    updateEyedropperButton();
+    renderApp();
+    showToast('Conta-gotas ativo: clique num nó para definir a origem.', 'info', 2600);
+}
+
+function cancelEyedropper() {
+    if (!eyedropperArmed) return;
+    eyedropperArmed = false;
+    eyedropperSourceId = null;
+    document.body.classList.remove('eyedropper-armed');
+    updateEyedropperButton();
+    renderApp();
+}
+
+function updateEyedropperButton() {
+    const btn = document.getElementById('tool-eyedropper');
+    if (!btn) return;
+    if (eyedropperArmed) {
+        btn.className = 'w-10 h-10 rounded-xl flex items-center justify-center text-fuchsia-700 bg-fuchsia-50 transition shadow-sm';
+    } else {
+        btn.className = 'w-10 h-10 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 transition';
+    }
+}
+
+function handleEyedropperClick(targetNodeId) {
+    if (!eyedropperArmed) return;
+    const sourceNode = mindMapData.nodes.find(n => n.id === eyedropperSourceId);
+    const targetNode = mindMapData.nodes.find(n => n.id === targetNodeId);
+
+    if (!eyedropperSourceId) {
+        // Define origem
+        eyedropperSourceId = targetNodeId;
+        const src = sourceNode || targetNode;
+        showToast(`Origem definida: "${src.title.substring(0, 30)}". Agora clique nos nós que vão receber o estilo.`, 'success', 3200);
+        renderApp();
+        return;
+    }
+
+    if (targetNodeId === eyedropperSourceId) {
+        // Clicar de novo na origem "desarma" a origem (volta a escolher)
+        eyedropperSourceId = null;
+        showToast('Origem limpa. Escolha um novo nó de origem.', 'info', 1800);
+        renderApp();
+        return;
+    }
+
+    if (!sourceNode) {
+        eyedropperSourceId = null;
+        renderApp();
+        return;
+    }
+    if (!targetNode) return;
+
+    // Aplica o estilo
+    pushHistory();
+    EYEDROPPER_PROPS.forEach(prop => {
+        if (prop === 'type') {
+            targetNode.type = sourceNode.type;
+        } else if (prop === 'pov') {
+            targetNode.pov = sourceNode.pov || '';
+        } else if (prop === 'tension') {
+            targetNode.tension = typeof sourceNode.tension === 'number' ? sourceNode.tension : 0;
+        } else {
+            targetNode[prop] = sourceNode[prop];
+        }
+    });
+    if (eyedropperCopyWithIcons && Array.isArray(sourceNode.icons)) {
+        targetNode.icons = [...sourceNode.icons];
+    }
+    domCache.invalidateHeight(targetNode.id);
+    invalidateStructure();
+    saveStoriesStorage();
+    renderApp();
+    // Sinaliza qual foi o nó pintado (feedback rápido)
+    const painted = domCache.get(targetNode.id);
+    if (painted) {
+        painted.style.transition = 'box-shadow 0.1s';
+        painted.style.boxShadow = '0 0 0 3px rgba(217, 70, 239, 0.7), 0 10px 25px -5px rgba(217, 70, 239, 0.4)';
+        setTimeout(() => {
+            if (painted.isConnected) painted.style.boxShadow = '';
+        }, 220);
+    }
+}
+
+// Handler global: intercepta cliques nos cards quando conta-gotas está armado
+document.addEventListener('pointerdown', (e) => {
+    if (!eyedropperArmed) return;
+    const card = e.target.closest && e.target.closest('[data-node-id]');
+    if (!card) return;
+    // Ignora cliques em botões dentro do card (+ filho, recolher)
+    if (e.target.closest('button')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const nodeId = card.getAttribute('data-node-id');
+    if (nodeId) handleEyedropperClick(nodeId);
+}, true); // capture=true para pegar antes dos outros handlers
+
         function getVisibleNodes() {
             if (visibilityVersion === structureVersion && visibilitySet) return visibilitySet;
             const byParent = {};
@@ -6080,7 +6236,8 @@
                 const isVariantRootNode = node.isVariant;
                 const variantLabel = isVariantRootNode ? (node.variantLabel || '') : '';
                 const el = document.createElement('div');
-                el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md border cursor-pointer flex flex-col ${isSelected ? 'ring-4 ring-indigo-400 is-selected shadow-xl' : ''} ${isDropTarget ? 'drop-target' : ''} ${isRelSource ? 'rel-source' : ''} ${isSearchMiss ? 'opacity-30' : ''} ${isFocusDim ? 'focus-dim' : ''} ${isInVariant ? 'is-variant' : ''}`;
+const isEyedropperSource = eyedropperArmed && eyedropperSourceId === node.id;
+el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md border cursor-pointer flex flex-col ${isSelected ? 'ring-4 ring-indigo-400 is-selected shadow-xl' : ''} ${isDropTarget ? 'drop-target' : ''} ${isRelSource ? 'rel-source' : ''} ${isSearchMiss ? 'opacity-30' : ''} ${isFocusDim ? 'focus-dim' : ''} ${isInVariant ? 'is-variant' : ''} ${isEyedropperSource ? 'eyedropper-source' : ''}`;
                 el.style.left = `${node.x}px`;
                 el.style.top = `${node.y}px`;
                 el.style.width = NODE_W + 'px';
@@ -6144,6 +6301,7 @@
                 `;
                 if (!isEditing) {
                     el.onpointerdown = (e) => {
+  			if (eyedropperArmed) return;
                         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.closest('button')) return;
                         if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
                         e.stopPropagation();
@@ -7646,7 +7804,7 @@ else newScale = Math.max(scale / factor, 0.05);
                     }
                     const mckeeBits = [];
                     if (n.type === 'scene') { const diag = getSceneDiagnostic(n); if (diag && diag.level === 'warn') mckeeBits.push(`⚠ ${diag.title}`); }
-                    if (mckeeBits.length > 0) md += '  '.repeat(depth + 1) + `  - **Análise McKee:** ${mckeeBits.join(' · ')}\n`;
+                    if (mckeeBits.length > 0) md += '  '.repeat(depth + 1) + `  - **Análise Dramática:** ${mckeeBits.join(' · ')}\n`;
                     if (n.type === 'character' && n.typeData && n.typeData.bigFive && hasBigFiveData(n)) {
                         const bf = n.typeData.bigFive;
                         md += '  '.repeat(depth + 1) + `  - **Traços de Personalidade:** `;
@@ -9819,9 +9977,10 @@ else newScale = Math.max(scale / factor, 0.05);
                 if ((e.ctrlKey || e.metaKey) && e.code === 'KeyS' && !e.shiftKey && !e.altKey) { e.preventDefault(); e.stopPropagation(); exportDataWithDialog(); return; }
                 if ((e.ctrlKey || e.metaKey) && e.code === 'KeyO' && !e.shiftKey && !e.altKey) { e.preventDefault(); e.stopPropagation(); openImportDialog(); return; }
                 if (e.key === 'Escape') {
-                    const pickerModal = document.getElementById('beat-picker-modal');
-                    if (pickerModal && !pickerModal.classList.contains('hidden')) { e.preventDefault(); closeBeatSheetPicker(); return; }
-                    const bibleModal = document.getElementById('bible-modal');
+    if (eyedropperArmed) { e.preventDefault(); cancelEyedropper(); return; }   // ← NOVA LINHA
+    const pickerModal = document.getElementById('beat-picker-modal');
+    if (pickerModal && !pickerModal.classList.contains('hidden')) { e.preventDefault(); closeBeatSheetPicker(); return; }
+    const bibleModal = document.getElementById('bible-modal');
                     if (bibleModal && !bibleModal.classList.contains('hidden')) { e.preventDefault(); closeStoryBible(); return; }
                     const mentionsModal = document.getElementById('mentions-modal');
                     if (mentionsModal && !mentionsModal.classList.contains('hidden')) { e.preventDefault(); closeMentionsGraph(); return; }
@@ -9849,6 +10008,7 @@ else newScale = Math.max(scale / factor, 0.05);
                 if (e.code === 'KeyV' && !e.ctrlKey && !e.metaKey) { setTool('select'); return; }
                 if (e.code === 'KeyH' && !e.ctrlKey && !e.metaKey) { setTool('pan'); return; }
                 if (e.code === 'KeyR' && !e.ctrlKey && !e.metaKey) { setTool('relation'); return; }
+		if (e.code === 'KeyI' && !e.ctrlKey && !e.metaKey && !e.shiftKey) { e.preventDefault(); toggleEyedropper(); return; }   // ← NOVA LINHA
                 if (e.code === 'KeyN' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); addNewNode(); return; }
                 if (e.code === 'KeyO' && !e.ctrlKey && !e.metaKey) { toggleOutline(); return; }
                 if (e.code === 'KeyM' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); toggleMinimap(); return; }
