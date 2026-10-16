@@ -69,7 +69,7 @@ $('list').onclick = e => {
       a.download = (db[k].title || 'mapa').replace(/[^\w-]+/g, '_') + '.json'; return a.click(); }
     if (ac.dataset.act === 'del') {
       if (Object.keys(db).length <= 1) return alert('Mantenha ao menos uma história.');
-      if (confirm('Excluir "' + db[k].title + '"?')) { delete db[k]; save(db); SM_CLOUD.remove(k); render(); } }
+      if (confirm('Excluir "' + db[k].title + '"?')) { delete db[k]; save(db); SM_CLOUD.remove(k).catch(e => { console.warn(e); alert('Excluído aqui, mas não foi possível remover da nuvem agora. Vamos tentar de novo na próxima sincronização.'); }); render(); } }
     return; }
   if (op) abrir(op.dataset.open);
 };
@@ -91,6 +91,7 @@ $('imp').onchange = e => {
   r.readAsText(f);
 };
 
+window.addEventListener('pagehide', () => SM_CLOUD.flush());
 SM_AUTH.user().then(u => { if (u) { owner = u.email; $('who').textContent = u.email; } });
 // Baixa da nuvem e pega as datas de modificação
 SM_CLOUD.pull().then(async () => {
