@@ -4182,14 +4182,15 @@ let eyedropperCopyWithIcons = true;
             });
             window.addEventListener('beforeunload', () => {
                 if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
-                try { flushPendingSave(); } catch(_) {}
+                try { flushPendingSave(); SM_CLOUD.flush(); } catch(_) {}
             });
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'hidden') {
                     if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
-                    try { flushPendingSave(); } catch(_) {}
+                    try { flushPendingSave(); SM_CLOUD.flush(); } catch(_) {}
                 }
             });
+            window.addEventListener('pagehide', () => { try { flushPendingSave(); SM_CLOUD.flush(); } catch(_) {} });
             setTimeout(() => setSaveStatus('saved'), 150);
         };
 
@@ -5337,8 +5338,53 @@ let eyedropperCopyWithIcons = true;
             };
         }
 
+        // Ids vindos de arquivos importados entram em onclick="..." e atributos HTML.
+        // Mantém só [A-Za-z0-9_-]. Idempotente: ids gerados pelo app (node-123-abc) não mudam.
+        function cleanId(v) { return typeof v === 'string' ? v.replace(/[^\w-]/g, '_') : v; }
+        function cleanKeys(obj) {
+            if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+            const out = {};
+            Object.keys(obj).forEach(k => { out[cleanId(k)] = obj[k]; });
+            return out;
+        }
+        function sanitizeSheetIds(s) {
+            if (!s || typeof s !== 'object') return;
+            s.id = cleanId(s.id);
+            (Array.isArray(s.nodes) ? s.nodes : []).forEach(n => {
+                if (!n || typeof n !== 'object') return;
+                n.id = cleanId(n.id); n.parentId = cleanId(n.parentId);
+                if (n.variantOf) n.variantOf = cleanId(n.variantOf);
+            });
+            ['relationships', 'relations'].forEach(f => (Array.isArray(s[f]) ? s[f] : []).forEach(r => {
+                if (!r || typeof r !== 'object') return;
+                r.id = cleanId(r.id); r.from = cleanId(r.from); r.to = cleanId(r.to);
+            }));
+            if (s.relationWebPositions) s.relationWebPositions = cleanKeys(s.relationWebPositions);
+            if (s.skillTrees && typeof s.skillTrees === 'object' && !Array.isArray(s.skillTrees)) {
+                s.skillTrees = cleanKeys(s.skillTrees);
+                Object.values(s.skillTrees).forEach(t => {
+                    if (!t || !Array.isArray(t.skills)) return;
+                    t.skills.forEach(sk => {
+                        if (!sk || typeof sk !== 'object') return;
+                        sk.id = cleanId(sk.id); sk.parentId = cleanId(sk.parentId);
+                        if (Array.isArray(sk.requires)) sk.requires.forEach(r => {
+                            if (r && typeof r === 'object') { r.id = cleanId(r.id); r.minRank = Number(r.minRank) || 1; }
+                        });
+                    });
+                });
+            }
+        }
+        function sanitizeStoryIds(story) {
+            if (!story || typeof story !== 'object') return story;
+            story.activeSheetId = cleanId(story.activeSheetId);
+            if (Array.isArray(story.sheets)) story.sheets.forEach(sanitizeSheetIds);
+            else if (Array.isArray(story.nodes)) sanitizeSheetIds(story);
+            return story;
+        }
+
         function migrateStoryToSheets(story) {
             if (!story) return null;
+            sanitizeStoryIds(story);
             if (story.sheets && Array.isArray(story.sheets) && story.sheets.length > 0) {
                 story.sheets.forEach(s => {
                     s.id = s.id || generateSheetId();
@@ -5574,7 +5620,7 @@ let eyedropperCopyWithIcons = true;
         function deleteCurrentStory() {
             if (Object.keys(storiesDatabase).length <= 1) { showToast("Não é possível excluir a única história.", "error"); return; }
             if (!confirm(`Excluir a história "${currentStory.title}"?`)) return;
-            SM_CLOUD.remove(currentStoryKey);
+            SM_CLOUD.remove(currentStoryKey).catch(err => { console.warn('Exclusão na nuvem falhou:', err); showToast('Excluída aqui, mas não foi possível remover da nuvem agora. Vamos tentar de novo na próxima sincronização.', 'warn'); });
             delete storiesDatabase[currentStoryKey];
             localStorage.setItem('storymind_database_v2', JSON.stringify(storiesDatabase));
             const firstKey = Object.keys(storiesDatabase)[0];
@@ -8877,7 +8923,7 @@ else newScale = Math.max(scale / factor, 0.05);
             const skill = skills[0];
             if (!skill) { iconBox.innerHTML = '<i class="fa-solid fa-star text-2xl text-amber-500"></i>'; return; }
             if (skill.iconUrl && /^https?:\/\//i.test(skill.iconUrl)) iconBox.innerHTML = `<img src="${escapeHTML(skill.iconUrl)}" class="w-full h-full object-cover" crossorigin="anonymous" alt="">`;
-            else iconBox.innerHTML = `<span style="font-size:32px">${skill.emoji || '⭐'}</span>`;
+            else iconBox.innerHTML = `<span style="font-size:32px">${escapeHTML(skill.emoji || '⭐')}</span>`;
         }
 
         function skillTreePasteEmoji() {
@@ -8972,13 +9018,14 @@ else newScale = Math.max(scale / factor, 0.05);
                     try {
                         const data = JSON.parse(ev.target.result);
                         if (!data.skills || !Array.isArray(data.skills)) { showToast('Formato inválido — esperado { skills: [...] }', 'error'); return; }
-                        const mode = confirm(`Importar ${data.skills.length} habilidade(s) de "${data.character || 'arquivo'}"?\n\nOK = Substituir a árvore atual\nCancelar = Adicionar ao final da árvore atual`);
+                        if (!confirm(`Importar ${data.skills.length} habilidade(s) de "${data.character || 'arquivo'}"?`)) return;
+                        const mode = confirm(`Como importar?\n\nOK = Substituir a árvore atual\nCancelar = Adicionar ao final da árvore atual`);
                         skillTreePushHistory();
                         const tree = getSkillTreeForCharacter(stCurrentCharacterId);
                         const existingIds = new Set(tree.skills.map(s => s.id));
                         const idMap = {};
                         data.skills.forEach(sk => {
-                            let newId = sk.id;
+                            let newId = String(sk.id || generateSkillId()).replace(/[^\w-]/g, '_');
                             while (existingIds.has(newId)) newId = generateSkillId();
                             idMap[sk.id] = newId;
                             existingIds.add(newId);
@@ -8986,7 +9033,7 @@ else newScale = Math.max(scale / factor, 0.05);
                         const imported = data.skills.map(sk => ({
                             ...sk, id: idMap[sk.id],
                             parentId: sk.parentId && idMap[sk.parentId] ? idMap[sk.parentId] : null,
-                            requires: Array.isArray(sk.requires) ? sk.requires.map(r => ({ id: idMap[r.id] || r.id, minRank: r.minRank || 1 })) : []
+                            requires: Array.isArray(sk.requires) ? sk.requires.map(r => ({ id: idMap[r.id] || r.id, minRank: Number(r.minRank) || 1 })) : []
                         }));
                         if (mode) tree.skills = imported;
                         else tree.skills = tree.skills.concat(imported);
