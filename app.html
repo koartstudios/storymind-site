@@ -5462,6 +5462,7 @@ let eyedropperCopyWithIcons = true;
 
         function saveStoriesStorage() {
             if (!currentStory || !mindMapData) return;
+			if (SM_CLOUD.tombstones().includes(currentStoryKey)) return;
             const idx = currentStory.sheets.findIndex(s => s.id === mindMapData.id);
             if (idx >= 0) currentStory.sheets[idx] = mindMapData;
             currentStory.activeSheetId = mindMapData.id;
