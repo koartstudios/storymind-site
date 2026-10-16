@@ -5462,7 +5462,6 @@ let eyedropperCopyWithIcons = true;
 
         function saveStoriesStorage() {
             if (!currentStory || !mindMapData) return;
-			if (SM_CLOUD.tombstones().includes(currentStoryKey)) return;
             const idx = currentStory.sheets.findIndex(s => s.id === mindMapData.id);
             if (idx >= 0) currentStory.sheets[idx] = mindMapData;
             currentStory.activeSheetId = mindMapData.id;
@@ -5568,48 +5567,18 @@ let eyedropperCopyWithIcons = true;
             closeStorySettings();
         }
 
-        function deasync function deleteCurrentStory() {
-    if (Object.keys(storiesDatabase).length <= 1) {
-        showToast("Não é possível excluir a única história.", "error");
-        return;
-    }
-    if (!confirm(`Excluir a história "${currentStory.title}"?`)) return;
-
-    const keyToDelete = currentStoryKey;
-
-    // 1. Cancela qualquer save pendente DESTA história.
-    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
-    if (SM_CLOUD.timers[keyToDelete]) {
-        clearTimeout(SM_CLOUD.timers[keyToDelete]);
-        delete SM_CLOUD.timers[keyToDelete];
-    }
-
-    // 2. Aguarda o DELETE no Supabase antes de mexer no estado local.
-    try {
-        await SM_CLOUD.remove(keyToDelete);
-    } catch (e) {
-        console.error('Falha ao excluir na nuvem:', e);
-        showToast("Erro ao excluir na nuvem. Tente novamente.", "error", 4000);
-        return;
-    }
-
-    // 3. Só então remove do estado em memória e do localStorage.
-    delete storiesDatabase[keyToDelete];
-    try {
-        localStorage.setItem('storymind_database_v2', JSON.stringify(storiesDatabase));
-    } catch (e) {
-        console.warn('Falha ao salvar no localStorage:', e);
-    }
-
-    // 4. Troca para outra história.
-    const firstKey = Object.keys(storiesDatabase)[0];
-    currentStoryKey = firstKey;
-    populateStorySelectDropdown();
-    switchStory(firstKey);
-    closeStorySettings();
-
-    showToast('História excluída.', 'success', 2000);
-}
+        function deleteCurrentStory() {
+            if (Object.keys(storiesDatabase).length <= 1) { showToast("Não é possível excluir a única história.", "error"); return; }
+            if (!confirm(`Excluir a história "${currentStory.title}"?`)) return;
+            SM_CLOUD.remove(currentStoryKey);
+            delete storiesDatabase[currentStoryKey];
+            localStorage.setItem('storymind_database_v2', JSON.stringify(storiesDatabase));
+            const firstKey = Object.keys(storiesDatabase)[0];
+            currentStoryKey = firstKey;
+            populateStorySelectDropdown();
+            switchStory(firstKey);
+            closeStorySettings();
+        }
 
         function renderSheetTabs() {
             const container = document.getElementById('sheet-tabs');
