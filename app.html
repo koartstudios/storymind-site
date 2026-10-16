@@ -189,30 +189,30 @@ body.eyedropper-armed #canvas-container * {
 body.eyedropper-armed #canvas-container .node-card {
     cursor: crosshair !important;
 }
-.node-card.eyedropper-source {
-    box-shadow: 0 0 0 3px rgba(217, 70, 239, 0.85), 0 10px 25px -5px rgba(217, 70, 239, 0.5) !important;
+.node-card.eyedropper-target {
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.85), 0 10px 25px -5px rgba(16, 185, 129, 0.5) !important;
 }
-.node-card.eyedropper-source::after {
-    content: '🎯 origem';
+.node-card.eyedropper-target::after {
+    content: '🎯 alvo';
     position: absolute;
     top: -22px;
     left: 50%;
     transform: translateX(-50%);
-    background: #d946ef;
+    background: #10b981;
     color: white;
     font-size: 9px;
     font-weight: 800;
     padding: 2px 8px;
     border-radius: 999px;
     white-space: nowrap;
-    box-shadow: 0 2px 6px rgba(217, 70, 239, 0.5);
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.5);
     pointer-events: none;
     z-index: 30;
 }
 body.eyedropper-armed #tool-eyedropper {
-    background: #fae8ff !important;
-    color: #a21caf !important;
-    box-shadow: 0 0 0 2px rgba(217, 70, 239, 0.4);
+    background: #d1fae5 !important;
+    color: #047857 !important;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.4);
 }
 
         /* ==================== Variantes "E se..." ==================== */
@@ -3116,7 +3116,7 @@ body.eyedropper-armed #tool-eyedropper {
 
 // Conta-gotas
 let eyedropperArmed = false;
-let eyedropperSourceId = null;
+let eyedropperTargetIds = new Set();   // quais nós vão receber o estilo
 let eyedropperCopyWithIcons = true;
 
         function startInlineEdit(nodeId, field) { editingNodeId = nodeId; editingField = field || 'title'; renderApp(); }
@@ -6016,7 +6016,7 @@ let eyedropperCopyWithIcons = true;
         }
 
 // ==============================================================
-// CONTA-GOTAS: copiar estilo visual de um nó para outro
+// CONTA-GOTAS: aplicar estilo de um nó doador em alvos pré-selecionados
 // ==============================================================
 const EYEDROPPER_PROPS = ['color', 'type', 'pov', 'tension'];
 
@@ -6029,105 +6029,130 @@ function toggleEyedropper() {
 }
 
 function armEyedropper() {
+    if (selectedNodeIds.size === 0) {
+        showToast('Selecione primeiro o(s) nó(s) que vão receber o estilo.', 'warn', 3200);
+        return;
+    }
     eyedropperArmed = true;
-    eyedropperSourceId = null;
+    eyedropperTargetIds = new Set(selectedNodeIds);
     document.body.classList.add('eyedropper-armed');
     updateEyedropperButton();
     renderApp();
-    showToast('Conta-gotas ativo: clique num nó para definir a origem.', 'info', 2600);
+    const n = eyedropperTargetIds.size;
+    showToast(
+        `Conta-gotas ativo: ${n} alvo${n > 1 ? 's' : ''} marcado${n > 1 ? 's' : ''}. Clique no nó que doa o estilo.`,
+        'info',
+        4000
+    );
 }
 
-function cancelEyedropper() {
+function cancelEyedropper(silent = false) {
     if (!eyedropperArmed) return;
     eyedropperArmed = false;
-    eyedropperSourceId = null;
+    eyedropperTargetIds.clear();
     document.body.classList.remove('eyedropper-armed');
     updateEyedropperButton();
     renderApp();
+    if (!silent) showToast('Conta-gotas cancelado.', 'info', 1800);
 }
 
 function updateEyedropperButton() {
     const btn = document.getElementById('tool-eyedropper');
     if (!btn) return;
     if (eyedropperArmed) {
-        btn.className = 'w-10 h-10 rounded-xl flex items-center justify-center text-fuchsia-700 bg-fuchsia-50 transition shadow-sm';
+        btn.className = 'w-10 h-10 rounded-xl flex items-center justify-center text-emerald-700 bg-emerald-50 transition shadow-sm';
     } else {
         btn.className = 'w-10 h-10 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 transition';
     }
 }
 
-function handleEyedropperClick(targetNodeId) {
+function handleEyedropperClick(sourceNodeId) {
     if (!eyedropperArmed) return;
-    const sourceNode = mindMapData.nodes.find(n => n.id === eyedropperSourceId);
-    const targetNode = mindMapData.nodes.find(n => n.id === targetNodeId);
 
-    if (!eyedropperSourceId) {
-        // Define origem
-        eyedropperSourceId = targetNodeId;
-        const src = sourceNode || targetNode;
-        showToast(`Origem definida: "${src.title.substring(0, 30)}". Agora clique nos nós que vão receber o estilo.`, 'success', 3200);
-        renderApp();
+    // Não pode usar um dos próprios alvos como doador
+    if (eyedropperTargetIds.has(sourceNodeId)) {
+        showToast('Esse nó é um alvo. Clique num nó diferente para doar o estilo.', 'warn', 2800);
         return;
     }
 
-    if (targetNodeId === eyedropperSourceId) {
-        // Clicar de novo na origem "desarma" a origem (volta a escolher)
-        eyedropperSourceId = null;
-        showToast('Origem limpa. Escolha um novo nó de origem.', 'info', 1800);
-        renderApp();
+    const sourceNode = mindMapData.nodes.find(n => n.id === sourceNodeId);
+    if (!sourceNode) return;
+
+    const targets = [...eyedropperTargetIds]
+        .map(id => mindMapData.nodes.find(n => n.id === id))
+        .filter(Boolean);
+
+    if (targets.length === 0) {
+        cancelEyedropper(true);
         return;
     }
 
-    if (!sourceNode) {
-        eyedropperSourceId = null;
-        renderApp();
-        return;
-    }
-    if (!targetNode) return;
-
-    // Aplica o estilo
     pushHistory();
-    EYEDROPPER_PROPS.forEach(prop => {
-        if (prop === 'type') {
-            targetNode.type = sourceNode.type;
-        } else if (prop === 'pov') {
-            targetNode.pov = sourceNode.pov || '';
-        } else if (prop === 'tension') {
-            targetNode.tension = typeof sourceNode.tension === 'number' ? sourceNode.tension : 0;
-        } else {
-            targetNode[prop] = sourceNode[prop];
+
+    // 1. Aplica as propriedades nos alvos
+    targets.forEach(target => {
+        EYEDROPPER_PROPS.forEach(prop => {
+            if (prop === 'pov') {
+                target.pov = sourceNode.pov || '';
+            } else if (prop === 'tension') {
+                target.tension = typeof sourceNode.tension === 'number' ? sourceNode.tension : 0;
+            } else {
+                target[prop] = sourceNode[prop];
+            }
+        });
+        if (eyedropperCopyWithIcons && Array.isArray(sourceNode.icons)) {
+            target.icons = [...sourceNode.icons];
         }
+        domCache.invalidateHeight(target.id);
     });
-    if (eyedropperCopyWithIcons && Array.isArray(sourceNode.icons)) {
-        targetNode.icons = [...sourceNode.icons];
-    }
-    domCache.invalidateHeight(targetNode.id);
+
     invalidateStructure();
     saveStoriesStorage();
+
+    // 2. Sai do modo ANTES de renderizar (para limpar a classe verde dos alvos)
+    eyedropperArmed = false;
+    eyedropperTargetIds.clear();
+    document.body.classList.remove('eyedropper-armed');
+    updateEyedropperButton();
     renderApp();
-    // Sinaliza qual foi o nó pintado (feedback rápido)
-    const painted = domCache.get(targetNode.id);
-    if (painted) {
-        painted.style.transition = 'box-shadow 0.1s';
-        painted.style.boxShadow = '0 0 0 3px rgba(217, 70, 239, 0.7), 0 10px 25px -5px rgba(217, 70, 239, 0.4)';
-        setTimeout(() => {
-            if (painted.isConnected) painted.style.boxShadow = '';
-        }, 220);
-    }
+
+    // 3. Feedback visual: piscar os alvos em magenta por 320ms
+    targets.forEach(t => {
+        const el = domCache.get(t.id);
+        if (!el) return;
+        el.style.transition = 'box-shadow 0.12s';
+        el.style.boxShadow = '0 0 0 3px rgba(217, 70, 239, 0.8), 0 10px 25px -5px rgba(217, 70, 239, 0.5)';
+        setTimeout(() => { if (el.isConnected) el.style.boxShadow = ''; }, 320);
+    });
+
+    const label = sourceNode.title.length > 30 ? sourceNode.title.slice(0, 28) + '…' : sourceNode.title;
+    const n = targets.length;
+    showToast(`Estilo de "${label}" aplicado a ${n} nó${n > 1 ? 's' : ''}.`, 'success', 2800);
 }
 
-// Handler global: intercepta cliques nos cards quando conta-gotas está armado
+// Handler global: intercepta cliques enquanto o conta-gotas está armado
 document.addEventListener('pointerdown', (e) => {
     if (!eyedropperArmed) return;
+
+    // Clique num card?
     const card = e.target.closest && e.target.closest('[data-node-id]');
-    if (!card) return;
-    // Ignora cliques em botões dentro do card (+ filho, recolher)
-    if (e.target.closest('button')) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const nodeId = card.getAttribute('data-node-id');
-    if (nodeId) handleEyedropperClick(nodeId);
-}, true); // capture=true para pegar antes dos outros handlers
+    if (card) {
+        if (e.target.closest('button')) return;   // deixa o botão + / recolher funcionar normalmente?
+        e.preventDefault();
+        e.stopPropagation();
+        const nodeId = card.getAttribute('data-node-id');
+        if (nodeId) handleEyedropperClick(nodeId);
+        return;
+    }
+
+    // Clique em área vazia do canvas cancela o conta-gotas
+    const canvas = document.getElementById('canvas-container');
+    if (canvas && canvas.contains(e.target)) {
+        e.preventDefault();
+        e.stopPropagation();
+        cancelEyedropper();
+    }
+}, true);
 
         function getVisibleNodes() {
             if (visibilityVersion === structureVersion && visibilitySet) return visibilitySet;
@@ -6236,8 +6261,8 @@ document.addEventListener('pointerdown', (e) => {
                 const isVariantRootNode = node.isVariant;
                 const variantLabel = isVariantRootNode ? (node.variantLabel || '') : '';
                 const el = document.createElement('div');
-const isEyedropperSource = eyedropperArmed && eyedropperSourceId === node.id;
-el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md border cursor-pointer flex flex-col ${isSelected ? 'ring-4 ring-indigo-400 is-selected shadow-xl' : ''} ${isDropTarget ? 'drop-target' : ''} ${isRelSource ? 'rel-source' : ''} ${isSearchMiss ? 'opacity-30' : ''} ${isFocusDim ? 'focus-dim' : ''} ${isInVariant ? 'is-variant' : ''} ${isEyedropperSource ? 'eyedropper-source' : ''}`;
+const isEyedropperTarget = eyedropperArmed && eyedropperTargetIds.has(node.id);
+el.className = `node-card absolute ... ${isEyedropperTarget ? 'eyedropper-target' : ''}`;
                 el.style.left = `${node.x}px`;
                 el.style.top = `${node.y}px`;
                 el.style.width = NODE_W + 'px';
