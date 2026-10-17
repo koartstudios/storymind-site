@@ -3055,6 +3055,7 @@ body.eyedropper-armed #tool-eyedropper {
                     beatSheetMode: false, beatSheetFramework: null, beatSheetSavedPositions: null,
                     beatSortMode: false, beatSortSavedPositions: null,
                     relationWebPositions: {},
+layoutPositions: {},
                     nodes: [{
                         id: generateNodeId(), title: "MINHA HISTÓRIA",
                         content: "Ponto central da narrativa. Clique com o botão direito, use o botão + ao lado, ou pressione Tab para adicionar nós filhos.",
@@ -5441,6 +5442,7 @@ function selectDescendants() {
                     s.beatSortSavedPositions = s.beatSortSavedPositions && typeof s.beatSortSavedPositions === 'object' ? s.beatSortSavedPositions : null;
                     s.beatSortLastArrangement = s.beatSortLastArrangement && typeof s.beatSortLastArrangement === 'object' ? s.beatSortLastArrangement : null;
                     if (!s.relationWebPositions || typeof s.relationWebPositions !== 'object') s.relationWebPositions = {};
+if (!s.layoutPositions || typeof s.layoutPositions !== 'object' || Array.isArray(s.layoutPositions)) s.layoutPositions = {};
                     s.nodes = (s.nodes || []).map(migrateNode);
                     s.relationships = (s.relationships || []).map(r => migrateRelationship(r, s));
                     if (!s.relations || !Array.isArray(s.relations)) s.relations = [];
@@ -5475,6 +5477,7 @@ function selectDescendants() {
                 beatSheetMode: false, beatSheetFramework: null, beatSheetSavedPositions: null,
                 beatSortMode: false, beatSortSavedPositions: null,
                 relationWebPositions: {},
+		layoutPositions: {},
                 nodes: options.nodes || [
                     { id: generateNodeId(), title: "NOVO MAPA", content: "", parentId: null, x: CANVAS_CENTER_X, y: CANVAS_CENTER_Y, color: "purple", icons: [], collapsed: false, tension: 0, beatId: null, type: null, pov: "", typeData: {}, isVariant: false, variantOf: null, variantLabel: "" }
                 ],
@@ -5885,6 +5888,18 @@ function selectDescendants() {
                 });
                 clone.relationWebPositions = remapped;
             }
+if (clone.layoutPositions && typeof clone.layoutPositions === 'object') {
+    const remappedLayouts = {};
+    Object.entries(clone.layoutPositions).forEach(([layoutKey, snapshot]) => {
+        if (!snapshot || typeof snapshot !== 'object') return;
+        const remappedSnapshot = {};
+        Object.entries(snapshot).forEach(([oldId, pos]) => {
+            if (idMap[oldId]) remappedSnapshot[idMap[oldId]] = pos;
+        });
+        remappedLayouts[layoutKey] = remappedSnapshot;
+    });
+    clone.layoutPositions = remappedLayouts;
+}
             if (clone.skillTrees && typeof clone.skillTrees === 'object') {
                 const remappedSkillTrees = {};
                 Object.entries(clone.skillTrees).forEach(([charId, tree]) => {
@@ -6063,12 +6078,24 @@ function selectDescendants() {
             sub.forEach(nid => { if (mindMapData.skillTrees && mindMapData.skillTrees[nid]) movedSkillTrees[nid] = deepClone(mindMapData.skillTrees[nid]); });
             const movedWebPositions = {};
             sub.forEach(nid => { if (mindMapData.relationWebPositions && mindMapData.relationWebPositions[nid]) movedWebPositions[nid] = deepClone(mindMapData.relationWebPositions[nid]); });
+const movedLayoutPositions = {};
+sub.forEach(nid => {
+    if (mindMapData.layoutPositions) {
+        Object.entries(mindMapData.layoutPositions).forEach(([layoutKey, snapshot]) => {
+            if (snapshot && snapshot[nid]) {
+                if (!movedLayoutPositions[layoutKey]) movedLayoutPositions[layoutKey] = {};
+                movedLayoutPositions[layoutKey][nid] = snapshot[nid];
+            }
+        });
+    }
+});
             const newSheet = {
                 id: generateSheetId(), name: (sheetName.trim() || defaultName),
                 layout: mindMapData.layout || 'tree', theme: mindMapData.theme || 'default',
                 beatSheetMode: false, beatSheetFramework: null, beatSheetSavedPositions: null,
                 beatSortMode: false, beatSortSavedPositions: null,
-                relationWebPositions: movedWebPositions,
+                 relationWebPositions: movedWebPositions,
+    layoutPositions: movedLayoutPositions,
                 nodes: subtreeNodes, relationships: subtreeRels, relations: [], skillTrees: movedSkillTrees
             };
             mindMapData.nodes = mindMapData.nodes.filter(n => !sub.has(n.id));
@@ -7276,11 +7303,48 @@ else newScale = Math.max(scale / factor, 0.05);
             invalidateStructure(); saveStoriesStorage(); renderApp();
         }
 
-        function changeLayout(layout) {
-            pushHistory(); mindMapData.layout = layout;
-            saveStoriesStorage(); applyLayout(); renderApp();
-            requestAnimationFrame(() => requestAnimationFrame(fitView));
-        }
+        function changeLayout(newLayout) {
+    if (!mindMapData) return;
+    const currentLayout = mindMapData.layout || 'tree';
+    if (currentLayout === newLayout) return;
+
+    pushHistory();
+
+    // 1. Snapshot das posições atuais, guardado sob o layout atual
+    if (!mindMapData.layoutPositions || typeof mindMapData.layoutPositions !== 'object') {
+        mindMapData.layoutPositions = {};
+    }
+    const snapshot = {};
+    mindMapData.nodes.forEach(n => { snapshot[n.id] = { x: n.x, y: n.y }; });
+    mindMapData.layoutPositions[currentLayout] = snapshot;
+
+    // 2. Troca o modo
+    mindMapData.layout = newLayout;
+
+    // 3. Restaura se já havia um snapshot completo para esse layout
+    const saved = mindMapData.layoutPositions[newLayout];
+    const hasSnapshot = saved && typeof saved === 'object'
+        && mindMapData.nodes.every(n => saved[n.id]
+            && typeof saved[n.id].x === 'number'
+            && typeof saved[n.id].y === 'number');
+
+    if (hasSnapshot) {
+        mindMapData.nodes.forEach(n => {
+            n.x = saved[n.id].x;
+            n.y = saved[n.id].y;
+        });
+    } else {
+        // Primeira vez nesse layout — aplica o auto-layout normal
+        if (newLayout === 'radial') layoutRadial();
+        else if (newLayout === 'org') layoutOrg();
+        else layoutTree();
+    }
+
+    invalidateStructure();
+    saveStoriesStorage();
+    renderApp();
+    requestAnimationFrame(() => requestAnimationFrame(fitView));
+}
 
         function applyLayout() {
             const layout = mindMapData.layout || 'tree';
@@ -7290,13 +7354,25 @@ else newScale = Math.max(scale / factor, 0.05);
         }
 
         function autoLayoutNodes() {
-            pushHistory();
-            if (mindMapData.beatSheetMode) layoutBeatSheet();
-            else if (mindMapData.beatSortMode) { mindMapData.beatSortLastArrangement = null; applyBeatSortLayout(); }
-            else applyLayout();
-            invalidateStructure(); saveStoriesStorage(); renderApp();
-            requestAnimationFrame(() => requestAnimationFrame(fitView));
+    pushHistory();
+    if (mindMapData.beatSheetMode) layoutBeatSheet();
+    else if (mindMapData.beatSortMode) { mindMapData.beatSortLastArrangement = null; applyBeatSortLayout(); }
+    else applyLayout();
+
+    // Atualiza o snapshot do layout atual pra refletir o novo arranjo
+    if (!mindMapData.beatSheetMode && !mindMapData.beatSortMode) {
+        const key = mindMapData.layout || 'tree';
+        if (!mindMapData.layoutPositions || typeof mindMapData.layoutPositions !== 'object') {
+            mindMapData.layoutPositions = {};
         }
+        const snapshot = {};
+        mindMapData.nodes.forEach(n => { snapshot[n.id] = { x: n.x, y: n.y }; });
+        mindMapData.layoutPositions[key] = snapshot;
+    }
+
+    invalidateStructure(); saveStoriesStorage(); renderApp();
+    requestAnimationFrame(() => requestAnimationFrame(fitView));
+}
 
         function layoutTree() {
             const roots = mindMapData.nodes.filter(n => !n.parentId);
