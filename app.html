@@ -5297,6 +5297,48 @@ let eyedropperCopyWithIcons = true;
             else { closeInspector(); renderApp(); }
         }
 
+// ==============================================================
+// Seleciona todos os descendentes dos nós atualmente selecionados
+// ==============================================================
+function selectDescendants() {
+    if (selectedNodeIds.size === 0) {
+        showToast('Selecione um nó primeiro.', 'warn', 1500);
+        return;
+    }
+
+    // Índice pai→filhos para não varrer a lista inteira a cada nível
+    const childrenByParent = {};
+    mindMapData.nodes.forEach(n => {
+        if (n.parentId) (childrenByParent[n.parentId] ||= []).push(n.id);
+    });
+
+    const toAdd = new Set(selectedNodeIds);
+    const stack = [...selectedNodeIds];
+    while (stack.length) {
+        const cur = stack.pop();
+        (childrenByParent[cur] || []).forEach(childId => {
+            if (!toAdd.has(childId)) {
+                toAdd.add(childId);
+                stack.push(childId);
+            }
+        });
+    }
+
+    const addedCount = toAdd.size - selectedNodeIds.size;
+    if (addedCount <= 0) {
+        showToast('Esse nó não tem descendentes.', 'info', 1500);
+        return;
+    }
+
+    selectedNodeIds.clear();
+    toAdd.forEach(id => selectedNodeIds.add(id));
+    invalidateStructure();
+
+    if (selectedNodeIds.size > 1) openMultiInspector();
+    renderApp();
+    showToast(`${addedCount} descendente(s) adicionado(s) à seleção.`, 'success', 1800);
+}
+
         function migrateRelationship(r, sheet) {
             const out = {
                 id: r.id, from: r.from, to: r.to,
@@ -10076,6 +10118,8 @@ else newScale = Math.max(scale / factor, 0.05);
                 if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && !e.shiftKey) { e.preventDefault(); undo(); return; }
                 if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyY' || (e.code === 'KeyZ' && e.shiftKey))) { e.preventDefault(); redo(); return; }
                 if ((e.ctrlKey || e.metaKey) && e.code === 'KeyA' && !e.shiftKey) { e.preventDefault(); selectAllNodes(); return; }
+		if (e.code === 'KeyA' && e.shiftKey && !e.ctrlKey && !e.metaKey) { e.preventDefault(); selectDescendants(); return; }
+		if (e.code === 'KeyA' && e.shiftKey && !e.ctrlKey && !e.metaKey) { e.preventDefault(); selectDescendants(); return; }
                 if ((e.ctrlKey || e.metaKey) && e.code === 'KeyC' && !e.shiftKey) { if (selectedNodeIds.size > 0) { e.preventDefault(); copySelectedNodes(); return; } }
                 if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV' && !e.shiftKey) { if (nodeClipboard && nodeClipboard.nodes.length > 0) { e.preventDefault(); pasteClipboard(); return; } }
                 if ((e.ctrlKey || e.metaKey) && e.code === 'KeyF' && !e.shiftKey) { e.preventDefault(); document.getElementById('search-input').focus(); return; }
