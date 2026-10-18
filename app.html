@@ -43,6 +43,14 @@
         .relationship-path:hover { stroke-width: 3.5; }
         .relationship-path.selected { stroke-width: 4; }
         .relationship-path.focus-dim { opacity: 0.15; }
+        .radial-ring {
+    stroke: var(--line-color, #cbd5e1);
+    stroke-width: 1.2;
+    stroke-dasharray: 6 8;
+    fill: none;
+    opacity: 0.6;
+    pointer-events: none;
+}
         .rel-handle { cursor: grab; }
         .rel-handle:active { cursor: grabbing; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -4374,6 +4382,7 @@ let eyedropperCopyWithIcons = true;
             mindMapData.relationships = (mindMapData.relationships || []).filter(r => !movingIds.has(r.from) && !movingIds.has(r.to));
             mindMapData.relations = (mindMapData.relations || []).filter(r => !movingIds.has(r.from) && !movingIds.has(r.to));
             if (mindMapData.skillTrees) movingIds.forEach(id => { delete mindMapData.skillTrees[id]; });
+             if ((mindMapData.layout || 'tree') === 'radial') layoutRadial();
             target.nodes = (target.nodes || []).concat(nodesToMove);
             target.relationships = (target.relationships || []).concat(relsToMove);
             target.relations = (target.relations || []).concat(charRelsToMove);
@@ -4389,6 +4398,7 @@ let eyedropperCopyWithIcons = true;
                     }
                 });
             }
+             if ((target.layout || 'tree') === 'radial') target.radialGroups = null; 
             selectedNodeIds.clear();
             closeInspector();
             domCache.clear(); domCache.invalidateHeights();
@@ -5443,6 +5453,7 @@ function selectDescendants() {
                     s.beatSortLastArrangement = s.beatSortLastArrangement && typeof s.beatSortLastArrangement === 'object' ? s.beatSortLastArrangement : null;
                     if (!s.relationWebPositions || typeof s.relationWebPositions !== 'object') s.relationWebPositions = {};
 if (!s.layoutPositions || typeof s.layoutPositions !== 'object' || Array.isArray(s.layoutPositions)) s.layoutPositions = {};
+if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
                     s.nodes = (s.nodes || []).map(migrateNode);
                     s.relationships = (s.relationships || []).map(r => migrateRelationship(r, s));
                     if (!s.relations || !Array.isArray(s.relations)) s.relations = [];
@@ -5478,6 +5489,7 @@ if (!s.layoutPositions || typeof s.layoutPositions !== 'object' || Array.isArray
                 beatSortMode: false, beatSortSavedPositions: null,
                 relationWebPositions: {},
 		layoutPositions: {},
+        radialGroups: [],
                 nodes: options.nodes || [
                     { id: generateNodeId(), title: "NOVO MAPA", content: "", parentId: null, x: CANVAS_CENTER_X, y: CANVAS_CENTER_Y, color: "purple", icons: [], collapsed: false, tension: 0, beatId: null, type: null, pov: "", typeData: {}, isVariant: false, variantOf: null, variantLabel: "" }
                 ],
@@ -5900,6 +5912,12 @@ if (clone.layoutPositions && typeof clone.layoutPositions === 'object') {
     });
     clone.layoutPositions = remappedLayouts;
 }
+if (Array.isArray(clone.radialGroups)) {
+    clone.radialGroups = clone.radialGroups.map(g => ({
+        ...g,
+        rootId: idMap[g.rootId] || g.rootId
+    }));
+}
             if (clone.skillTrees && typeof clone.skillTrees === 'object') {
                 const remappedSkillTrees = {};
                 Object.entries(clone.skillTrees).forEach(([charId, tree]) => {
@@ -6096,6 +6114,7 @@ sub.forEach(nid => {
                 beatSortMode: false, beatSortSavedPositions: null,
                  relationWebPositions: movedWebPositions,
     layoutPositions: movedLayoutPositions,
+      radialGroups: [],
                 nodes: subtreeNodes, relationships: subtreeRels, relations: [], skillTrees: movedSkillTrees
             };
             mindMapData.nodes = mindMapData.nodes.filter(n => !sub.has(n.id));
@@ -6103,6 +6122,7 @@ sub.forEach(nid => {
             mindMapData.relations = (mindMapData.relations || []).filter(r => !sub.has(r.from) && !sub.has(r.to));
             if (mindMapData.skillTrees) sub.forEach(nid => { delete mindMapData.skillTrees[nid]; });
             if (mindMapData.relationWebPositions) sub.forEach(nid => { delete mindMapData.relationWebPositions[nid]; });
+             if ((mindMapData.layout || 'tree') === 'radial') layoutRadial();
             const curIdx = currentStory.sheets.findIndex(s => s.id === mindMapData.id);
             if (curIdx >= 0) currentStory.sheets[curIdx] = mindMapData;
             currentStory.sheets.push(newSheet);
@@ -6321,6 +6341,23 @@ document.addEventListener('pointerdown', (e) => {
             const focusSet = getFocusSet();
             const isBeatSheet = !!mindMapData.beatSheetMode;
             const isBeatSort = !!mindMapData.beatSortMode && !!mindMapData.beatSheetFramework;
+            // Anéis radiais (galáxias)
+if ((mindMapData.layout || 'tree') === 'radial' && Array.isArray(mindMapData.radialGroups)) {
+    const liveIds = new Set(mindMapData.nodes.map(n => n.id));
+    mindMapData.radialGroups.forEach(g => {
+        if (!liveIds.has(g.rootId)) return;
+        for (let d = 1; d < g.ringRadii.length; d++) {
+            const r = g.ringRadii[d];
+            if (!(r > 0)) continue;
+            const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            c.setAttribute('cx', g.cx);
+            c.setAttribute('cy', g.cy);
+            c.setAttribute('r', r);
+            c.setAttribute('class', 'radial-ring');
+            svgLayer.appendChild(c);
+        }
+    });
+}
             if (!isBeatSheet) {
                 if (isBeatSort) {
                     const conns = buildNarrativeConnections();
@@ -7321,23 +7358,34 @@ else newScale = Math.max(scale / factor, 0.05);
     // 2. Troca o modo
     mindMapData.layout = newLayout;
 
-    // 3. Restaura se já havia um snapshot completo para esse layout
-    const saved = mindMapData.layoutPositions[newLayout];
-    const hasSnapshot = saved && typeof saved === 'object'
-        && mindMapData.nodes.every(n => saved[n.id]
-            && typeof saved[n.id].x === 'number'
-            && typeof saved[n.id].y === 'number');
+       // 3. Aplica o novo layout
+    mindMapData.layout = newLayout;
 
-    if (hasSnapshot) {
-        mindMapData.nodes.forEach(n => {
-            n.x = saved[n.id].x;
-            n.y = saved[n.id].y;
-        });
+    if (newLayout === 'radial') {
+        // Radial SEMPRE recalcula — os anéis dependem do layout atual
+        layoutRadial();
+        const fresh = {};
+        mindMapData.nodes.forEach(n => { fresh[n.id] = { x: n.x, y: n.y }; });
+        mindMapData.layoutPositions.radial = fresh;
     } else {
-        // Primeira vez nesse layout — aplica o auto-layout normal
-        if (newLayout === 'radial') layoutRadial();
-        else if (newLayout === 'org') layoutOrg();
-        else layoutTree();
+        const saved = mindMapData.layoutPositions[newLayout];
+        const hasSnapshot = saved && typeof saved === 'object'
+            && mindMapData.nodes.every(n => saved[n.id]
+                && typeof saved[n.id].x === 'number'
+                && typeof saved[n.id].y === 'number');
+
+        if (hasSnapshot) {
+            mindMapData.nodes.forEach(n => {
+                n.x = saved[n.id].x;
+                n.y = saved[n.id].y;
+            });
+        } else {
+            if (newLayout === 'org') layoutOrg();
+            else layoutTree();
+            const fresh = {};
+            mindMapData.nodes.forEach(n => { fresh[n.id] = { x: n.x, y: n.y }; });
+            mindMapData.layoutPositions[newLayout] = fresh;
+        }
     }
 
     invalidateStructure();
@@ -7359,7 +7407,6 @@ else newScale = Math.max(scale / factor, 0.05);
     else if (mindMapData.beatSortMode) { mindMapData.beatSortLastArrangement = null; applyBeatSortLayout(); }
     else applyLayout();
 
-    // Atualiza o snapshot do layout atual pra refletir o novo arranjo
     if (!mindMapData.beatSheetMode && !mindMapData.beatSortMode) {
         const key = mindMapData.layout || 'tree';
         if (!mindMapData.layoutPositions || typeof mindMapData.layoutPositions !== 'object') {
@@ -7370,72 +7417,297 @@ else newScale = Math.max(scale / factor, 0.05);
         mindMapData.layoutPositions[key] = snapshot;
     }
 
-    invalidateStructure(); saveStoriesStorage(); renderApp();
-    requestAnimationFrame(() => requestAnimationFrame(fitView));
+    invalidateStructure();
+    saveStoriesStorage();
+    renderApp();
+
+    // 2ª passada: com o DOM atualizado, mede de novo e refaz o layout
+    if (!mindMapData.beatSheetMode && !mindMapData.beatSortMode) {
+        requestAnimationFrame(() => {
+            domCache.invalidateHeights();
+            applyLayout();
+            renderApp();
+            requestAnimationFrame(() => requestAnimationFrame(fitView));
+        });
+    } else {
+        requestAnimationFrame(() => requestAnimationFrame(fitView));
+    }
 }
 
         function layoutTree() {
-            const roots = mindMapData.nodes.filter(n => !n.parentId);
-            if (roots.length === 0) return;
-            const spacing = 600;
-            let startY = CANVAS_CENTER_Y - ((roots.length - 1) * spacing) / 2;
-            roots.forEach(root => { root.x = CANVAS_CENTER_X - 400; root.y = startY; positionChildrenTree(root.id, root.x + 340, root.y); startY += spacing; });
-        }
+    const roots = mindMapData.nodes.filter(n => !n.parentId);
+    if (roots.length === 0) return;
 
-        function positionChildrenTree(parentId, baseX, baseY) {
-            const parent = mindMapData.nodes.find(n => n.id === parentId);
-            if (parent?.collapsed) return;
-            const children = mindMapData.nodes.filter(n => n.parentId === parentId);
-            if (children.length === 0) return;
-            const totalHeight = children.length * 160;
-            let currentY = baseY - (totalHeight / 2) + 80;
-            children.forEach(child => { child.x = baseX; child.y = currentY; positionChildrenTree(child.id, baseX + 340, currentY); currentY += 160; });
-        }
+    const H_GAP = 90;   // distância horizontal entre pai e filho
+    const V_GAP = 28;   // distância vertical entre irmãos
+
+    // 1. Mede altura real de cada nó (precisa estar renderizado)
+    const heights = {};
+    mindMapData.nodes.forEach(n => {
+        heights[n.id] = getNodeHeight(n.id) || NODE_H_FALLBACK;
+    });
+
+    // 2. Altura total de cada sub-árvore (bottom-up)
+    const subtreeH = new Map();
+    function measureSubtree(nodeId) {
+        if (subtreeH.has(nodeId)) return subtreeH.get(nodeId);
+        const children = mindMapData.nodes.filter(n => n.parentId === nodeId);
+        let sum = 0;
+        children.forEach(c => { sum += measureSubtree(c.id); });
+        if (children.length > 1) sum += (children.length - 1) * V_GAP;
+        const result = Math.max(heights[nodeId], sum);
+        subtreeH.set(nodeId, result);
+        return result;
+    }
+    roots.forEach(r => measureSubtree(r.id));
+
+    // 3. Posiciona cada nó centralizado verticalmente no seu slot
+    function place(nodeId, x, slotTop) {
+        const node = mindMapData.nodes.find(n => n.id === nodeId);
+        if (!node) return;
+        const myH = heights[nodeId];
+        const mySlotH = subtreeH.get(nodeId);
+
+        node.x = x;
+        node.y = slotTop + (mySlotH - myH) / 2;
+
+        if (node.collapsed) return;
+        const children = mindMapData.nodes.filter(n => n.parentId === nodeId);
+        if (children.length === 0) return;
+
+        // Distribui os filhos dentro do slot do pai
+        let totalChildrenH = 0;
+        children.forEach(c => { totalChildrenH += subtreeH.get(c.id); });
+        if (children.length > 1) totalChildrenH += (children.length - 1) * V_GAP;
+
+        let cursorY = slotTop + (mySlotH - totalChildrenH) / 2;
+        const childX = x + NODE_W + H_GAP;
+        children.forEach(c => {
+            place(c.id, childX, cursorY);
+            cursorY += subtreeH.get(c.id) + V_GAP;
+        });
+    }
+
+    // 4. Distribui as raízes verticalmente
+    let totalRootsH = 0;
+    roots.forEach(r => { totalRootsH += subtreeH.get(r.id); });
+    if (roots.length > 1) totalRootsH += (roots.length - 1) * V_GAP * 3;
+
+    const rootX = CANVAS_CENTER_X - 400;
+    let cursorY = CANVAS_CENTER_Y - totalRootsH / 2;
+    roots.forEach(r => {
+        place(r.id, rootX, cursorY);
+        cursorY += subtreeH.get(r.id) + V_GAP * 3;
+    });
+}
 
         function layoutOrg() {
-            const roots = mindMapData.nodes.filter(n => !n.parentId);
-            if (roots.length === 0) return;
-            let startX = CANVAS_CENTER_X - ((roots.length - 1) * 320) / 2;
-            roots.forEach(root => { root.x = startX; root.y = CANVAS_CENTER_Y - 300; positionChildrenOrg(root.id, root.x, root.y + 200); startX += 320; });
-        }
+    const roots = mindMapData.nodes.filter(n => !n.parentId);
+    if (roots.length === 0) return;
 
-        function positionChildrenOrg(parentId, baseX, baseY) {
-            const parent = mindMapData.nodes.find(n => n.id === parentId);
-            if (parent?.collapsed) return;
-            const children = mindMapData.nodes.filter(n => n.parentId === parentId);
-            if (children.length === 0) return;
-            const totalWidth = children.length * 320;
-            let currentX = baseX - (totalWidth / 2) + 160;
-            children.forEach(child => { child.x = currentX; child.y = baseY; positionChildrenOrg(child.id, currentX, baseY + 160); currentX += 320; });
-        }
+    const H_GAP = 32;   // distância horizontal entre irmãos
+    const V_GAP = 70;   // distância vertical entre níveis
+
+    const heights = {};
+    mindMapData.nodes.forEach(n => {
+        heights[n.id] = getNodeHeight(n.id) || NODE_H_FALLBACK;
+    });
+
+    // Largura de cada sub-árvore (bottom-up)
+    const subtreeW = new Map();
+    function measureSubtree(nodeId) {
+        if (subtreeW.has(nodeId)) return subtreeW.get(nodeId);
+        const children = mindMapData.nodes.filter(n => n.parentId === nodeId);
+        let sum = 0;
+        children.forEach(c => { sum += measureSubtree(c.id); });
+        if (children.length > 1) sum += (children.length - 1) * H_GAP;
+        const result = Math.max(NODE_W, sum);
+        subtreeW.set(nodeId, result);
+        return result;
+    }
+    roots.forEach(r => measureSubtree(r.id));
+
+    function place(nodeId, leftX, y) {
+        const node = mindMapData.nodes.find(n => n.id === nodeId);
+        if (!node) return;
+        const mySlotW = subtreeW.get(nodeId);
+
+        node.x = leftX + (mySlotW - NODE_W) / 2;
+        node.y = y;
+
+        if (node.collapsed) return;
+        const children = mindMapData.nodes.filter(n => n.parentId === nodeId);
+        if (children.length === 0) return;
+
+        let totalChildrenW = 0;
+        children.forEach(c => { totalChildrenW += subtreeW.get(c.id); });
+        if (children.length > 1) totalChildrenW += (children.length - 1) * H_GAP;
+
+        let cursorX = leftX + (mySlotW - totalChildrenW) / 2;
+        const childY = y + heights[nodeId] + V_GAP;
+        children.forEach(c => {
+            place(c.id, cursorX, childY);
+            cursorX += subtreeW.get(c.id) + H_GAP;
+        });
+    }
+
+    let totalRootsW = 0;
+    roots.forEach(r => { totalRootsW += subtreeW.get(r.id); });
+    if (roots.length > 1) totalRootsW += (roots.length - 1) * H_GAP * 3;
+
+    const rootY = CANVAS_CENTER_Y - 400;
+    let cursorX = CANVAS_CENTER_X - totalRootsW / 2;
+    roots.forEach(r => {
+        place(r.id, cursorX, rootY);
+        cursorX += subtreeW.get(r.id) + H_GAP * 3;
+    });
+}
 
         function layoutRadial() {
-            const root = mindMapData.nodes.find(n => !n.parentId);
-            if (!root) return;
-            root.x = CANVAS_CENTER_X; root.y = CANVAS_CENTER_Y;
-            const children = mindMapData.nodes.filter(n => n.parentId === root.id);
-            const step = (Math.PI * 2) / Math.max(children.length, 1);
-            children.forEach((child, i) => {
-                const angle = i * step - Math.PI / 2;
-                const radius = 400;
-                child.x = CANVAS_CENTER_X + Math.cos(angle) * radius;
-                child.y = CANVAS_CENTER_Y + Math.sin(angle) * radius;
-                positionDescendantsRadial(child, angle, 0.5);
+    const roots = mindMapData.nodes.filter(n => !n.parentId);
+    if (roots.length === 0) { mindMapData.radialGroups = []; return; }
+
+    domCache.invalidateHeights(); // alturas frescas para o layout
+
+    const TWO_PI = Math.PI * 2;
+    const BASE_RING_GAP = 380;    // distância mínima entre anéis
+    const NODE_WIDTH_ARC = NODE_W + 100; // arco mínimo p/ caber 1 nó
+    const SIBLING_PAD_FRAC = 0.05; // padding entre irmãos
+    const GALAXY_GAP_X = 400;     // espaço horizontal entre galáxias
+
+    // Índice pai → filhos
+    const childrenOf = new Map();
+    mindMapData.nodes.forEach(n => {
+        if (n.parentId) {
+            if (!childrenOf.has(n.parentId)) childrenOf.set(n.parentId, []);
+            childrenOf.get(n.parentId).push(n);
+        }
+    });
+
+    // Peso = folhas em cada sub-árvore (colapsados pesam 1)
+    const weight = new Map();
+    function computeWeight(node) {
+        if (weight.has(node.id)) return weight.get(node.id);
+        const kids = node.collapsed ? [] : (childrenOf.get(node.id) || []);
+        const w = kids.length === 0 ? 1 : kids.reduce((s, c) => s + computeWeight(c), 0);
+        weight.set(node.id, w);
+        return w;
+    }
+    roots.forEach(r => computeWeight(r));
+
+    // ============================================================
+    // Fase A: calcular slots angulares + raios de cada galáxia
+    // ============================================================
+    const galaxies = [];
+
+    roots.forEach(root => {
+        const angleStart = new Map();
+        const angleEnd = new Map();
+        const depthOf = new Map();
+
+        angleStart.set(root.id, -Math.PI / 2);           // começa no topo
+        angleEnd.set(root.id, -Math.PI / 2 + TWO_PI);    // círculo inteiro
+        depthOf.set(root.id, 0);
+
+        const queue = [root];
+        while (queue.length) {
+            const node = queue.shift();
+            if (node.collapsed) continue;
+            const kids = childrenOf.get(node.id) || [];
+            if (kids.length === 0) continue;
+
+            const start = angleStart.get(node.id);
+            const end = angleEnd.get(node.id);
+            const span = end - start;
+            const totalChildW = kids.reduce((s, c) => s + weight.get(c.id), 0);
+
+            const padTotal = kids.length > 1
+                ? Math.min(span * 0.28, span * SIBLING_PAD_FRAC * (kids.length - 1))
+                : 0;
+            const padEach = kids.length > 1 ? padTotal / (kids.length - 1) : 0;
+            const usableSpan = span - padTotal;
+
+            let cursor = start;
+            kids.forEach((c, i) => {
+                const childSpan = (weight.get(c.id) / totalChildW) * usableSpan;
+                angleStart.set(c.id, cursor);
+                angleEnd.set(c.id, cursor + childSpan);
+                depthOf.set(c.id, depthOf.get(node.id) + 1);
+                queue.push(c);
+                cursor += childSpan + (i < kids.length - 1 ? padEach : 0);
             });
         }
 
-        function positionDescendantsRadial(node, baseAngle, spread) {
-            if (node.collapsed) return;
-            const children = mindMapData.nodes.filter(n => n.parentId === node.id);
-            if (!children.length) return;
-            const step = spread / Math.max(children.length, 1);
-            children.forEach((child, i) => {
-                const angle = baseAngle + (i - (children.length - 1) / 2) * step;
-                child.x = node.x + Math.cos(angle) * 340;
-                child.y = node.y + Math.sin(angle) * 340;
-                positionDescendantsRadial(child, angle, spread * 0.6);
+        // Raios dos anéis deste galáxia
+        const maxDepth = Math.max(...Array.from(depthOf.values()));
+        const ringRadii = new Array(maxDepth + 1).fill(0);
+        ringRadii[0] = 0;
+
+        for (let d = 1; d <= maxDepth; d++) {
+            let needed = (ringRadii[d - 1] || 0) + BASE_RING_GAP;
+            mindMapData.nodes.forEach(n => {
+                if (depthOf.get(n.id) !== d) return;
+                const sectorSz = angleEnd.get(n.id) - angleStart.get(n.id);
+                if (sectorSz <= 0.0001) return;
+                const h = getNodeHeight(n.id) || NODE_H_FALLBACK;
+                const nodeArc = Math.max(NODE_WIDTH_ARC, h + 60);
+                const required = nodeArc / sectorSz;
+                if (required > needed) needed = required;
             });
+            ringRadii[d] = needed;
         }
+
+        const nodeExtent = Math.max(NODE_W, 280) / 2 + 60;
+        const boundingRadius = maxDepth > 0
+            ? ringRadii[maxDepth] + nodeExtent
+            : nodeExtent;
+
+        galaxies.push({ root, angleStart, angleEnd, depthOf, ringRadii, boundingRadius });
+    });
+
+    // ============================================================
+    // Fase B: empacotar galáxias lado a lado, tudo centralizado em CANVAS_CENTER
+    // ============================================================
+    const totalWidth = galaxies.reduce((s, g) => s + g.boundingRadius * 2, 0)
+                     + Math.max(0, galaxies.length - 1) * GALAXY_GAP_X;
+
+    let cursorX = CANVAS_CENTER_X - totalWidth / 2;
+    const cy = CANVAS_CENTER_Y;
+
+    const radialGroupsOut = [];
+
+    galaxies.forEach(g => {
+        const cx = cursorX + g.boundingRadius;
+
+        mindMapData.nodes.forEach(n => {
+            if (!g.depthOf.has(n.id)) return;
+            const d = g.depthOf.get(n.id);
+            const h = getNodeHeight(n.id) || NODE_H_FALLBACK;
+
+            if (d === 0) {
+                // Raiz: centro do seu próprio círculo
+                n.x = cx - NODE_W / 2;
+                n.y = cy - h / 2;
+            } else {
+                const a = (g.angleStart.get(n.id) + g.angleEnd.get(n.id)) / 2;
+                const r = g.ringRadii[d];
+                n.x = cx + Math.cos(a) * r - NODE_W / 2;
+                n.y = cy + Math.sin(a) * r - h / 2;
+            }
+        });
+
+        radialGroupsOut.push({
+            rootId: g.root.id,
+            cx,
+            cy,
+            ringRadii: g.ringRadii.slice()
+        });
+
+        cursorX += g.boundingRadius * 2 + GALAXY_GAP_X;
+    });
+
+    mindMapData.radialGroups = radialGroupsOut;
+}
 
         function alignSelectedNodes(direction) {
             if (selectedNodeIds.size < 2) return;
