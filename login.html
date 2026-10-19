@@ -112,23 +112,6 @@
         background: var(--bg, #f8fafc);
         border-color: #cbd5e1;
     }
-    .divider {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin: 18px 0 4px;
-        color: var(--mut, #94a3b8);
-        font-size: .75rem;
-        text-transform: uppercase;
-        letter-spacing: .08em;
-    }
-    .divider::before,
-    .divider::after {
-        content: "";
-        flex: 1;
-        height: 1px;
-        background: var(--line, #e2e8f0);
-    }
     #msg {
         margin-top: 14px;
         font-size: .85rem;
@@ -172,14 +155,6 @@
     <input id="pw" type="password" placeholder="mínimo 6 caracteres" autocomplete="current-password">
 
     <button class="btn-primary" id="in">Entrar</button>
-
-    <div class="divider">ou</div>
-
-    <button class="btn-ghost" id="g">
-        <i class="fa-brands fa-google" style="color:#4285F4;font-size:1rem"></i>
-        Entrar com Google
-    </button>
-
     <button class="btn-ghost" id="up">Criar conta</button>
 
     <p id="msg" class="mut"></p>
@@ -225,21 +200,6 @@
         data.session
             ? location.href = 'dashboard.html'
             : msg('Conta criada! Confirme o e-mail que enviamos e depois clique em Entrar.', 'success');
-    };
-
-    // ---- Google OAuth ----
-    $('g').onclick = async () => {
-        msg('Conectando ao Google…');
-        // Tenta o método nativo do SM_AUTH; se não existir, cai no Supabase direto
-        const result =
-            (SM_AUTH.signInWithGoogle && await SM_AUTH.signInWithGoogle()) ||
-            (SM_AUTH.signInWithOAuth && await SM_AUTH.signInWithOAuth('google')) ||
-            { error: new Error('Google login não configurado. Veja o snippet para assets/auth.js.') };
-
-        if (result && result.error) {
-            msg('Erro: ' + result.error.message, 'error');
-        }
-        // Se der certo, o Supabase redireciona sozinho para dashboard.html
     };
 </script>
 </body></html>
