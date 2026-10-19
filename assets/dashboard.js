@@ -35,8 +35,15 @@ function thumb(s) {
 function render() {
   const db = load(), meta = loadMeta(), q = $('q').value.toLowerCase(), st = $('sort').value, onlyFav = $('favs').checked;
   let keys = Object.keys(db).filter(k => (db[k].title || '').toLowerCase().includes(q) && (!onlyFav || (meta[k] || {}).fav));
-  const t = (k, f) => (meta[k] || {})[f] || 0;
-  keys.sort((a, b) => st === 'name' ? (db[a].title || '').localeCompare(db[b].title || '', 'pt-BR') : t(b, st) - t(a, st));
+  const t = (k, f) => {
+  const m = meta[k] || {};
+  if (f === 'created') return m.created || m.modified || m.opened || 0;
+  return m[f] || 0;
+};
+  keys.sort((a, b) => {
+  if (st === 'name') return (db[a].title || '').localeCompare(db[b].title || '', 'pt-BR');
+  return t(b, st) - t(a, st);
+});
   $('vg').classList.toggle('on', view === 'grid'); $('vl').classList.toggle('on', view === 'list');
   if (!keys.length) { $('list').innerHTML = '<p class="mut">Nenhum mapa encontrado.</p>'; return; }
   const star = k => `<button class="ic ${(meta[k] || {}).fav ? 'fav' : ''}" data-fav="${esc(k)}" title="Favorito"><i class="fa-${(meta[k] || {}).fav ? 'solid' : 'regular'} fa-star"></i></button>`;
@@ -45,12 +52,12 @@ function render() {
     return `${(s.sheets || []).length} aba(s) · ${n} nós · modificado ${fmt(t(k, 'modified')).toLowerCase()}`; };
   if (view === 'grid') {
     $('list').innerHTML = '<div class="gv">' + keys.map(k => `<div class="card" data-open="${esc(k)}">${thumb(db[k])}
-      <div class="in"><div class="nm"><div><b>${esc(db[k].title || 'Sem título')}</b><span>${fmt(t(k, 'opened'))}</span></div></div>
+      <div class="in"><div class="nm"><div><b>${esc(db[k].title || 'Sem título')}</b><span>Criado ${fmt(t(k, 'created')).toLowerCase()}</span></div></div>
       <div class="act">${star(k)}${menu(k)}</div></div></div>`).join('') + '</div>';
   } else {
-    $('list').innerHTML = '<div class="row h"><div>Nome</div><div>Última abertura</div><div>Modificado</div><div>Titular</div><div></div></div>' +
+    $('list').innerHTML = '<div class="row h"><div>Nome</div><div>Criado em</div><div>Modificado</div><div>Titular</div><div></div></div>' +
       keys.map(k => `<div class="row it" data-open="${esc(k)}"><div class="nm">${thumb(db[k])}<div style="min-width:0"><b>${esc(db[k].title || 'Sem título')}</b><span>${info(db[k], k)}</span></div></div>
-      <div class="mut">${fmt(t(k, 'opened'))}</div><div class="mut">${fmt(t(k, 'modified'))}</div><div class="mut" style="overflow:hidden;text-overflow:ellipsis">${esc(owner)}</div>
+      <div class="mut">${fmt(t(k, 'created'))}</div><div class="mut">${fmt(t(k, 'modified'))}</div><div class="mut" style="overflow:hidden;text-overflow:ellipsis">${esc(owner)}</div>
       <div class="act">${star(k)}${menu(k)}</div></div>`).join('');
   }
 }
@@ -86,7 +93,7 @@ $('imp').onchange = e => {
   r.onload = () => { try {
     const j = JSON.parse(r.result); if (!j.sheets && !j.nodes) throw 0;
     const db = load(), k = 'story_' + Date.now(); db[k] = j; save(db); SM_CLOUD.push(k, j);
-    const m = loadMeta(); m[k] = { opened: Date.now(), modified: Date.now() }; saveMeta(m); render();
+    const m = loadMeta(); m[k] = { opened: Date.now(), modified: Date.now(), created: Date.now() }; saveMeta(m); render();
   } catch (_) { alert('JSON inválido.'); } };
   r.readAsText(f);
 };
@@ -97,7 +104,16 @@ SM_AUTH.user().then(u => { if (u) { owner = u.email; $('who').textContent = u.em
 SM_CLOUD.pull().then(async () => {
   try { const { data } = await sb.from('stories').select('key,updated_at'), m = loadMeta();
     (data || []).forEach(r => { m[r.key] = { ...m[r.key], modified: new Date(r.updated_at).getTime() }; });
-    Object.keys(load()).forEach(k => { m[k] = { opened: Date.now(), ...m[k] }; }); saveMeta(m); } catch (e) {}
+    Object.keys(load()).forEach(k => {
+      const old = m[k] || {};
+      m[k] = {
+        ...old,
+        opened: Date.now(),
+        created: old.created || old.modified || Date.now()
+      };
+    });
+    saveMeta(m);
+  } catch (e) {}
   render();
 });
 render();
