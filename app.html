@@ -1131,6 +1131,29 @@ body.eyedropper-armed #tool-eyedropper {
             gap: 8px;
         }
         #mentions-modal .mm-warn .mm-warn-icon { flex-shrink: 0; font-size: 14px; }
+                body.app-theme-dark #timeline-modal > div { background: #1e293b !important; border-color: #334155 !important; }
+        body.app-theme-dark #timeline-modal .bg-white { background: #1e293b !important; }
+        body.app-theme-dark #timeline-modal .bg-slate-50 { background: #0f172a !important; }
+        body.app-theme-dark #timeline-modal .bg-slate-100 { background: #334155 !important; }
+        body.app-theme-dark #timeline-modal .border-slate-200 { border-color: #334155 !important; }
+        body.app-theme-dark #timeline-modal .border-slate-100 { border-color: #334155 !important; }
+        body.app-theme-dark #timeline-modal .text-slate-800 { color: #f1f5f9 !important; }
+        body.app-theme-dark #timeline-modal .text-slate-700 { color: #cbd5e1 !important; }
+        body.app-theme-dark #timeline-modal .text-slate-600 { color: #cbd5e1 !important; }
+        body.app-theme-dark #timeline-modal .text-slate-500 { color: #94a3b8 !important; }
+        body.app-theme-dark #timeline-modal .text-slate-400 { color: #94a3b8 !important; }
+        body.app-theme-dark #timeline-modal .bg-cyan-50 { background: #164e63 !important; }
+        body.app-theme-dark #timeline-modal .text-cyan-700 { color: #67e8f9 !important; }
+        body.app-theme-dark #timeline-modal .border-cyan-200 { border-color: #155e75 !important; }
+        body.app-theme-dark #timeline-modal .bg-emerald-50 { background: #064e3b !important; }
+        body.app-theme-dark #timeline-modal .text-emerald-700 { color: #6ee7b7 !important; }
+        body.app-theme-dark #timeline-modal .border-emerald-200 { border-color: #065f46 !important; }
+        body.app-theme-dark #timeline-modal .bg-violet-50 { background: #4c1d95 !important; }
+        body.app-theme-dark #timeline-modal .text-violet-700 { color: #ddd6fe !important; }
+        body.app-theme-dark #timeline-modal .border-violet-200 { border-color: #6d28d9 !important; }
+        body.app-theme-dark #timeline-modal .bg-cyan-100 { background: #155e75 !important; }
+        body.app-theme-dark #timeline-modal input { background: #334155 !important; border-color: #475569 !important; color: #e2e8f0 !important; }
+        body.app-theme-dark #timeline-modal .hover\:bg-slate-200:hover { background: #475569 !important; }
         body.app-theme-dark #mentions-modal .mm-card { background: #1e293b; border-color: #334155; }
         body.app-theme-dark #mentions-modal .mm-char-name { color: #f1f5f9; }
         body.app-theme-dark #mentions-modal .mm-char-meta { color: #94a3b8; }
@@ -1395,6 +1418,10 @@ body.eyedropper-armed #tool-eyedropper {
                 <i class="fa-solid fa-arrows-left-right-to-line"></i>
                 <span class="hidden md:inline">Por Beat</span>
             </button>
+             <button id="btn-timeline-mode" onclick="toggleTimelineMode()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center space-x-1.5" title="Modo Timeline: organiza os nós Timeline por data (Ctrl+Shift+L abre o painel)">
+                <i class="fa-solid fa-timeline"></i>
+                <span class="hidden md:inline">Timeline</span>
+            </button>
         </div>
     </header>
 
@@ -1469,6 +1496,9 @@ body.eyedropper-armed #tool-eyedropper {
             </button>
             <button onclick="openSkillTree()" class="w-10 h-10 rounded-xl text-amber-600 hover:bg-amber-50 flex items-center justify-center transition" title="Árvore de Habilidades (Ctrl+K)">
                 <i class="fa-solid fa-sitemap"></i>
+            </button>
+            <button onclick="openTimeline()" class="w-10 h-10 rounded-xl text-cyan-600 hover:bg-cyan-50 flex items-center justify-center transition" title="Linha do Tempo (Ctrl+Shift+L)">
+                <i class="fa-solid fa-timeline"></i>
             </button>
 
             <div class="w-8 h-px bg-slate-200 my-1"></div>
@@ -1552,6 +1582,17 @@ body.eyedropper-armed #tool-eyedropper {
                                 <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Organizar
                             </button>
                             <button onclick="toggleBeatSortMode()" class="ml-1 text-violet-700 hover:text-violet-900 shrink-0" title="Sair do modo narrativo">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                                                <div id="timeline-pill" class="absolute top-4 left-1/2 -translate-x-1/2 bg-cyan-100 border-2 border-cyan-400 text-cyan-900 px-3 py-1.5 rounded-full shadow-lg z-40 hidden items-center gap-2 text-xs font-semibold max-w-[92%] flex-wrap">
+                            <i class="fa-solid fa-timeline text-cyan-600"></i>
+                            <span>Modo Timeline</span>
+                            <span id="timeline-pill-count" class="text-[10px] bg-white/60 rounded px-1.5 py-0.5 font-bold">0 eventos</span>
+                            <button onclick="enableOrRefreshTimelineMode()" class="text-cyan-700 hover:text-cyan-900 shrink-0 text-xs font-semibold bg-white/60 hover:bg-white rounded px-1.5 py-0.5 transition" title="Reorganizar por data">
+                                <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Organizar
+                            </button>
+                            <button onclick="toggleTimelineMode()" class="ml-1 text-cyan-700 hover:text-cyan-900 shrink-0" title="Sair do modo Timeline">
                                 <i class="fa-solid fa-xmark"></i>
                             </button>
                         </div>
@@ -1733,6 +1774,7 @@ body.eyedropper-armed #tool-eyedropper {
                                 <option value="dialogue">💬 Diálogo</option>
                                 <option value="theme">🎭 Tema</option>
                                 <option value="note">📝 Nota</option>
+                                <option value="timeline">📅 Timeline</option>
                             </select>
                         </div>
 
@@ -2493,6 +2535,44 @@ body.eyedropper-armed #tool-eyedropper {
         </div>
     </div>
 
+    <div id="timeline-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0 flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                    <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                        <i class="fa-solid fa-timeline text-cyan-600"></i>
+                        <span>Linha do Tempo</span>
+                        <span id="tl-count" class="text-xs bg-cyan-100 text-cyan-700 font-bold px-2 py-0.5 rounded-full">0</span>
+                    </h3>
+                    <p class="text-[11px] text-slate-500 mt-0.5">Todos os eventos da categoria Timeline, organizados cronologicamente.</p>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <button id="tl-toggle-mode-btn" onclick="enableOrRefreshTimelineMode()" class="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-sm" title="Alterna o modo Timeline no canvas (organiza por data / restaura posições)">
+    <i class="fa-solid fa-wand-magic-sparkles"></i>
+    <span class="hidden sm:inline">Organizar por Data</span>
+</button>
+                    <button onclick="closeTimeline()" class="text-slate-400 hover:text-slate-600">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="px-6 py-3 border-b border-slate-200 bg-white shrink-0 flex flex-wrap items-center gap-2">
+                <div class="relative flex-1 min-w-[180px]">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input type="text" id="tl-search" oninput="renderTimelineCards()" placeholder="Buscar por evento, personagem, local ou ano..." class="w-full bg-slate-100 border border-slate-300 rounded-lg pl-8 pr-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-cyan-500">
+                </div>
+                <div class="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+                    <button onclick="tlSwitchMode('all')" id="tl-mode-all" class="px-2.5 py-1 text-xs font-semibold rounded-md transition bg-white text-cyan-700 shadow-sm">Todos</button>
+                    <button onclick="tlSwitchMode('pov')" id="tl-mode-pov" class="px-2.5 py-1 text-xs font-semibold rounded-md transition text-slate-600 hover:text-slate-900">POV</button>
+                    <button onclick="tlSwitchMode('location')" id="tl-mode-location" class="px-2.5 py-1 text-xs font-semibold rounded-md transition text-slate-600 hover:text-slate-900">Local</button>
+                    <button onclick="tlSwitchMode('parallel')" id="tl-mode-parallel" class="px-2.5 py-1 text-xs font-semibold rounded-md transition text-slate-600 hover:text-slate-900">Paralelo</button>
+                </div>
+            </div>
+            <div id="tl-filter-bar" class="px-6 py-2 border-b border-slate-200 bg-white shrink-0 hidden flex-wrap items-center gap-1"></div>
+            <div id="tl-content" class="flex-1 overflow-y-auto px-6 py-4 bg-white"></div>
+        </div>
+    </div>
+
     <div id="toast-container"></div>
     <div id="node-tooltip" class="hidden"></div>
     <div id="st-copy-modal" class="fixed inset-0 z-[300] hidden items-center justify-center bg-slate-900/50 p-4" onclick="if(event.target===this) skillTreeCloseCopyModal()">
@@ -2602,14 +2682,15 @@ body.eyedropper-armed #tool-eyedropper {
         };
 
         const NODE_TYPES = {
-            scene:     { id: 'scene',     label: 'Cena',       icon: '🎬', color: '#3b82f6' },
-            character: { id: 'character', label: 'Personagem', icon: '🧙', color: '#a855f7' },
-            location:  { id: 'location',  label: 'Cenário',    icon: '📍', color: '#10b981' },
-            event:     { id: 'event',     label: 'Evento',     icon: '⚡', color: '#f59e0b' },
-            dialogue:  { id: 'dialogue',  label: 'Diálogo',    icon: '💬', color: '#0ea5e9' },
-            theme:     { id: 'theme',     label: 'Tema',       icon: '🎭', color: '#ec4899' },
-            note:      { id: 'note',      label: 'Nota',       icon: '📝', color: '#64748b' }
-        };
+    scene:     { id: 'scene',     label: 'Cena',       icon: '🎬', color: '#3b82f6' },
+    character: { id: 'character', label: 'Personagem', icon: '🧙', color: '#a855f7' },
+    location:  { id: 'location',  label: 'Cenário',    icon: '📍', color: '#10b981' },
+    event:     { id: 'event',     label: 'Evento',     icon: '⚡', color: '#f59e0b' },
+    dialogue:  { id: 'dialogue',  label: 'Diálogo',    icon: '💬', color: '#0ea5e9' },
+    theme:     { id: 'theme',     label: 'Tema',       icon: '🎭', color: '#ec4899' },
+    note:      { id: 'note',      label: 'Nota',       icon: '📝', color: '#64748b' },
+    timeline:  { id: 'timeline',  label: 'Timeline',   icon: '📅', color: '#0891b2' }
+};
 
         const TYPE_FIELDS = {
             scene: [
@@ -2669,7 +2750,13 @@ body.eyedropper-armed #tool-eyedropper {
                 { key: 'examples',   label: 'Exemplos na história', type: 'textarea' },
                 { key: 'coreValue',  label: '💎 Valor Central', type: 'text', placeholder: 'Ex: Justiça, Amor, Verdade — o valor que a história afirma' }
             ],
-            note: []
+                     note: [],
+            timeline: [
+                { key: 'year',       label: 'Ano do evento',                          type: 'text',     placeholder: 'Ex: -54, 0, 26, 34' },
+                { key: 'location',   label: 'Núcleo / Local',                         type: 'text',     placeholder: 'Japão, Europa, Trident, Hone...' },
+                { key: 'category',   label: 'Categoria',                              type: 'select',   options: ['Ancestral', 'Kairyu', 'Hone', 'Trident', 'Poseidon', 'Guerra', 'Tragédia', 'Pessoal', 'Europa', 'Catástrofe', 'Legado', 'Família', 'União', 'Superação', 'Misticismo', 'Profissional', 'Fuga', 'Outro'] },
+                { key: 'characters', label: 'Personagens presentes (separe por vírgula)', type: 'text', placeholder: 'Yumi, Sieke, Miyamoto...' }
+            ]
         };
 
         const BIG_FIVE_TRAITS = [
@@ -3690,7 +3777,12 @@ let eyedropperCopyWithIcons = true;
                 case 'location': if (d.era) parts.push(d.era); if (d.atmosphere) parts.push(d.atmosphere); break;
                 case 'event': if (d.eventType) parts.push(d.eventType); break;
                 case 'dialogue': if (d.speaker && d.target) parts.push(`${d.speaker} → ${d.target}`); else if (d.speaker) parts.push(d.speaker); else if (d.target) parts.push(`→ ${d.target}`); break;
-                case 'theme': if (d.statement) parts.push(d.statement); break;
+                              case 'theme': if (d.statement) parts.push(d.statement); break;
+                case 'timeline':
+                    if (d.year) parts.push('Ano ' + d.year);
+                    if (d.location) parts.push(d.location);
+                    if (d.category) parts.push(d.category);
+                    break;
             }
             return parts.join(' · ');
         }
@@ -3863,6 +3955,12 @@ let eyedropperCopyWithIcons = true;
                     if (d.timeOfDay) p.push(d.timeOfDay);
                     return p.length > 0 ? p.join(' · ') : n.title;
                 }
+                case 'timeline': {
+                    const parts = [];
+                    if (d.year) parts.push('Ano ' + d.year);
+                    if (d.category) parts.push(d.category);
+                    return parts.length > 0 ? `${parts.join(' · ')} — ${n.title}` : n.title;
+                }
                 default: return n.title;
             }
         }
@@ -3886,7 +3984,7 @@ let eyedropperCopyWithIcons = true;
                 variantRootCache.set(id, result);
                 return result;
             }
-            const buckets = { character: [], location: [], event: [], dialogue: [], theme: [], scene: [] };
+            const buckets = { character: [], location: [], event: [], dialogue: [], theme: [], scene: [], timeline: [] };
             const beatCounts = new Map(); const povList = new Set();
             mindMapData.nodes.forEach(n => {
                 const vr = getVarRoot(n.id); const isVar = !!vr;
@@ -3915,6 +4013,7 @@ let eyedropperCopyWithIcons = true;
                 { type: 'location',  title: 'Cenários',    icon: '📍' },
                 { type: 'event',     title: 'Eventos-chave', icon: '⚡' },
                 { type: 'theme',     title: 'Temas',       icon: '🎭' },
+                { type: 'timeline',  title: 'Linha do Tempo', icon: '📅' },
                 { type: 'scene',     title: 'Cenas (cronologia)', icon: '🎬' },
                 { type: 'dialogue',  title: 'Diálogos',    icon: '💬' }
             ];
@@ -4690,6 +4789,7 @@ let eyedropperCopyWithIcons = true;
             pushHistory();
             if (!mindMapData.beatSortMode) {
                 if (mindMapData.beatSheetMode) { mindMapData.beatSheetMode = false; restorePositionsFromBeatSheet(); }
+                if (mindMapData.timelineMode) { mindMapData.timelineMode = false; restorePositionsFromTimeline(); syncTimelineModeUI(); }
                 savePositionsBeforeBeatSort();
                 mindMapData.beatSortMode = true;
                 if (!restoreBeatSortArrangement()) applyBeatSortLayout();
@@ -4835,8 +4935,9 @@ let eyedropperCopyWithIcons = true;
         function toggleBeatSheet() {
             if (!mindMapData) return;
             if (!mindMapData.beatSheetFramework) { openBeatSheetPicker(); return; }
-            if (mindMapData.beatSortMode) { pushHistory(); mindMapData.beatSortMode = false; restorePositionsFromBeatSort(); }
-            if (!mindMapData.beatSheetMode) { savePositionsBeforeBeatSheet(); mindMapData.beatSheetMode = true; layoutBeatSheet(); }
+                   if (mindMapData.beatSortMode) { pushHistory(); mindMapData.beatSortMode = false; restorePositionsFromBeatSort(); }
+        if (mindMapData.timelineMode) { mindMapData.timelineMode = false; restorePositionsFromTimeline(); syncTimelineModeUI(); }
+        if (!mindMapData.beatSheetMode) { savePositionsBeforeBeatSheet(); mindMapData.beatSheetMode = true; layoutBeatSheet(); }
             else { mindMapData.beatSheetMode = false; restorePositionsFromBeatSheet(); }
             invalidateStructure(); saveStoriesStorage(); syncBeatSheetUI(); syncBeatSortUI(); renderApp();
             requestAnimationFrame(() => requestAnimationFrame(fitView));
@@ -5190,7 +5291,7 @@ let eyedropperCopyWithIcons = true;
             const offsetX = (W - contentW * s) / 2 - minX * s;
             const offsetY = (H - contentH * s) / 2 - minY * s;
             ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 0.5;
-            if (!mindMapData.beatSheetMode) {
+            if (!mindMapData.beatSheetMode && !mindMapData.timelineMode) {
                 const isBeatSort = !!mindMapData.beatSortMode && !!mindMapData.beatSheetFramework;
                 if (isBeatSort) {
                     const conns = buildNarrativeConnections();
@@ -5228,6 +5329,7 @@ let eyedropperCopyWithIcons = true;
             mindMapData.nodes.forEach(n => {
                 if (!visible.has(n.id)) return;
                 if (!showVariants && vCache.get(n.id)) return;
+                if (isNodeHiddenInTimelineMode(n)) return;   // ← NOVO
                 const h = getNodeHeight(n.id);
                 const isFocused = !focusModeNodeId || isNodeInFocusSet(n.id);
                 ctx.fillStyle = MINI_NODE_COLORS[n.color] || MINI_NODE_COLORS.white;
@@ -5451,6 +5553,8 @@ function selectDescendants() {
                     s.beatSortMode = !!(s.beatSortMode && s.beatSheetFramework);
                     s.beatSortSavedPositions = s.beatSortSavedPositions && typeof s.beatSortSavedPositions === 'object' ? s.beatSortSavedPositions : null;
                     s.beatSortLastArrangement = s.beatSortLastArrangement && typeof s.beatSortLastArrangement === 'object' ? s.beatSortLastArrangement : null;
+                    s.timelineMode = !!s.timelineMode;
+                    s.timelineSavedPositions = s.timelineSavedPositions && typeof s.timelineSavedPositions === 'object' ? s.timelineSavedPositions : null;
                     if (!s.relationWebPositions || typeof s.relationWebPositions !== 'object') s.relationWebPositions = {};
 if (!s.layoutPositions || typeof s.layoutPositions !== 'object' || Array.isArray(s.layoutPositions)) s.layoutPositions = {};
 if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
@@ -5487,6 +5591,7 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
                 theme: options.theme || 'default',
                 beatSheetMode: false, beatSheetFramework: null, beatSheetSavedPositions: null,
                 beatSortMode: false, beatSortSavedPositions: null,
+                timelineMode: false, timelineSavedPositions: null,
                 relationWebPositions: {},
 		layoutPositions: {},
         radialGroups: [],
@@ -5648,7 +5753,7 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
             document.getElementById('layout-select').value = mindMapData.layout || 'tree';
             setTool('select');
             domCache.clear(); domCache.invalidateHeights();
-            invalidateStructure(); syncBeatSheetUI(); syncBeatSortUI();
+            invalidateStructure(); syncBeatSheetUI(); syncBeatSortUI(); syncTimelineModeUI();
             resetHistory(); saveStoriesStorage(); renderApp(); renderSheetTabs();
             requestAnimationFrame(() => requestAnimationFrame(fitView));
         }
@@ -5786,7 +5891,7 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
             applyTheme(mindMapData.theme || 'default');
             document.getElementById('layout-select').value = mindMapData.layout || 'tree';
             domCache.clear(); domCache.invalidateHeights();
-            invalidateStructure(); syncBeatSheetUI(); syncBeatSortUI();
+            invalidateStructure(); syncBeatSheetUI(); syncBeatSortUI(); syncTimelineModeUI();
             resetHistory(); saveStoriesStorage(); renderApp(); renderSheetTabs();
             requestAnimationFrame(() => requestAnimationFrame(fitView));
         }
@@ -6313,6 +6418,12 @@ document.addEventListener('pointerdown', (e) => {
             return total;
         }
 
+        // Retorna true se o nó deve ser oculto no modo Timeline atual
+function isNodeHiddenInTimelineMode(node) {
+    if (!mindMapData || !mindMapData.timelineMode) return false;
+    return !node || node.type !== 'timeline';
+}
+
         function renderApp() {
             if (renderRafId) { cancelAnimationFrame(renderRafId); renderRafId = 0; }
             domCache.clear();
@@ -6342,7 +6453,7 @@ document.addEventListener('pointerdown', (e) => {
             const isBeatSheet = !!mindMapData.beatSheetMode;
             const isBeatSort = !!mindMapData.beatSortMode && !!mindMapData.beatSheetFramework;
             // Anéis radiais (galáxias)
-if ((mindMapData.layout || 'tree') === 'radial' && Array.isArray(mindMapData.radialGroups)) {
+if (!mindMapData.timelineMode && (mindMapData.layout || 'tree') === 'radial' && Array.isArray(mindMapData.radialGroups)) {
     const liveIds = new Set(mindMapData.nodes.map(n => n.id));
     mindMapData.radialGroups.forEach(g => {
         if (!liveIds.has(g.rootId)) return;
@@ -6358,6 +6469,7 @@ if ((mindMapData.layout || 'tree') === 'radial' && Array.isArray(mindMapData.rad
         }
     });
 }
+            const isTimelineMode = !!mindMapData.timelineMode;    // ← ADICIONAR
             if (!isBeatSheet) {
                 if (isBeatSort) {
                     const conns = buildNarrativeConnections();
@@ -6369,6 +6481,20 @@ if ((mindMapData.layout || 'tree') === 'radial' && Array.isArray(mindMapData.rad
                         const dim = focusSet && (!focusSet.has(from.id) || !focusSet.has(to.id));
                         drawNarrativeConnection(from, to, svgLayer, dim, c.kind);
                     });
+                      } else if (isTimelineMode) {
+                    // Desenha setas cronológicas entre eventos de timeline consecutivos
+                    const tlList = mindMapData.nodes
+                        .filter(n => n.type === 'timeline' && visible.has(n.id))
+                        .sort((a, b) => {
+                            const ya = getTimelineYear(a), yb = getTimelineYear(b);
+                            if (ya === null && yb === null) return 0;
+                            if (ya === null) return 1;
+                            if (yb === null) return -1;
+                            return ya - yb;
+                        });
+                    for (let i = 0; i < tlList.length - 1; i++) {
+                        drawNarrativeConnection(tlList[i], tlList[i + 1], svgLayer, false, 'intra-beat');
+                    }
                 } else {
                     const layout = mindMapData.layout || 'tree';
                     mindMapData.nodes.forEach(node => {
@@ -6390,17 +6516,30 @@ if ((mindMapData.layout || 'tree') === 'radial' && Array.isArray(mindMapData.rad
                         if (anchor && visible.has(n.id) && visible.has(anchor.id)) drawVariantConnection(anchor, n, svgLayer);
                     }
                 });
+            }            if (showVariants && !isTimelineMode) {
+                mindMapData.nodes.forEach(n => {
+                    if (n.isVariant && n.variantOf) {
+                        const anchor = nodeMap.get(n.variantOf);
+                        if (anchor && visible.has(n.id) && visible.has(anchor.id)) drawVariantConnection(anchor, n, svgLayer);
+                    }
+                });
             }
             (mindMapData.relationships || []).forEach(rel => {
-                if (visible.has(rel.from) && visible.has(rel.to)) {
-                    if (!showVariants && (variantRootCache.get(rel.from) || variantRootCache.get(rel.to))) return;
-                    const dim = focusSet && (!focusSet.has(rel.from) || !focusSet.has(rel.to));
-                    drawRelationship(rel, svgLayer, handlesLayer, dim);
+                if (!visible.has(rel.from) || !visible.has(rel.to)) return;
+                if (!showVariants && (variantRootCache.get(rel.from) || variantRootCache.get(rel.to))) return;
+                // NOVO: esconde relacionamentos no modo Timeline
+                if (isTimelineMode) {
+                    const fromN = nodeMap.get(rel.from);
+                    const toN = nodeMap.get(rel.to);
+                    if (isNodeHiddenInTimelineMode(fromN) || isNodeHiddenInTimelineMode(toN)) return;
                 }
+                const dim = focusSet && (!focusSet.has(rel.from) || !focusSet.has(rel.to));
+                drawRelationship(rel, svgLayer, handlesLayer, dim);
             });
             mindMapData.nodes.forEach(node => {
                 if (!visible.has(node.id)) return;
                 if (!showVariants && variantRootCache.get(node.id)) return;
+                if (isNodeHiddenInTimelineMode(node)) return;   // ← NOVO
                 const isSelected = selectedNodeIds.has(node.id);
                 const isEditing = editingNodeId === node.id;
                 const isDropTarget = dropTargetId === node.id;
@@ -6477,8 +6616,8 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
                     ${povBadgeHTML}
                     ${iconsBlock}
                     ${contentHTML}
-                    ${!isBeatSheet && !isBeatSort && children > 0 ? `<button onclick="event.stopPropagation(); toggleCollapse('${node.id}')" class="absolute -left-3.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full shadow-md flex items-center justify-center text-[10px] font-bold transition ${node.collapsed ? 'bg-slate-700 text-white' : 'bg-white border border-slate-300 text-slate-700'} hover:scale-110 z-20" title="${node.collapsed ? 'Expandir' : 'Recolher'}">${node.collapsed ? '+' + descendantCount(node.id) : '−'}</button>` : ''}
-                    <button onclick="event.stopPropagation(); addChildToNode('${node.id}')" class="absolute -right-3.5 top-1/2 -translate-y-1/2 w-7 h-7 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-md flex items-center justify-center text-xs transition transform hover:scale-110 z-20" title="Adicionar nó filho (Tab)"><i class="fa-solid fa-plus"></i></button>
+                                      ${!isBeatSheet && !isBeatSort && !isTimelineMode && children > 0 ? `<button onclick="event.stopPropagation(); toggleCollapse('${node.id}')" class="absolute -left-3.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full shadow-md flex items-center justify-center text-[10px] font-bold transition ${node.collapsed ? 'bg-slate-700 text-white' : 'bg-white border border-slate-300 text-slate-700'} hover:scale-110 z-20" title="${node.collapsed ? 'Expandir' : 'Recolher'}">${node.collapsed ? '+' + descendantCount(node.id) : '−'}</button>` : ''}
+                    ${!isTimelineMode ? `<button onclick="event.stopPropagation(); addChildToNode('${node.id}')" class="absolute -right-3.5 top-1/2 -translate-y-1/2 w-7 h-7 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-md flex items-center justify-center text-xs transition transform hover:scale-110 z-20" title="Adicionar nó filho (Tab)"><i class="fa-solid fa-plus"></i></button>` : ''}
                 `;
                 if (!isEditing) {
                     el.onpointerdown = (e) => {
@@ -6596,6 +6735,18 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
         }
 
         function getNodesInReadingOrder() {
+            // NOVO: no modo Timeline, retorna apenas timeline ordenada por ano
+            if (mindMapData.timelineMode) {
+                const tlNodes = mindMapData.nodes.filter(n => n.type === 'timeline');
+                tlNodes.sort((a, b) => {
+                    const ya = getTimelineYear(a), yb = getTimelineYear(b);
+                    if (ya === null && yb === null) return 0;
+                    if (ya === null) return 1;
+                    if (yb === null) return -1;
+                    return ya - yb;
+                });
+                return tlNodes;
+            }
             if (mindMapData.beatSortMode && mindMapData.beatSheetFramework) {
                 const fw = getCurrentFramework();
                 if (fw) {
@@ -6920,6 +7071,7 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
                 marqueeBox.style.left = `${x}px`; marqueeBox.style.top = `${y}px`;
                 marqueeBox.style.width = `${w}px`; marqueeBox.style.height = `${h}px`;
                 mindMapData.nodes.forEach(node => {
+                    if (isNodeHiddenInTimelineMode(node)) return;   // ← NOVO
                     const nh = getNodeHeight(node.id);
                     if (node.x < x + w && node.x + NODE_W > x && node.y < y + h && node.y + nh > y) selectedNodeIds.add(node.id);
                 });
@@ -6934,7 +7086,7 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
                 const moved = dragMoved;
                 const ids = Array.from(initialDragPositions.keys());
                 if (moved) {
-                    if (mindMapData.beatSheetMode) {
+                                       if (mindMapData.beatSheetMode) {
                         pushHistory();
                         ids.forEach(id => {
                             const node = mindMapData.nodes.find(n => n.id === id);
@@ -6950,6 +7102,9 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
                         invalidateStructure(); saveStoriesStorage(); renderApp();
                     } else if (mindMapData.beatSortMode) {
                         pushHistory(); saveBeatSortArrangement(); saveStoriesStorage(); renderApp();
+                    } else if (mindMapData.timelineMode) {
+                        // NOVO: no modo Timeline só salva a posição, sem re-parent
+                        pushHistory(); saveStoriesStorage(); renderApp();
                     } else {
                         if (dropTargetId && dropTargetId !== draggedNodeId && !isDescendant(draggedNodeId, dropTargetId)) {
                             const dragged = mindMapData.nodes.find(n => n.id === draggedNodeId);
@@ -7062,11 +7217,13 @@ else newScale = Math.max(scale / factor, 0.05);
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             mindMapData.nodes.forEach(n => {
                 if (!visible.has(n.id)) return;
+                if (isNodeHiddenInTimelineMode(n)) return;   // ← NOVO
                 const h = getNodeHeight(n.id);
                 minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
                 maxX = Math.max(maxX, n.x + NODE_W); maxY = Math.max(maxY, n.y + h);
             });
             (mindMapData.relationships || []).forEach(rel => {
+                 if (isTimelineModeSkipRelationship(rel)) return;
                 if (!visible.has(rel.from) || !visible.has(rel.to)) return;
                 const pts = [[rel.c1x, rel.c1y], [rel.c2x, rel.c2y]];
                 pts.forEach(([px, py]) => {
@@ -7095,6 +7252,12 @@ else newScale = Math.max(scale / factor, 0.05);
             updateCanvasTransform();
         }
 
+        function isTimelineModeSkipRelationship(rel) {
+    if (!mindMapData || !mindMapData.timelineMode) return false;
+    const from = mindMapData.nodes.find(n => n.id === rel.from);
+    const to   = mindMapData.nodes.find(n => n.id === rel.to);
+    return isNodeHiddenInTimelineMode(from) || isNodeHiddenInTimelineMode(to);
+}
         function findFreePosition(preferredX, preferredY, excludeId = null) {
             const rects = [];
             mindMapData.nodes.forEach(n => {
@@ -7347,6 +7510,13 @@ else newScale = Math.max(scale / factor, 0.05);
 
     pushHistory();
 
+    // Sair do modo Timeline antes de trocar layout
+    if (mindMapData.timelineMode) {
+        mindMapData.timelineMode = false;
+        restorePositionsFromTimeline();
+        syncTimelineModeUI();
+    }
+
     // 1. Snapshot das posições atuais, guardado sob o layout atual
     if (!mindMapData.layoutPositions || typeof mindMapData.layoutPositions !== 'object') {
         mindMapData.layoutPositions = {};
@@ -7403,7 +7573,8 @@ else newScale = Math.max(scale / factor, 0.05);
 
         function autoLayoutNodes() {
     pushHistory();
-    if (mindMapData.beatSheetMode) layoutBeatSheet();
+    if (mindMapData.timelineMode) layoutTimelineMode();
+    else if (mindMapData.beatSheetMode) layoutBeatSheet();
     else if (mindMapData.beatSortMode) { mindMapData.beatSortLastArrangement = null; applyBeatSortLayout(); }
     else applyLayout();
 
@@ -10393,6 +10564,367 @@ else newScale = Math.max(scale / factor, 0.05);
             updateSkillTreeSelection();
         }
 
+        // ==============================================================
+// TIMELINE — espaço especial com busca, filtros e organização por data
+// ==============================================================
+let tlCurrentMode = 'all';        // 'all' | 'pov' | 'location' | 'parallel'
+let tlSelectedPOV = 'all';
+let tlSelectedLocation = 'all';
+let tlSelectedYear = null;
+
+function getTimelineNodes() {
+    return mindMapData.nodes.filter(n => n.type === 'timeline' && !n.isVariant);
+}
+
+function getTimelineYear(node) {
+    const y = node.typeData?.year;
+    if (y === undefined || y === null || y === '') return null;
+    const num = Number(y);
+    return isFinite(num) ? num : null;
+}
+
+function openTimeline() {
+    if (!mindMapData) return;
+    const modal = document.getElementById('timeline-modal');
+    if (!modal) return;
+    tlCurrentMode = 'all';
+    tlSelectedPOV = 'all';
+    tlSelectedLocation = 'all';
+    tlSelectedYear = null;
+    updateTimelineModeButtons();
+    renderTimelineFilterBar();
+    updateTimelineToggleButton();
+    modal.classList.remove('hidden'); modal.classList.add('flex');
+    renderTimelineCards();
+}
+
+function closeTimeline() {
+    const modal = document.getElementById('timeline-modal');
+    if (!modal) return;
+    modal.classList.add('hidden'); modal.classList.remove('flex');
+}
+
+function tlSwitchMode(mode) {
+    tlCurrentMode = mode;
+    tlSelectedPOV = 'all';
+    tlSelectedLocation = 'all';
+    tlSelectedYear = null;
+    updateTimelineModeButtons();
+    renderTimelineFilterBar();
+    renderTimelineCards();
+}
+
+function updateTimelineModeButtons() {
+    ['all', 'pov', 'location', 'parallel'].forEach(m => {
+        const btn = document.getElementById('tl-mode-' + m);
+        if (!btn) return;
+        if (m === tlCurrentMode) btn.className = 'px-2.5 py-1 text-xs font-semibold rounded-md transition bg-white text-cyan-700 shadow-sm';
+        else btn.className = 'px-2.5 py-1 text-xs font-semibold rounded-md transition text-slate-600 hover:text-slate-900';
+    });
+}
+
+function renderTimelineFilterBar() {
+    const bar = document.getElementById('tl-filter-bar');
+    if (!bar) return;
+    bar.innerHTML = '';
+    const nodes = getTimelineNodes();
+
+    if (tlCurrentMode === 'pov') {
+        const povs = new Set();
+        nodes.forEach(n => { if (n.pov && n.pov.trim()) povs.add(n.pov.trim()); });
+        bar.classList.remove('hidden');
+        bar.classList.add('flex');
+        const label = document.createElement('span');
+        label.className = 'text-[10px] font-bold uppercase text-slate-500 mr-2';
+        label.textContent = 'POV:';
+        bar.appendChild(label);
+        const mkBtn = (val, txt) => {
+            const b = document.createElement('button');
+            b.className = 'px-2 py-1 text-[11px] font-medium rounded mr-1 ' + (tlSelectedPOV === val ? 'bg-cyan-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200');
+            b.textContent = txt;
+            b.onclick = () => { tlSelectedPOV = val; renderTimelineFilterBar(); renderTimelineCards(); };
+            bar.appendChild(b);
+        };
+        mkBtn('all', 'Todos');
+        Array.from(povs).sort().forEach(p => mkBtn(p, p));
+    } else if (tlCurrentMode === 'location') {
+        const locs = new Set();
+        nodes.forEach(n => { const l = (n.typeData?.location || '').trim(); if (l) locs.add(l); });
+        bar.classList.remove('hidden');
+        bar.classList.add('flex');
+        const label = document.createElement('span');
+        label.className = 'text-[10px] font-bold uppercase text-slate-500 mr-2';
+        label.textContent = 'Local:';
+        bar.appendChild(label);
+        const mkBtn = (val, txt) => {
+            const b = document.createElement('button');
+            b.className = 'px-2 py-1 text-[11px] font-medium rounded mr-1 ' + (tlSelectedLocation === val ? 'bg-cyan-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200');
+            b.textContent = txt;
+            b.onclick = () => { tlSelectedLocation = val; renderTimelineFilterBar(); renderTimelineCards(); };
+            bar.appendChild(b);
+        };
+        mkBtn('all', 'Todos');
+        Array.from(locs).sort().forEach(l => mkBtn(l, l));
+    } else if (tlCurrentMode === 'parallel') {
+        const years = new Set();
+        nodes.forEach(n => { const y = getTimelineYear(n); if (y !== null) years.add(y); });
+        const sortedYears = Array.from(years).sort((a, b) => a - b);
+        bar.classList.remove('hidden');
+        bar.classList.add('flex');
+        const label = document.createElement('span');
+        label.className = 'text-[10px] font-bold uppercase text-slate-500 mr-2';
+        label.textContent = 'Ano:';
+        bar.appendChild(label);
+        sortedYears.forEach(y => {
+            const b = document.createElement('button');
+            b.className = 'px-2 py-1 text-[11px] font-medium rounded mr-1 ' + (tlSelectedYear === y ? 'bg-cyan-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200');
+            b.textContent = 'Ano ' + y;
+            b.onclick = () => { tlSelectedYear = y; renderTimelineFilterBar(); renderTimelineCards(); };
+            bar.appendChild(b);
+        });
+        if (sortedYears.length > 0 && tlSelectedYear === null) tlSelectedYear = sortedYears[0];
+    } else {
+        bar.classList.add('hidden');
+        bar.classList.remove('flex');
+    }
+}
+
+function renderTimelineCards() {
+    const container = document.getElementById('tl-content');
+    if (!container) return;
+    const allNodes = getTimelineNodes();
+    const countEl = document.getElementById('tl-count');
+    if (countEl) countEl.textContent = allNodes.length;
+
+    if (allNodes.length === 0) {
+        container.innerHTML = `<div class="text-center py-16 text-slate-400 italic text-sm">
+            <i class="fa-solid fa-timeline text-4xl mb-3 opacity-30" style="display:block;"></i>
+            <p>Nenhum evento de timeline ainda.</p>
+            <p style="font-size:11px;margin-top:8px;">Crie um nó do tipo <b>📅 Timeline</b> e preencha o <b>Ano</b>, <b>Local</b>, <b>Categoria</b> e <b>Personagens</b>.</p>
+        </div>`;
+        return;
+    }
+
+    let filtered = allNodes.slice();
+
+    if (tlCurrentMode === 'pov' && tlSelectedPOV !== 'all') {
+        filtered = filtered.filter(n => n.pov === tlSelectedPOV);
+    } else if (tlCurrentMode === 'location' && tlSelectedLocation !== 'all') {
+        filtered = filtered.filter(n => (n.typeData?.location || '').trim() === tlSelectedLocation);
+    } else if (tlCurrentMode === 'parallel' && tlSelectedYear !== null) {
+        filtered = filtered.filter(n => getTimelineYear(n) === tlSelectedYear);
+    }
+
+    const query = (document.getElementById('tl-search')?.value || '').toLowerCase().trim();
+    if (query) {
+        filtered = filtered.filter(n => {
+            const year = getTimelineYear(n);
+            const hay = `${n.title} ${n.content} ${n.pov} ${n.typeData?.location || ''} ${n.typeData?.category || ''} ${n.typeData?.characters || ''} ${year !== null ? 'ano ' + year : ''}`.toLowerCase();
+            return hay.includes(query);
+        });
+    }
+
+    filtered.sort((a, b) => {
+        const ya = getTimelineYear(a);
+        const yb = getTimelineYear(b);
+        if (ya === null && yb === null) return (a.title || '').localeCompare(b.title || '', 'pt-BR');
+        if (ya === null) return 1;
+        if (yb === null) return -1;
+        return ya - yb;
+    });
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<div class="text-center py-16 text-slate-400 italic text-sm"><p>Nenhum evento encontrado com esses filtros.</p></div>`;
+        return;
+    }
+
+    const grid = document.createElement('div');
+    grid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4';
+
+    filtered.forEach(n => {
+        const year = getTimelineYear(n);
+        const category = n.typeData?.category || '';
+        const location = n.typeData?.location || '';
+        const characters = n.typeData?.characters || '';
+        const card = document.createElement('div');
+        card.className = 'bg-white border border-slate-200 rounded-xl p-4 hover:shadow-lg hover:border-cyan-300 transition cursor-pointer';
+        card.onclick = () => { jumpToNodeFromBible(n.id); closeTimeline(); };
+        card.innerHTML = `
+            <div class="flex items-center justify-between mb-2 pb-2 border-b border-slate-100 gap-2">
+                <span class="font-bold text-sm text-cyan-700" style="font-family: ui-monospace, monospace;">${year !== null ? 'Ano ' + year : '—'}</span>
+                ${category ? `<span class="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-700">${escapeHTML(category)}</span>` : ''}
+            </div>
+            <h4 class="font-bold text-sm text-slate-800 mb-1">${escapeHTML(n.title || 'Sem título')}</h4>
+            ${n.content ? `<p class="text-[11.5px] text-slate-600 leading-relaxed mb-2" style="display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;">${escapeHTML(n.content)}</p>` : ''}
+            <div class="flex flex-wrap gap-1 mt-2">
+                ${n.pov ? `<span class="inline-flex items-center gap-1 text-[10px] bg-violet-50 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded"><i class="fa-solid fa-eye" style="font-size:8px;"></i>${escapeHTML(n.pov)}</span>` : ''}
+                ${location ? `<span class="inline-flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded"><i class="fa-solid fa-location-dot" style="font-size:8px;"></i>${escapeHTML(location)}</span>` : ''}
+            </div>
+            ${characters ? `<div class="mt-2 pt-2 border-t border-slate-100"><div class="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Personagens</div><div class="text-[10.5px] text-slate-600 leading-snug">${escapeHTML(characters)}</div></div>` : ''}
+        `;
+        grid.appendChild(card);
+    });
+
+    container.innerHTML = '';
+    container.appendChild(grid);
+}
+
+// ==============================================================
+// MODO TIMELINE — organiza por data e restaura ao sair
+// (funciona igual beatSheetMode / beatSortMode)
+// ==============================================================
+
+function savePositionsBeforeTimeline() {
+    if (!mindMapData) return;
+    if (mindMapData.timelineSavedPositions) return;
+    const saved = {};
+    mindMapData.nodes.forEach(n => { saved[n.id] = { x: n.x, y: n.y }; });
+    mindMapData.timelineSavedPositions = saved;
+}
+
+function restorePositionsFromTimeline() {
+    if (!mindMapData || !mindMapData.timelineSavedPositions) return;
+    const saved = mindMapData.timelineSavedPositions;
+    mindMapData.nodes.forEach(n => { if (saved[n.id]) { n.x = saved[n.id].x; n.y = saved[n.id].y; } });
+    mindMapData.timelineSavedPositions = null;
+}
+
+function layoutTimelineMode() {
+    if (!mindMapData) return;
+    const tlNodes = mindMapData.nodes.filter(n => n.type === 'timeline');
+    if (tlNodes.length === 0) return;
+
+    tlNodes.sort((a, b) => {
+        const ya = getTimelineYear(a);
+        const yb = getTimelineYear(b);
+        if (ya === null && yb === null) return (a.title || '').localeCompare(b.title || '', 'pt-BR');
+        if (ya === null) return 1;
+        if (yb === null) return -1;
+        return ya - yb;
+    });
+
+    // Distribui horizontalmente. Se houver muitos nós, quebra em linhas
+    const startX = 200;
+    const startY = CANVAS_CENTER_Y;
+    const spacingX = NODE_W + 90;
+    const rowGap = 260;
+    const perRow = 8;
+
+    tlNodes.forEach((n, i) => {
+        const col = i % perRow;
+        const row = Math.floor(i / perRow);
+        n.x = startX + col * spacingX;
+        n.y = startY + row * rowGap;
+    });
+
+    // (Nós não-timeline ficam ocultos no modo Timeline — não precisam ser reposicionados)
+}
+
+function toggleTimelineMode() {
+    if (!mindMapData) return;
+      // NOVO: impede ativar sem nenhum nó Timeline
+    if (!mindMapData.timelineMode) {
+        const tlCount = mindMapData.nodes.filter(n => n.type === 'timeline').length;
+        if (tlCount === 0) {
+            showToast('Crie pelo menos um nó do tipo 📅 Timeline primeiro.', 'warn', 2800);
+            return;
+        }
+    }
+    pushHistory();
+
+    if (!mindMapData.timelineMode) {
+        // Desativa modos conflitantes
+        if (mindMapData.beatSheetMode) {
+            mindMapData.beatSheetMode = false;
+            restorePositionsFromBeatSheet();
+        }
+        if (mindMapData.beatSortMode) {
+            mindMapData.beatSortMode = false;
+            restorePositionsFromBeatSort();
+        }
+        // Salva posições e entra no modo
+        savePositionsBeforeTimeline();
+        mindMapData.timelineMode = true;
+
+        // NOVO: limpa seleções que apontam para nós não-timeline
+        const hiddenIds = new Set();
+        mindMapData.nodes.forEach(n => { if (isNodeHiddenInTimelineMode(n)) hiddenIds.add(n.id); });
+        if (hiddenIds.size > 0) {
+            Array.from(selectedNodeIds).forEach(id => { if (hiddenIds.has(id)) selectedNodeIds.delete(id); });
+            if (focusModeNodeId && hiddenIds.has(focusModeNodeId)) { focusModeNodeId = null; updateFocusPill(); }
+            if (relationshipSourceId && hiddenIds.has(relationshipSourceId)) relationshipSourceId = null;
+            closeInspector();
+            closeRelationshipEditor();
+        }
+
+        layoutTimelineMode();
+        showToast('Modo Timeline ativado (organizado por data, demais nós ocultos).', 'success', 2200);
+    } else {
+        mindMapData.timelineMode = false;
+        restorePositionsFromTimeline();
+        showToast('Modo Timeline desativado (posições restauradas).', 'info', 2200);
+    }
+
+    invalidateStructure();
+    saveStoriesStorage();
+    syncBeatSheetUI();
+    syncBeatSortUI();
+    syncTimelineModeUI();
+    renderApp();
+    requestAnimationFrame(() => requestAnimationFrame(fitView));
+}
+
+function enableOrRefreshTimelineMode() {
+    if (!mindMapData) return;
+    if (!mindMapData.timelineMode) {
+        toggleTimelineMode();
+    } else {
+        pushHistory();
+        layoutTimelineMode();
+        invalidateStructure();
+        saveStoriesStorage();
+        renderApp();
+        requestAnimationFrame(() => requestAnimationFrame(fitView));
+        showToast('Timeline reorganizada por data.', 'success', 1800);
+    }
+    updateTimelineToggleButton();
+}
+
+function syncTimelineModeUI() {
+    const pill = document.getElementById('timeline-pill');
+    const isActive = !!(mindMapData && mindMapData.timelineMode);
+    if (pill) {
+        pill.classList.toggle('hidden', !isActive);
+        pill.classList.toggle('flex', isActive);
+    }
+    const countEl = document.getElementById('timeline-pill-count');
+    if (countEl && mindMapData) {
+        const n = mindMapData.nodes.filter(x => x.type === 'timeline').length;
+        countEl.textContent = `${n} evento${n === 1 ? '' : 's'}`;
+    }
+    // NOVO: estiliza o botão do header conforme o estado
+    const headerBtn = document.getElementById('btn-timeline-mode');
+    if (headerBtn) {
+        if (isActive) {
+            headerBtn.className = 'bg-cyan-600 hover:bg-cyan-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center space-x-1.5 shadow-sm';
+        } else {
+            headerBtn.className = 'bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center space-x-1.5';
+        }
+    }
+    updateTimelineToggleButton();
+}
+
+function updateTimelineToggleButton() {
+    const btn = document.getElementById('tl-toggle-mode-btn');
+    if (!btn) return;
+    if (mindMapData && mindMapData.timelineMode) {
+        btn.innerHTML = '<i class="fa-solid fa-xmark"></i><span class="hidden sm:inline">Sair do modo Timeline</span>';
+        btn.className = 'bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-sm';
+    } else {
+        btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i><span class="hidden sm:inline">Organizar por Data</span>';
+        btn.className = 'bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-sm';
+    }
+}
         function setupKeyboardListeners() {
             window.addEventListener('keydown', (e) => {
                 const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable || (e.target.closest && e.target.closest('input, textarea, [contenteditable="true"]'));
@@ -10440,12 +10972,20 @@ else newScale = Math.max(scale / factor, 0.05);
                     if (modal && modal.classList.contains('hidden')) openSkillTree(); else closeSkillTree();
                     return;
                 }
+                                if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyL') {
+                    e.preventDefault(); e.stopPropagation();
+                    const modal = document.getElementById('timeline-modal');
+                    if (modal && modal.classList.contains('hidden')) openTimeline(); else closeTimeline();
+                    return;
+                }
                 if ((e.ctrlKey || e.metaKey) && e.code === 'KeyS' && !e.shiftKey && !e.altKey) { e.preventDefault(); e.stopPropagation(); exportDataWithDialog(); return; }
                 if ((e.ctrlKey || e.metaKey) && e.code === 'KeyO' && !e.shiftKey && !e.altKey) { e.preventDefault(); e.stopPropagation(); openImportDialog(); return; }
                 if (e.key === 'Escape') {
     if (eyedropperArmed) { e.preventDefault(); cancelEyedropper(); return; }   // ← NOVA LINHA
     const pickerModal = document.getElementById('beat-picker-modal');
     if (pickerModal && !pickerModal.classList.contains('hidden')) { e.preventDefault(); closeBeatSheetPicker(); return; }
+        const timelineModal = document.getElementById('timeline-modal');
+    if (timelineModal && !timelineModal.classList.contains('hidden')) { e.preventDefault(); closeTimeline(); return; }
     const bibleModal = document.getElementById('bible-modal');
                     if (bibleModal && !bibleModal.classList.contains('hidden')) { e.preventDefault(); closeStoryBible(); return; }
                     const mentionsModal = document.getElementById('mentions-modal');
