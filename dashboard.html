@@ -1,36 +1,365 @@
 <!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Meus mapas — StoryMind</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="assets/style.css">
 <style>
-.bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:22px 0}
-.bar select,.bar input{width:auto;margin:0;padding:9px 12px}
-.bar input{min-width:200px}
-.sp{flex:1}
-.tg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.tg button{background:none;border:0;color:var(--mut);padding:9px 12px;cursor:pointer}
-.tg button.on{background:var(--line);color:var(--tx)}
-.row{display:grid;grid-template-columns:minmax(0,2.6fr) 1fr 1fr 1.4fr 72px;gap:12px;align-items:center;padding:10px 12px;border-radius:12px}
-.row.h{color:var(--mut);font-size:.85rem;border-bottom:1px solid var(--line);border-radius:0}
-.row.it{cursor:pointer}.row.it:hover{background:var(--card)}
-.nm{display:flex;gap:14px;align-items:center;min-width:0}
-.nm b,.nm span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.nm span{color:var(--mut);font-size:.8rem;margin-top:3px}
-.thumb{width:92px;height:58px;flex:none;background:#eef0f7;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
-.thumb svg{width:100%;height:100%;display:block}
-.act{display:flex;gap:6px;justify-content:flex-end;position:relative}
-.ic{background:none;border:0;color:var(--mut);cursor:pointer;padding:6px;border-radius:6px}
-.ic:hover{color:var(--tx)}.ic.fav{color:#fbbf24}
-.menu{position:absolute;right:0;top:34px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px;z-index:5;min-width:160px}
-.menu button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--tx);padding:8px 10px;border-radius:6px;cursor:pointer;font:inherit}
-.menu button:hover{background:var(--line)}
-.gv{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
-.gv .card{cursor:pointer;padding:0;overflow:hidden}
-.gv .thumb{width:100%;height:140px;border:0;border-radius:0}
-.gv .in{padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
-@media(max-width:760px){.row{grid-template-columns:minmax(0,1fr) 72px}.row>:nth-child(2),.row>:nth-child(3),.row>:nth-child(4){display:none}}
+    /* ========= Hero ========= */
+    .hero {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 16px;
+        flex-wrap: wrap;
+        padding: 8px 0 20px;
+    }
+    .hero h2 {
+        font-size: 1.9rem;
+        font-weight: 800;
+        letter-spacing: -.02em;
+        margin: 0;
+        background: linear-gradient(135deg, #0f172a, #475569);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+    .hero .sub {
+        font-size: .9rem;
+        color: var(--mut, #64748b);
+        margin-top: 4px;
+    }
+    .hero-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .btn-hero {
+        padding: 10px 16px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: .88rem;
+        border: 1px solid var(--line, #e2e8f0);
+        background: var(--card, #fff);
+        color: var(--tx, #0f172a);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: transform .12s, box-shadow .15s, background .12s;
+        font-family: inherit;
+    }
+    .btn-hero:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px -8px rgba(0,0,0,.15);
+    }
+    .btn-hero.primary {
+        background: linear-gradient(135deg, #6366f1, #4f46e5);
+        color: #fff;
+        border-color: transparent;
+        box-shadow: 0 6px 16px -8px rgba(99,102,241,.55);
+    }
+    .btn-hero.primary:hover {
+        box-shadow: 0 10px 22px -8px rgba(99,102,241,.65);
+    }
+
+    /* ========= Stats ========= */
+    .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    .stat {
+        background: var(--card, #fff);
+        border: 1px solid var(--line, #e2e8f0);
+        border-radius: 14px;
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        position: relative;
+        overflow: hidden;
+    }
+    .stat::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 3px;
+        background: linear-gradient(180deg, #6366f1, #a855f7);
+    }
+    .stat-val {
+        font-size: 1.65rem;
+        font-weight: 800;
+        color: var(--tx, #0f172a);
+        line-height: 1.1;
+        font-variant-numeric: tabular-nums;
+    }
+    .stat-lbl {
+        font-size: .72rem;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        color: var(--mut, #64748b);
+        font-weight: 600;
+    }
+
+    /* ========= Toolbar ========= */
+    .bar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+        padding: 12px;
+        background: var(--card, #fff);
+        border: 1px solid var(--line, #e2e8f0);
+        border-radius: 14px;
+    }
+    .search-wrap {
+        position: relative;
+        flex: 1;
+        min-width: 200px;
+    }
+    .search-wrap i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--mut, #94a3b8);
+        font-size: .85rem;
+        pointer-events: none;
+    }
+    .search-wrap input {
+        width: 100%;
+        padding: 9px 12px 9px 34px;
+        border-radius: 9px;
+        border: 1px solid var(--line, #e2e8f0);
+        background: var(--bg, #f8fafc);
+        color: var(--tx, #0f172a);
+        font: inherit;
+        transition: border-color .12s, box-shadow .12s;
+    }
+    .search-wrap input:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99,102,241,.15);
+    }
+    .bar select {
+        padding: 9px 12px;
+        border-radius: 9px;
+        border: 1px solid var(--line, #e2e8f0);
+        background: var(--bg, #f8fafc);
+        color: var(--tx, #0f172a);
+        font: inherit;
+        cursor: pointer;
+    }
+    .bar label.chk {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: .85rem;
+        color: var(--mut, #64748b);
+        cursor: pointer;
+        padding: 8px 10px;
+        border-radius: 8px;
+        transition: background .1s;
+    }
+    .bar label.chk:hover { background: var(--bg, #f8fafc); }
+    .bar label.chk input { accent-color: #6366f1; }
+    .sp { flex: 1; }
+    .tg {
+        display: flex;
+        border: 1px solid var(--line, #e2e8f0);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .tg button {
+        background: var(--card, #fff);
+        border: 0;
+        color: var(--mut, #64748b);
+        padding: 9px 12px;
+        cursor: pointer;
+        transition: background .12s, color .12s;
+    }
+    .tg button:hover { color: var(--tx, #0f172a); }
+    .tg button.on {
+        background: linear-gradient(135deg, #6366f1, #4f46e5);
+        color: #fff;
+    }
+
+    /* ========= Lista ========= */
+    .row {
+        display: grid;
+        grid-template-columns: minmax(0,2.6fr) 1fr 1fr 1.4fr 72px;
+        gap: 12px;
+        align-items: center;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid transparent;
+        transition: background .12s, border-color .12s, transform .12s;
+    }
+    .row.h {
+        color: var(--mut, #64748b);
+        font-size: .78rem;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        font-weight: 600;
+        border-bottom: 1px solid var(--line, #e2e8f0);
+        border-radius: 0;
+    }
+    .row.it {
+        cursor: pointer;
+        background: var(--card, #fff);
+        border-color: var(--line, #e2e8f0);
+        margin-bottom: 8px;
+        animation: fade-in .3s ease backwards;
+    }
+    .row.it:hover {
+        border-color: #c7d2fe;
+        box-shadow: 0 8px 20px -10px rgba(99,102,241,.25);
+        transform: translateY(-1px);
+    }
+    @keyframes fade-in {
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .nm { display: flex; gap: 14px; align-items: center; min-width: 0; }
+    .nm b, .nm span {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .nm b { font-weight: 700; }
+    .nm span { color: var(--mut, #64748b); font-size: .8rem; margin-top: 3px; }
+    .thumb {
+        width: 92px;
+        height: 58px;
+        flex: none;
+        background: linear-gradient(135deg, #eef0f7, #f5f3ff);
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid var(--line, #e2e8f0);
+    }
+    .thumb svg { width: 100%; height: 100%; display: block; }
+
+    .act { display: flex; gap: 4px; justify-content: flex-end; position: relative; }
+    .ic {
+        background: none;
+        border: 0;
+        color: var(--mut, #94a3b8);
+        cursor: pointer;
+        padding: 7px;
+        border-radius: 8px;
+        transition: background .12s, color .12s, transform .12s;
+    }
+    .ic:hover {
+        color: var(--tx, #0f172a);
+        background: var(--bg, #f8fafc);
+        transform: scale(1.08);
+    }
+    .ic.fav { color: #fbbf24; }
+    .ic.fav:hover { color: #f59e0b; }
+
+    .menu {
+        position: absolute;
+        right: 0;
+        top: 36px;
+        background: var(--card, #fff);
+        border: 1px solid var(--line, #e2e8f0);
+        border-radius: 10px;
+        padding: 6px;
+        z-index: 5;
+        min-width: 170px;
+        box-shadow: 0 12px 32px -8px rgba(0,0,0,.18);
+        animation: pop .12s ease;
+    }
+    @keyframes pop {
+        from { opacity: 0; transform: scale(.96); }
+        to { opacity: 1; transform: scale(1); }
+    }
+    .menu button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: none;
+        border: 0;
+        color: var(--tx, #0f172a);
+        padding: 9px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font: inherit;
+        font-size: .88rem;
+        transition: background .1s;
+    }
+    .menu button:hover { background: var(--bg, #f8fafc); }
+
+    /* ========= Grade ========= */
+    .gv {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 16px;
+    }
+    .gv .card {
+        cursor: pointer;
+        padding: 0;
+        overflow: hidden;
+        background: var(--card, #fff);
+        border: 1px solid var(--line, #e2e8f0);
+        border-radius: 14px;
+        transition: transform .15s, box-shadow .15s, border-color .15s;
+        animation: fade-in .3s ease backwards;
+    }
+    .gv .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 14px 30px -12px rgba(0,0,0,.15);
+        border-color: #c7d2fe;
+    }
+    .gv .thumb {
+        width: 100%;
+        height: 140px;
+        border: 0;
+        border-radius: 0;
+        border-bottom: 1px solid var(--line, #e2e8f0);
+    }
+    .gv .in {
+        padding: 12px 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* ========= Empty state ========= */
+    .empty {
+        text-align: center;
+        padding: 64px 24px;
+        background: var(--card, #fff);
+        border: 2px dashed var(--line, #e2e8f0);
+        border-radius: 16px;
+        animation: fade-in .4s ease;
+    }
+    .empty i {
+        font-size: 3rem;
+        color: #c7d2fe;
+        margin-bottom: 16px;
+        display: block;
+    }
+    .empty h3 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 6px;
+    }
+    .empty p {
+        color: var(--mut, #64748b);
+        font-size: .9rem;
+        margin-bottom: 20px;
+    }
+
+    @media (max-width: 760px) {
+        .row { grid-template-columns: minmax(0,1fr) 72px; padding: 10px 12px; }
+        .row > :nth-child(2),
+        .row > :nth-child(3),
+        .row > :nth-child(4) { display: none; }
+        .hero h2 { font-size: 1.5rem; }
+    }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="assets/config.js"></script><script src="assets/auth.js"></script>
@@ -38,17 +367,134 @@
 <body>
 <nav class="nav"><a class="logo" href="index.html"><i class="fa-solid fa-brain"></i>StoryMind</a>
 <div><span class="mut" id="who"></span> <button class="btn ghost" onclick="SM_AUTH.logout()">Sair</button></div></nav>
+
 <div class="wrap">
-<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-<h2>Meus mapas</h2>
-<div><label class="btn ghost" style="cursor:pointer;display:inline-block">Importar JSON<input type="file" id="imp" accept=".json" hidden></label>
-<button class="btn" id="new">+ Criar novo</button></div></div>
-<div class="bar">
-<input id="q" placeholder="Buscar por nome…">
-<select id="sort"><option value="opened">Última abertura</option><option value="modified">Última modificação</option><option value="name">Nome (A–Z)</option></select>
-<label class="mut"><input type="checkbox" id="favs" style="width:auto;margin:0 6px 0 0">Só favoritos</label>
-<span class="sp"></span>
-<div class="tg"><button id="vg" title="Grade"><i class="fa-solid fa-table-cells-large"></i></button><button id="vl" title="Lista"><i class="fa-solid fa-list"></i></button></div>
+
+    <!-- Hero -->
+    <div class="hero">
+        <div>
+            <h2>Meus mapas</h2>
+            <p class="sub">Crie, organize e gerencie suas histórias.</p>
+        </div>
+        <div class="hero-actions">
+            <label class="btn-hero" style="cursor:pointer">
+                <i class="fa-solid fa-upload"></i> Importar
+                <input type="file" id="imp" accept=".json" hidden>
+            </label>
+            <button class="btn-hero primary" id="new">
+                <i class="fa-solid fa-plus"></i> Novo mapa
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+        <div class="stat">
+            <div class="stat-val" id="st-total">—</div>
+            <div class="stat-lbl">Mapas totais</div>
+        </div>
+        <div class="stat">
+            <div class="stat-val" id="st-fav">—</div>
+            <div class="stat-lbl">Favoritos</div>
+        </div>
+        <div class="stat">
+            <div class="stat-val" id="st-week">—</div>
+            <div class="stat-lbl">Modificados (7 dias)</div>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="bar">
+        <div class="search-wrap">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input id="q" placeholder="Buscar por nome…">
+        </div>
+        <select id="sort">
+            <option value="modified">Modificado recentemente</option>
+            <option value="created">Criado recentemente</option>
+            <option value="name">Título (A–Z)</option>
+        </select>
+        <label class="chk"><input type="checkbox" id="favs"> Só favoritos</label>
+        <span class="sp"></span>
+        <div class="tg">
+            <button id="vg" title="Grade"><i class="fa-solid fa-table-cells-large"></i></button>
+            <button id="vl" title="Lista"><i class="fa-solid fa-list"></i></button>
+        </div>
+    </div>
+
+    <div id="list"></div>
 </div>
-<div id="list"></div></div>
-<script src="assets/dashboard.js"></script></body></html>
+
+<script src="assets/dashboard.js"></script>
+
+<!-- Enriquecimento de UI (opcional, mas recomendado) -->
+<script>
+(function(){
+    'use strict';
+
+    // ---------- Stats (lê do localStorage sem modificar nada) ----------
+    function refreshStats() {
+        try {
+            const raw = localStorage.getItem('storymind_database_v2');
+            const db = raw ? JSON.parse(raw) : {};
+            const items = Object.values(db);
+            const total = items.length;
+            const favs = items.filter(s => s && s.favorite === true).length;
+            const now = Date.now();
+            const week = items.filter(s => {
+                const t = s && (s.updatedAt || s.modifiedAt);
+                return t && (now - new Date(t).getTime()) < 7 * 24 * 60 * 60 * 1000;
+            }).length;
+            document.getElementById('st-total').textContent = total;
+            document.getElementById('st-fav').textContent = favs;
+            document.getElementById('st-week').textContent = week;
+        } catch (e) {
+            // silencioso — se der erro, mantém "—"
+        }
+    }
+
+    // Atualiza stats em qualquer mudança no storage
+    window.addEventListener('storage', refreshStats);
+    // E a cada 3s (fallback para mudanças no mesmo tab)
+    setInterval(refreshStats, 3000);
+    // E no load
+    window.addEventListener('load', refreshStats);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) refreshStats();
+    });
+
+    // ---------- Empty state melhor (substitui o que dashboard.js injetar) ----------
+    // Observa o #list e se ficar vazio (ou tiver algo tipo "Nenhum"), injeta um empty state bonito
+    const listEl = document.getElementById('list');
+    if (listEl) {
+        const obs = new MutationObserver(() => {
+            const html = listEl.innerHTML.trim();
+            if (html === '' || /nenhum|sem mapas|vazio/i.test(listEl.textContent || '')) {
+                if (!listEl.querySelector('.empty')) {
+                    listEl.innerHTML = `
+                        <div class="empty">
+                            <i class="fa-solid fa-map"></i>
+                            <h3>Nenhum mapa por aqui ainda</h3>
+                            <p>Crie seu primeiro mapa mental ou importe um JSON existente.</p>
+                            <button class="btn-hero primary" onclick="document.getElementById('new').click()">
+                                <i class="fa-solid fa-plus"></i> Criar meu primeiro mapa
+                            </button>
+                        </div>`;
+                }
+            }
+        });
+        obs.observe(listEl, { childList: true, subtree: true });
+    }
+
+    // ---------- Stagger de animação nos cards (efeito cascata) ----------
+    if (listEl) {
+        new MutationObserver(() => {
+            const rows = listEl.querySelectorAll('.row.it, .gv .card');
+            rows.forEach((r, i) => {
+                r.style.animationDelay = (i * 25) + 'ms';
+            });
+        }).observe(listEl, { childList: true, subtree: true });
+    }
+})();
+</script>
+</body></html>
