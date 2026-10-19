@@ -5755,6 +5755,7 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
             domCache.clear(); domCache.invalidateHeights();
             invalidateStructure(); syncBeatSheetUI(); syncBeatSortUI(); syncTimelineModeUI();
             resetHistory(); saveStoriesStorage(); renderApp(); renderSheetTabs();
+            populateStorySelectDropdown(); 
             requestAnimationFrame(() => requestAnimationFrame(fitView));
         }
 
