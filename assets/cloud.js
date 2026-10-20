@@ -64,51 +64,66 @@ const SM_CLOUD = {
     }
   },
 
-  async pull() {
+    async pull() {
     try {
-      const { data, error } = await sb.from('stories').select('key,data,updated_at');
+      // Traz TODAS as linhas (inclusive deleted = true)
+      const { data, error } = await sb.from('stories')
+        .select('key,data,updated_at,deleted');
       if (error) throw error;
 
       const db = this.local();
       const dirty = this.dirty();
-      const tombstones = this.tombstones();
-      const cloudKeys = new Set(data.map(r => r.key));
+      const localTombstones = new Set(this.tombstones());
+      const cloudActiveKeys = new Set();
 
-      // 1. Sincroniza tombstones da nuvem para o local (simplificado)
-      // (Em uma implementação completa, você teria uma tabela de tombstones; aqui usamos uma chave especial)
-      // ...
+      // 1. Aplicar exclusões da nuvem localmente
+      data.forEach(r => {
+        if (r.deleted) {
+          // Exclusão remota vence: apaga do localStorage
+          if (db[r.key]) delete db[r.key];
+          if (dirty[r.key]) delete dirty[r.key];
+          localTombstones.add(r.key);
+        } else {
+          cloudActiveKeys.add(r.key);
+        }
+      });
 
-      // 2. Resolução de conflitos (Last Write Wins)
+      // 2. Persistir tombstones sincronizados (localStorage)
+      localStorage.setItem(this.TOMBSTONE_KEY, JSON.stringify(Array.from(localTombstones)));
+
+      // 3. Merge: versão mais nova vence (só entre as não-deletadas)
       const take = {};
       data.forEach(r => {
-        if (tombstones.includes(r.key)) return;
+        if (r.deleted) return;                    // já tratado
+        if (localTombstones.has(r.key)) return;   // tombstone local vence
         const cloudTs = Date.parse(r.updated_at) || 0;
         const localTs = dirty[r.key] || 0;
-        // Se o local for mais novo, não sobrescreve
         if (db[r.key] && localTs > cloudTs) return;
         take[r.key] = r.data;
       });
 
-      // 3. Envia o que só existe aqui ou é mais novo
+      // 4. Subir o que só existe aqui ou é mais novo aqui
       const up = Object.keys(db)
-        .filter(k => !(k in take) && !tombstones.includes(k))
-        .map(k => ({ key: k, data: db[k], updated_at: new Date(dirty[k] || Date.now()).toISOString() }));
-      
+        .filter(k => !(k in take) && !localTombstones.has(k))
+        .map(k => ({
+          key: k,
+          data: db[k],
+          updated_at: new Date(dirty[k] || Date.now()).toISOString(),
+          deleted: false
+        }));
+
       if (up.length) {
         const { error: upErr } = await sb.from('stories').upsert(up);
         if (upErr) console.warn('Falha ao subir histórias locais:', upErr);
         else up.forEach(u => { delete dirty[u.key]; this.synced[u.key] = JSON.stringify(db[u.key]); });
       }
 
+      // 5. Aplicar o que veio da nuvem
       Object.keys(take).forEach(k => { delete dirty[k]; });
       Object.assign(db, take);
       localStorage.setItem(this.DB_KEY, JSON.stringify(db));
       localStorage.setItem(this.DIRTY_KEY, JSON.stringify(dirty));
       Object.keys(take).forEach(k => { this.synced[k] = JSON.stringify(db[k]); });
-
-      // Notifica a UI para renderizar novamente
-      window.dispatchEvent(new CustomEvent('cloud:pull:done'));
-
     } catch (e) {
       console.warn('Sincronização (pull) falhou, usando dados locais:', e);
     }
@@ -166,14 +181,27 @@ const SM_CLOUD = {
     keys.forEach(key => this._send(key));
   },
 
-  async remove(key) {
+    async remove(key) {
     clearTimeout(this.timers[key]);
     delete this.timers[key]; delete this.queue[key]; delete this.synced[key];
     this.clearDirty(key);
-    this.addTombstone(key);
 
-    const { error } = await sb.from('stories').delete().eq('key', key);
+    // 1. SOFT DELETE na nuvem (a linha continua existindo, mas marcada)
+    const { error } = await sb.from('stories')
+      .update({ deleted: true, updated_at: new Date().toISOString() })
+      deleted: false 
+      .eq('key', key);
     if (error) throw error;
+
+    // 2. Remover do localStorage local imediatamente
+    const db = this.local();
+    if (db[key]) {
+      delete db[key];
+      localStorage.setItem(this.DB_KEY, JSON.stringify(db));
+    }
+
+    // 3. Manter tombstone local (compatibilidade + defesa extra)
+    this.addTombstone(key);
   }
 };
 
