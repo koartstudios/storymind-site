@@ -5945,7 +5945,12 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
         function deleteCurrentStory() {
             if (Object.keys(storiesDatabase).length <= 1) { showToast("Não é possível excluir a única história.", "error"); return; }
             if (!confirm(`Excluir a história "${currentStory.title}"?`)) return;
-            SM_CLOUD.remove(currentStoryKey).catch(err => { console.warn('Exclusão na nuvem falhou:', err); showToast('Excluída aqui, mas não foi possível remover da nuvem agora. Vamos tentar de novo na próxima sincronização.', 'warn'); });
+            SM_CLOUD.remove(currentStoryKey)
+                .then(() => showToast('História excluída na nuvem.', 'success', 2000))
+                .catch(err => {
+                    console.warn('Exclusão na nuvem falhou:', err);
+                    showToast('Excluída aqui — será sincronizada quando voltar a conexão.', 'warn', 4000);
+                });
             delete storiesDatabase[currentStoryKey];
             localStorage.setItem('storymind_database_v2', JSON.stringify(storiesDatabase));
             const firstKey = Object.keys(storiesDatabase)[0];
