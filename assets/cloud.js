@@ -33,8 +33,21 @@ const SM_CLOUD = {
   },
 
   _initAuth() {
-    sb.auth.getSession().then(({ data }) => { this._token = data.session ? data.session.access_token : null; });
-    sb.auth.onAuthStateChange((_ev, session) => { this._token = session ? session.access_token : null; });
+    // 1. Pega a sessão atual (se o cara já estava logado)
+    sb.auth.getSession().then(({ data }) => { 
+      this._token = data.session ? data.session.access_token : null; 
+      if (this._token) this.initSync(); // Se já tem token, conecta!
+    });
+
+    // 2. Fica escutando o login/logout
+    sb.auth.onAuthStateChange((_ev, session) => { 
+      this._token = session ? session.access_token : null; 
+      if (this._token) {
+        // Quando o usuário logar, avisa o app inteiro para puxar os dados
+        this.initSync();
+        this.pull(); // Puxa os dados assim que logar
+      }
+    });
   },
 
   // Inicia canais de sincronização (Realtime e Cross-Tab)
@@ -124,8 +137,10 @@ const SM_CLOUD = {
       localStorage.setItem(this.DB_KEY, JSON.stringify(db));
       localStorage.setItem(this.DIRTY_KEY, JSON.stringify(dirty));
       Object.keys(take).forEach(k => { this.synced[k] = JSON.stringify(db[k]); });
+      window.dispatchEvent(new CustomEvent('cloud:pull:done'));
     } catch (e) {
       console.warn('Sincronização (pull) falhou, usando dados locais:', e);
+      
     }
   },
 
@@ -156,11 +171,8 @@ const SM_CLOUD = {
       if (!user) throw new Error('Usuário não autenticado');
 
       const { error } = await sb.from('stories').upsert({ 
-        key, 
-        data: story, 
-        updated_at: new Date(ts).toISOString(),
-        user_id: user.id
-      });
+  key, data: story, updated_at: new Date(ts).toISOString(), user_id: user.id
+});
       if (error) throw error;
       
       this.synced[key] = json;
@@ -188,9 +200,8 @@ const SM_CLOUD = {
 
     // 1. SOFT DELETE na nuvem (a linha continua existindo, mas marcada)
     const { error } = await sb.from('stories')
-      .update({ deleted: true, updated_at: new Date().toISOString() })
-      deleted: false 
-      .eq('key', key);
+  .update({ deleted: true, updated_at: new Date().toISOString() })
+  .eq('key', key);
     if (error) throw error;
 
     // 2. Remover do localStorage local imediatamente
@@ -206,5 +217,4 @@ const SM_CLOUD = {
 };
 
 SM_CLOUD._initAuth();
-// Inicia o Realtime após um pequeno delay para garantir o token
-setTimeout(() => SM_CLOUD.initSync(), 1000);
+
