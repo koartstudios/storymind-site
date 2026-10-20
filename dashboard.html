@@ -456,7 +456,12 @@
     if (listEl) {
         const obs = new MutationObserver(() => {
             const html = listEl.innerHTML.trim();
-            if (html === '' || /nenhum|sem mapas|vazio/i.test(listEl.textContent || '')) {
+            // NOVO: Só mostra o empty state se a mensagem for "Nenhum mapa encontrado" (do JS) 
+            // E não houver nenhum mapa real salvo no localStorage.
+            const temMapasSalvos = localStorage.getItem('storymind_database_v2') && 
+                                   Object.keys(JSON.parse(localStorage.getItem('storymind_database_v2'))).length > 0;
+
+            if (!temMapasSalvos && (html === '' || /nenhum|sem mapas|vazio/i.test(listEl.textContent || ''))) {
                 if (!listEl.querySelector('.empty')) {
                     listEl.innerHTML = `
                         <div class="empty">
