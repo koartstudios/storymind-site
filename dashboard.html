@@ -258,17 +258,15 @@
     .ic.fav { color: #fbbf24; }
     .ic.fav:hover { color: #f59e0b; }
 
-    .menu {
-        position: absolute;
-        right: 0;
-        top: 36px;
+            .menu {
+        position: fixed; /* Solto da grade, sobrepõe tudo */
         background: var(--card, #fff);
         border: 1px solid var(--line, #e2e8f0);
         border-radius: 10px;
         padding: 6px;
-        z-index: 5;
-        min-width: 170px;
-        box-shadow: 0 12px 32px -8px rgba(0,0,0,.18);
+        z-index: 9999; /* Garante que fique acima de tudo */
+        min-width: 180px;
+        box-shadow: 0 12px 32px -8px rgba(0,0,0,.25);
         animation: pop .12s ease;
     }
     @keyframes pop {
@@ -325,6 +323,39 @@
         justify-content: space-between;
         align-items: center;
         gap: 8px;
+    }
+
+        /* Overlay no Thumb da Grade */
+    .gv .thumb {
+        position: relative;
+    }
+    .gv .thumb .overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.2s;
+        border-radius: inherit;
+    }
+    .gv .card:hover .thumb .overlay {
+        opacity: 1;
+    }
+    .gv .thumb .overlay span {
+        background: rgba(255, 255, 255, 0.95);
+        color: #0f172a;
+        padding: 6px 16px;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transform: translateY(4px);
+        transition: transform 0.2s;
+    }
+    .gv .card:hover .thumb .overlay span {
+        transform: translateY(0);
     }
 
     /* ========= Empty state ========= */
@@ -387,21 +418,6 @@
         </div>
     </div>
 
-    <!-- Stats -->
-    <div class="stats">
-        <div class="stat">
-            <div class="stat-val" id="st-total">—</div>
-            <div class="stat-lbl">Mapas totais</div>
-        </div>
-        <div class="stat">
-            <div class="stat-val" id="st-fav">—</div>
-            <div class="stat-lbl">Favoritos</div>
-        </div>
-        <div class="stat">
-            <div class="stat-val" id="st-week">—</div>
-            <div class="stat-lbl">Modificados (7 dias)</div>
-        </div>
-    </div>
 
     <!-- Toolbar -->
     <div class="bar">
@@ -432,36 +448,7 @@
 (function(){
     'use strict';
 
-    // ---------- Stats (lê do localStorage sem modificar nada) ----------
-    function refreshStats() {
-        try {
-            const raw = localStorage.getItem('storymind_database_v2');
-            const db = raw ? JSON.parse(raw) : {};
-            const items = Object.values(db);
-            const total = items.length;
-            const favs = items.filter(s => s && s.favorite === true).length;
-            const now = Date.now();
-            const week = items.filter(s => {
-                const t = s && (s.updatedAt || s.modifiedAt);
-                return t && (now - new Date(t).getTime()) < 7 * 24 * 60 * 60 * 1000;
-            }).length;
-            document.getElementById('st-total').textContent = total;
-            document.getElementById('st-fav').textContent = favs;
-            document.getElementById('st-week').textContent = week;
-        } catch (e) {
-            // silencioso — se der erro, mantém "—"
-        }
-    }
 
-    // Atualiza stats em qualquer mudança no storage
-    window.addEventListener('storage', refreshStats);
-    // E a cada 3s (fallback para mudanças no mesmo tab)
-    setInterval(refreshStats, 3000);
-    // E no load
-    window.addEventListener('load', refreshStats);
-    document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) refreshStats();
-    });
 
     // ---------- Empty state melhor (substitui o que dashboard.js injetar) ----------
     // Observa o #list e se ficar vazio (ou tiver algo tipo "Nenhum"), injeta um empty state bonito
