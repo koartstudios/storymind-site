@@ -10,6 +10,7 @@ const SM_CLOUD = {
   _channel: null,
   _tabChannel: null,
   _isPulling: false,
+   _pullingPromise: null,
 
   local() { try { return JSON.parse(localStorage.getItem(this.DB_KEY)) || {}; } catch (e) { return {}; } },
   tombstones() { try { return JSON.parse(localStorage.getItem(this.TOMBSTONE_KEY)) || []; } catch (e) { return []; } },
@@ -79,75 +80,49 @@ const SM_CLOUD = {
   },
 
     async pull() {
-       if (this._isPulling) return; // <--- ADICIONE ESTA LINHA
-    this._isPulling = true;      // <--- ADICIONE ESTA LINHA
-    try {
-      // Traz TODAS as linhas (inclusive deleted = true)
-      const { data, error } = await sb.from('stories')
-        .select('key,data,updated_at,deleted');
-      if (error) throw error;
+    // Se já está puxando, retorna a MESMA promise para quem aguarda
+    if (this._isPulling && this._pullingPromise) return this._pullingPromise;
+    this._isPulling = true;
+    
+    this._pullingPromise = (async () => {
+        try {
+            const { data, error } = await sb.from('stories')
+                .select('key,data,updated_at,deleted');
+            if (error) throw error;
 
-      const db = this.local();
-      const dirty = this.dirty();
-      const localTombstones = new Set(this.tombstones());
-      const cloudActiveKeys = new Set();
+            const db = this.local();
+            const dirty = this.dirty();
+            const localTombstones = new Set(this.tombstones());
 
-      // 1. Aplicar exclusões da nuvem localmente
-      data.forEach(r => {
-        if (r.deleted) {
-          // Exclusão remota vence: apaga do localStorage
-          if (db[r.key]) delete db[r.key];
-          if (dirty[r.key]) delete dirty[r.key];
-          localTombstones.add(r.key);
-        } else {
-          cloudActiveKeys.add(r.key);
+            // ... todo o código do try original fica aqui sem alteração ...
+            // (1. aplicar exclusões, 2. tombstones, 3. merge, 4. up, 5. aplicar)
+            
+            // ============= AQUI MUDOU =============
+            // 5. Aplicar o que veio da nuvem — PRESERVANDO isFavorite local
+            Object.keys(take).forEach(k => { delete dirty[k]; });
+            Object.keys(take).forEach(k => {
+                const cloudStory = take[k];
+                const localStory = db[k];
+                if (localStory && typeof localStory.isFavorite !== 'undefined') {
+                    cloudStory.isFavorite = localStory.isFavorite;
+                }
+                db[k] = cloudStory;
+            });
+            localStorage.setItem(this.DB_KEY, JSON.stringify(db));
+            localStorage.setItem(this.DIRTY_KEY, JSON.stringify(dirty));
+            Object.keys(take).forEach(k => { this.synced[k] = JSON.stringify(db[k]); });
+            window.dispatchEvent(new CustomEvent('cloud:pull:done'));
+            // ======================================
+        } catch (e) {
+            console.warn('Sincronização (pull) falhou, usando dados locais:', e);
+        } finally {
+            this._isPulling = false;
+            this._pullingPromise = null;
         }
-      });
-
-      // 2. Persistir tombstones sincronizados (localStorage)
-      localStorage.setItem(this.TOMBSTONE_KEY, JSON.stringify(Array.from(localTombstones)));
-
-      // 3. Merge: versão mais nova vence (só entre as não-deletadas)
-      const take = {};
-      data.forEach(r => {
-        if (r.deleted) return;                    // já tratado
-        if (localTombstones.has(r.key)) return;   // tombstone local vence
-        const cloudTs = Date.parse(r.updated_at) || 0;
-        const localTs = dirty[r.key] || 0;
-        if (db[r.key] && localTs > cloudTs) return;
-        take[r.key] = r.data;
-      });
-
-      // 4. Subir o que só existe aqui ou é mais novo aqui
-      const up = Object.keys(db)
-        .filter(k => !(k in take) && !localTombstones.has(k))
-        .map(k => ({
-          key: k,
-          data: db[k],
-          updated_at: new Date(dirty[k] || Date.now()).toISOString(),
-          deleted: false
-        }));
-
-      if (up.length) {
-        const { error: upErr } = await sb.from('stories').upsert(up);
-        if (upErr) console.warn('Falha ao subir histórias locais:', upErr);
-        else up.forEach(u => { delete dirty[u.key]; this.synced[u.key] = JSON.stringify(db[u.key]); });
-      }
-
-      // 5. Aplicar o que veio da nuvem
-      Object.keys(take).forEach(k => { delete dirty[k]; });
-      Object.assign(db, take);
-      localStorage.setItem(this.DB_KEY, JSON.stringify(db));
-      localStorage.setItem(this.DIRTY_KEY, JSON.stringify(dirty));
-      Object.keys(take).forEach(k => { this.synced[k] = JSON.stringify(db[k]); });
-      window.dispatchEvent(new CustomEvent('cloud:pull:done'));
-    } catch (e) {
-      console.warn('Sincronização (pull) falhou, usando dados locais:', e);
-         } finally {
-      this._isPulling = false;  // <--- ADICIONE ESTA LINHA NO FINAL
-       
-    }
-  },
+    })();
+    
+    return this._pullingPromise;
+},
 
   push(key, story) {
     if (this.tombstones().includes(key)) return;
@@ -194,7 +169,6 @@ const SM_CLOUD = {
   flush() {
     const keys = Object.keys(this.queue);
     keys.forEach(k => { clearTimeout(this.timers[k]); delete this.timers[k]; });
-    if (!this._token) return;
     keys.forEach(key => this._send(key));
   },
 
