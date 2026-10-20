@@ -2,6 +2,7 @@ const DB_KEY = 'storymind_database_v2', META_KEY = 'storymind_meta';   // mesma 
 const $ = id => document.getElementById(id);
 const COR = { purple: '#a78bfa', orange: '#fbbf24', blue: '#60a5fa', emerald: '#34d399', rose: '#fb7185', white: '#cbd5e1' };
 let owner = '', view = localStorage.getItem('storymind_view') || 'list';
+document.getElementById('favs').checked = false;
 
 const load = () => { try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch (e) { return {}; } };
 const save = db => localStorage.setItem(DB_KEY, JSON.stringify(db));
