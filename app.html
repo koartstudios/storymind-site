@@ -3196,6 +3196,27 @@ layoutPositions: {},
         let pinchState = null;
         const clickTracker = { nodeId: null, time: 0, timer: null };
         const history = { stack: [], index: -1, maxSize: 100, suspended: false };
+const historiesBySheet = new Map();   // histórico independente por aba
+
+function stashHistoryForSheet(sheetId) {
+    if (!sheetId) return;
+    historiesBySheet.set(sheetId, {
+        stack: history.stack.slice(),
+        index: history.index
+    });
+}
+
+function restoreHistoryForSheet(sheetId) {
+    const saved = sheetId ? historiesBySheet.get(sheetId) : null;
+    if (saved) {
+        history.stack = saved.stack;
+        history.index = saved.index;
+    } else {
+        history.stack = [];
+        history.index = -1;
+    }
+    updateHistoryButtons();
+}
         let saveTimer = null;
         let sheetContextMenuEl = null;
         let nodeClipboard = null;
@@ -5717,8 +5738,12 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
             select.appendChild(newOpt);
         }
 
-        function switchStory(key) {
+               function switchStory(key) {
             cancelAllInteractions(); hideNodeTooltip();
+
+            // NOVO: salva o histórico da aba atual antes de trocar de história
+            if (mindMapData) stashHistoryForSheet(mindMapData.id);
+
             if (key !== 'new' && !storiesDatabase[key]) {
                 const firstKey = Object.keys(storiesDatabase)[0];
                 if (!firstKey) return;
@@ -5754,8 +5779,13 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
             setTool('select');
             domCache.clear(); domCache.invalidateHeights();
             invalidateStructure(); syncBeatSheetUI(); syncBeatSortUI(); syncTimelineModeUI();
-            resetHistory(); saveStoriesStorage(); renderApp(); renderSheetTabs();
-            populateStorySelectDropdown(); 
+
+            // NOVO: restaura o histórico da aba alvo
+            restoreHistoryForSheet(mindMapData.id);
+            if (history.stack.length === 0) pushHistory();
+
+            saveStoriesStorage(); renderApp(); renderSheetTabs();
+             populateStorySelectDropdown();   // ← garanta que esta linha está aqui
             requestAnimationFrame(() => requestAnimationFrame(fitView));
         }
 
@@ -5871,7 +5901,7 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
             saveStoriesStorage(); renderSheetTabs();
         }
 
-        function switchSheet(sheetId) {
+                function switchSheet(sheetId) {
             cancelAllInteractions(); hideNodeTooltip();
             if (!currentStory) return;
             if (mindMapData && mindMapData.id === sheetId) return;
@@ -5879,6 +5909,10 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
             if (curIdx >= 0) currentStory.sheets[curIdx] = mindMapData;
             const target = currentStory.sheets.find(s => s.id === sheetId);
             if (!target) return;
+
+            // NOVO: salva o histórico da aba atual antes de sair
+            stashHistoryForSheet(mindMapData.id);
+
             mindMapData = target;
             currentStory.activeSheetId = sheetId;
             selectedNodeIds.clear();
@@ -5893,7 +5927,12 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
             document.getElementById('layout-select').value = mindMapData.layout || 'tree';
             domCache.clear(); domCache.invalidateHeights();
             invalidateStructure(); syncBeatSheetUI(); syncBeatSortUI(); syncTimelineModeUI();
-            resetHistory(); saveStoriesStorage(); renderApp(); renderSheetTabs();
+
+            // NOVO: restaura o histórico da aba alvo (em vez de resetHistory)
+            restoreHistoryForSheet(sheetId);
+            if (history.stack.length === 0) pushHistory();
+
+            saveStoriesStorage(); renderApp(); renderSheetTabs();
             requestAnimationFrame(() => requestAnimationFrame(fitView));
         }
 
@@ -5919,7 +5958,9 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
             document.getElementById('layout-select').value = mindMapData.layout || 'tree';
             domCache.clear(); domCache.invalidateHeights();
             invalidateStructure(); syncBeatSheetUI(); syncBeatSortUI();
-            resetHistory(); saveStoriesStorage(); renderApp(); renderSheetTabs();
+            restoreHistoryForSheet(newSheet.id);           // ← aba nova = histórico vazio
+            if (history.stack.length === 0) pushHistory();
+            saveStoriesStorage(); renderApp(); renderSheetTabs();
             requestAnimationFrame(() => requestAnimationFrame(fitView));
         }
 
@@ -5964,10 +6005,14 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
                 mindMapData = next; currentStory.activeSheetId = next.id;
                 focusModeNodeId = null; updateFocusPill();
                 domCache.clear(); domCache.invalidateHeights();
-                invalidateStructure(); resetHistory();
+                historiesBySheet.delete(sheetId);            // ← libera o histórico da aba deletada
+                restoreHistoryForSheet(next.id);
+                if (history.stack.length === 0) pushHistory();
+                invalidateStructure();
             } else {
                 const curIdx = currentStory.sheets.findIndex(s => s.id === mindMapData.id);
                 if (curIdx >= 0) currentStory.sheets[curIdx] = mindMapData;
+                 stashHistoryForSheet(mindMapData.id);           // ← NOVO
             }
             syncBeatSheetUI(); syncBeatSortUI();
             saveStoriesStorage(); renderApp(); renderSheetTabs();
@@ -6054,6 +6099,7 @@ if (Array.isArray(clone.radialGroups)) {
                 }));
             }
             const idx = currentStory.sheets.findIndex(s => s.id === sheetId);
+            stashHistoryForSheet(mindMapData.id); 
             currentStory.sheets.splice(idx + 1, 0, clone);
             mindMapData = clone; currentStory.activeSheetId = clone.id;
             selectedNodeIds.clear();
@@ -6124,6 +6170,67 @@ if (Array.isArray(clone.radialGroups)) {
             const copiedRels = (mindMapData.relationships || []).filter(r => ids.has(r.from) && ids.has(r.to)).map(r => deepClone(r));
             nodeClipboard = { nodes: copiedNodes, relationships: copiedRels, sourceSheetId: mindMapData.id };
         }
+                function cutSelectedNodes() {
+    if (selectedNodeIds.size === 0) return;
+
+    // 1) Copia para o clipboard (continua funcionando como antes)
+    copySelectedNodes();
+
+    // 2) Calcula o conjunto de nós + descendentes a remover
+    const toDelete = new Set(selectedNodeIds);
+    let changed = true;
+    while (changed) {
+        changed = false;
+        mindMapData.nodes.forEach(n => {
+            if (n.parentId && toDelete.has(n.parentId) && !toDelete.has(n.id)) {
+                toDelete.add(n.id);
+                changed = true;
+            }
+        });
+    }
+
+    // 3) CAPTURA O SNAPSHOT AGORA — antes de qualquer modificação
+    //    Garantia: o estado que o Ctrl+Z vai restaurar é exatamente o estado atual
+    const snapshotBeforeCut = JSON.stringify(mindMapData);
+
+    // 4) Aplica todas as modificações
+    mindMapData.nodes = mindMapData.nodes.filter(n => !toDelete.has(n.id));
+    mindMapData.relationships = (mindMapData.relationships || []).filter(r => !toDelete.has(r.from) && !toDelete.has(r.to));
+    mindMapData.relations = (mindMapData.relations || []).filter(r => !toDelete.has(r.from) && !toDelete.has(r.to));
+    if (mindMapData.skillTrees) toDelete.forEach(id => { delete mindMapData.skillTrees[id]; });
+    if (mindMapData.beatSheetSavedPositions) toDelete.forEach(id => { delete mindMapData.beatSheetSavedPositions[id]; });
+    if (mindMapData.beatSortSavedPositions) toDelete.forEach(id => { delete mindMapData.beatSortSavedPositions[id]; });
+    if (mindMapData.beatSortLastArrangement) toDelete.forEach(id => { delete mindMapData.beatSortLastArrangement[id]; });
+    if (mindMapData.relationWebPositions) toDelete.forEach(id => { delete mindMapData.relationWebPositions[id]; });
+
+    // 5) INSERE O SNAPSHOT NO HISTORY, FORÇANDO O ÍNDICE
+    history.stack = history.stack.slice(0, history.index + 1);
+    history.stack.push(snapshotBeforeCut);
+    if (history.stack.length > history.maxSize) history.stack.shift();
+    history.index = history.stack.length - 1;
+    updateHistoryButtons();
+
+    // 6) Limpa seleção / editor / etc.
+    if (focusModeNodeId && toDelete.has(focusModeNodeId)) {
+        focusModeNodeId = null;
+        updateFocusPill();
+    }
+    selectedNodeIds.clear();
+    editingNodeId = null;
+    editingField = null;
+    hideNodeTooltip();
+    toDelete.forEach(id => domCache.invalidateHeight(id));
+    invalidateStructure();
+    closeInspector();
+    saveStoriesStorage();
+    renderApp();
+
+    showToast(
+        `${toDelete.size} nó(s) cortado(s). Abra outra história e use Ctrl+V para colar.`,
+        'info',
+        3500
+    );
+}
 
         function pasteClipboard() {
             if (!nodeClipboard || nodeClipboard.nodes.length === 0) return;
@@ -6174,6 +6281,13 @@ if (Array.isArray(clone.radialGroups)) {
             if (mindMapData.beatSortMode) { mindMapData.beatSortLastArrangement = null; applyBeatSortLayout(); }
             requestAnimationFrame(() => { if (resolveOverlapsForDragged(new Set(newNodes.map(n => n.id)))) renderApp(); });
             saveStoriesStorage(); renderApp();
+            // Feedback: avisa se veio de outra história
+            const crossStory = !currentStory.sheets.some(s => s.id === clipboard.sourceSheetId);
+            showToast(
+                `${newNodes.length} nó(s) colado(s)${crossStory ? ' nesta história' : (sameSheet ? '' : ' nesta aba')}.`,
+                'success',
+                2000
+            );
         }
 
         function extractCurrentNodeToNewSheet() {
@@ -6232,6 +6346,7 @@ sub.forEach(nid => {
             const curIdx = currentStory.sheets.findIndex(s => s.id === mindMapData.id);
             if (curIdx >= 0) currentStory.sheets[curIdx] = mindMapData;
             currentStory.sheets.push(newSheet);
+            stashHistoryForSheet(mindMapData.id);
             mindMapData = newSheet; currentStory.activeSheetId = newSheet.id;
             selectedNodeIds.clear();
             editingNodeId = null; editingField = null;
@@ -6244,7 +6359,9 @@ sub.forEach(nid => {
             document.getElementById('layout-select').value = mindMapData.layout || 'tree';
             domCache.clear(); domCache.invalidateHeights();
             invalidateStructure(); syncBeatSheetUI(); syncBeatSortUI();
-            resetHistory(); saveStoriesStorage(); renderApp(); renderSheetTabs();
+            restoreHistoryForSheet(newSheet.id);             // ← nova aba = histórico vazio
+            if (history.stack.length === 0) pushHistory();
+            saveStoriesStorage(); renderApp(); renderSheetTabs();
             requestAnimationFrame(() => requestAnimationFrame(fitView));
         }
 
@@ -8564,7 +8681,10 @@ else newScale = Math.max(scale / factor, 0.05);
                         setTool('select');
                         domCache.clear(); domCache.invalidateHeights();
                         invalidateStructure(); syncBeatSheetUI(); syncBeatSortUI();
-                        resetHistory(); saveStoriesStorage(); renderApp(); renderSheetTabs();
+                        historiesBySheet.clear();                // ← importou história nova: zera histórico de abas antigas
+                        restoreHistoryForSheet(mindMapData.id);
+                        if (history.stack.length === 0) pushHistory();
+                        saveStoriesStorage(); renderApp(); renderSheetTabs();
                         requestAnimationFrame(() => requestAnimationFrame(fitView));
                         showToast("História importada com sucesso!", "success");
                     } catch (error) {
@@ -11010,6 +11130,9 @@ function updateTimelineToggleButton() {
 		if (e.code === 'KeyA' && e.shiftKey && !e.ctrlKey && !e.metaKey) { e.preventDefault(); selectDescendants(); return; }
 		if (e.code === 'KeyA' && e.shiftKey && !e.ctrlKey && !e.metaKey) { e.preventDefault(); selectDescendants(); return; }
                 if ((e.ctrlKey || e.metaKey) && e.code === 'KeyC' && !e.shiftKey) { if (selectedNodeIds.size > 0) { e.preventDefault(); copySelectedNodes(); return; } }
+                                if ((e.ctrlKey || e.metaKey) && e.code === 'KeyC' && !e.shiftKey) { if (selectedNodeIds.size > 0) { e.preventDefault(); copySelectedNodes(); return; } }
+                if ((e.ctrlKey || e.metaKey) && e.code === 'KeyX' && !e.shiftKey) { if (selectedNodeIds.size > 0) { e.preventDefault(); cutSelectedNodes(); return; } }
+                if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV' && !e.shiftKey) { if (nodeClipboard && nodeClipboard.nodes.length > 0) { e.preventDefault(); pasteClipboard(); return; } }
                 if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV' && !e.shiftKey) { if (nodeClipboard && nodeClipboard.nodes.length > 0) { e.preventDefault(); pasteClipboard(); return; } }
                 if ((e.ctrlKey || e.metaKey) && e.code === 'KeyF' && !e.shiftKey) { e.preventDefault(); document.getElementById('search-input').focus(); return; }
                 if (e.code === 'Delete' || e.code === 'Backspace') { e.preventDefault(); deleteSelectedNodes(); return; }
