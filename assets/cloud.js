@@ -80,25 +80,61 @@ const SM_CLOUD = {
   },
 
     async pull() {
-    // Se já está puxando, retorna a MESMA promise para quem aguarda
     if (this._isPulling && this._pullingPromise) return this._pullingPromise;
     this._isPulling = true;
-    
+
     this._pullingPromise = (async () => {
         try {
+            // 🔑 FILTRA POR user_id (Problema #2)
+            const { data: { user } } = await sb.auth.getUser();
+            if (!user) throw new Error('Usuário não autenticado');
+
             const { data, error } = await sb.from('stories')
-                .select('key,data,updated_at,deleted');
+                .select('key,data,updated_at,deleted')
+                .eq('user_id', user.id);
             if (error) throw error;
 
             const db = this.local();
             const dirty = this.dirty();
-            const localTombstones = new Set(this.tombstones());
+            const tombstones = this.tombstones();
+            const tombstoneSet = new Set(tombstones);
 
-            // ... todo o código do try original fica aqui sem alteração ...
-            // (1. aplicar exclusões, 2. tombstones, 3. merge, 4. up, 5. aplicar)
-            
-            // ============= AQUI MUDOU =============
-            // 5. Aplicar o que veio da nuvem — PRESERVANDO isFavorite local
+            // 1. Aplicar exclusões vindas da nuvem (deleted = true)
+            (data || []).forEach(row => {
+                if (row.deleted) {
+                    delete db[row.key];
+                    if (!tombstoneSet.has(row.key)) {
+                        tombstones.push(row.key);
+                        tombstoneSet.add(row.key);
+                    }
+                }
+            });
+
+            // 2. Aplicar tombstones locais (remover da nuvem? aqui só pula o merge)
+            //    (tombstones = histórias apagadas localmente; não devem ressuscitar)
+
+            // 3. Merge: só aplica da nuvem o que é mais recente que o local
+            const take = {};
+            (data || []).forEach(row => {
+                if (row.deleted) return;
+                if (tombstoneSet.has(row.key)) return;          // respeita tombstone local
+                if (!row.data) return;
+
+                const cloudTs = new Date(row.updated_at).getTime();
+                const localTs = dirty[row.key] || 0;
+
+                // Se o local está sujo (não sincronizado) e é mais novo, não sobrescreve
+                if (localTs > 0 && localTs > cloudTs) return;
+
+                // Se não há local, ou o local está limpo, aplica o da nuvem
+                if (!db[row.key] || localTs === 0) {
+                    take[row.key] = row.data;
+                } else if (localTs < cloudTs) {
+                    take[row.key] = row.data;
+                }
+            });
+
+            // 4. Aplicar o que veio da nuvem — PRESERVANDO isFavorite local
             Object.keys(take).forEach(k => { delete dirty[k]; });
             Object.keys(take).forEach(k => {
                 const cloudStory = take[k];
@@ -108,11 +144,14 @@ const SM_CLOUD = {
                 }
                 db[k] = cloudStory;
             });
+
+            // 5. Persistir
             localStorage.setItem(this.DB_KEY, JSON.stringify(db));
             localStorage.setItem(this.DIRTY_KEY, JSON.stringify(dirty));
+            localStorage.setItem(this.TOMBSTONE_KEY, JSON.stringify(tombstones));
             Object.keys(take).forEach(k => { this.synced[k] = JSON.stringify(db[k]); });
+
             window.dispatchEvent(new CustomEvent('cloud:pull:done'));
-            // ======================================
         } catch (e) {
             console.warn('Sincronização (pull) falhou, usando dados locais:', e);
         } finally {
@@ -120,7 +159,7 @@ const SM_CLOUD = {
             this._pullingPromise = null;
         }
     })();
-    
+
     return this._pullingPromise;
 },
 
