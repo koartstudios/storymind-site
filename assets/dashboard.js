@@ -34,7 +34,7 @@ function thumb(s) {
 
 function render() {
   const db = load(), meta = loadMeta(), q = $('q').value.toLowerCase(), st = $('sort').value, onlyFav = $('favs').checked;
-  let keys = Object.keys(db).filter(k => (db[k].title || '').toLowerCase().includes(q) && (!onlyFav || (meta[k] || {}).fav));
+  let keys = Object.keys(db).filter(k => (db[k].title || '').toLowerCase().includes(q) && (!onlyFav || db[k].isFavorite));
   const t = (k, f) => {
     const m = meta[k] || {};
     if (f === 'created') return m.created || m.modified || m.opened || 0;
@@ -54,7 +54,7 @@ function render() {
     return; 
   }
   
-  const star = k => `<button class="ic ${(meta[k] || {}).fav ? 'fav' : ''}" data-fav="${esc(k)}" title="Favorito"><i class="fa-${(meta[k] || {}).fav ? 'solid' : 'regular'} fa-star"></i></button>`;
+  const star = k => `<button class="ic ${db[k].isFavorite ? 'fav' : ''}" data-fav="${esc(k)}" title="Favorito"><i class="fa-${db[k].isFavorite ? 'solid' : 'regular'} fa-star"></i></button>`;
   const menu = k => `<button class="ic" data-menu="${esc(k)}" title="Mais"><i class="fa-solid fa-ellipsis-vertical"></i></button>`;
   const info = (s, k) => { 
     const n = (s.sheets || []).reduce((a, sh) => a + ((sh.nodes || []).length), 0);
@@ -94,9 +94,16 @@ $('list').onclick = e => {
   document.querySelectorAll('.menu').forEach(m => m.remove());
 
   if (fav) { 
-    const m = loadMeta(), k = fav.dataset.fav; 
-    m[k] = { ...m[k], fav: !(m[k] || {}).fav }; 
-    saveMeta(m); 
+    const db = load(), k = fav.dataset.fav; 
+    if (db[k]) {
+        db[k].isFavorite = !db[k].isFavorite; // Inverte o status
+        save(db); // Salva no localStorage local
+        
+        // A MÁGICA ACONTECE AQUI: Envia a história atualizada para a nuvem
+        if (window.SM_CLOUD) {
+            SM_CLOUD.push(k, db[k]); 
+        }
+    }
     return render(); 
   }
   
@@ -231,5 +238,22 @@ SM_CLOUD.pull().then(async () => {
   } catch (e) {}
   render();
 });
+
+// MIGRAÇÃO DE FAVORITOS ANTIGOS
+(function migrarFavoritos() {
+  const db = load();
+  const meta = loadMeta();
+  let mudou = false;
+  
+  Object.keys(meta).forEach(k => {
+    if (meta[k].fav && db[k] && !db[k].isFavorite) {
+      db[k].isFavorite = true;
+      mudou = true;
+      if (window.SM_CLOUD) SM_CLOUD.push(k, db[k]); // Sincroniza os antigos com a nuvem
+    }
+  });
+  
+  if (mudou) save(db);
+})();
 
 render();
