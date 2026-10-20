@@ -21,7 +21,7 @@ function fmt(t) {
 function thumb(s) {
   const sh = (s.sheets || []).find(x => x.id === s.activeSheetId) || (s.sheets || [])[0];
   const ns = ((sh && sh.nodes) || []).filter(n => isFinite(n.x) && isFinite(n.y)).slice(0, 400);
-  if (!ns.length) return '<div class="thumb"></div>';
+  if (!ns.length) return '';
   const W = 220, H = 70, xs = ns.map(n => n.x), ys = ns.map(n => n.y);
   const x0 = Math.min(...xs) - 40, y0 = Math.min(...ys) - 40;
   const vw = Math.max(...xs) - x0 + W + 40, vh = Math.max(...ys) - y0 + H + 40, sw = Math.max(vw, vh) / 140;
@@ -29,7 +29,7 @@ function thumb(s) {
   const lines = ns.filter(n => by[n.parentId]).map(n => { const p = by[n.parentId];
     return `<line x1="${p.x + W / 2}" y1="${p.y + H / 2}" x2="${n.x + W / 2}" y2="${n.y + H / 2}" stroke="#94a3b8" stroke-width="${sw}"/>`; }).join('');
   const boxes = ns.map(n => `<rect x="${n.x}" y="${n.y}" width="${W}" height="${H}" rx="14" fill="${COR[n.color] || COR.white}"/>`).join('');
-  return `<div class="thumb"><svg viewBox="${x0} ${y0} ${vw} ${vh}" preserveAspectRatio="xMidYMid meet">${lines}${boxes}</svg></div>`;
+  return `<svg viewBox="${x0} ${y0} ${vw} ${vh}" preserveAspectRatio="xMidYMid meet">${lines}${boxes}</svg>`;
 }
 
 function render() {
@@ -50,10 +50,18 @@ function render() {
   const menu = k => `<button class="ic" data-menu="${esc(k)}" title="Mais"><i class="fa-solid fa-ellipsis-vertical"></i></button>`;
   const info = (s, k) => { const n = (s.sheets || []).reduce((a, sh) => a + ((sh.nodes || []).length), 0);
     return `${(s.sheets || []).length} aba(s) · ${n} nós · modificado ${fmt(t(k, 'modified')).toLowerCase()}`; };
-  if (view === 'grid') {
-    $('list').innerHTML = '<div class="gv">' + keys.map(k => `<div class="card" data-open="${esc(k)}">${thumb(db[k])}
-      <div class="in"><div class="nm"><div><b>${esc(db[k].title || 'Sem título')}</b><span>Criado ${fmt(t(k, 'created')).toLowerCase()}</span></div></div>
-      <div class="act">${star(k)}${menu(k)}</div></div></div>`).join('') + '</div>';
+    if (view === 'grid') {
+    $('list').innerHTML = '<div class="gv">' + keys.map(k => `
+      <div class="card" data-open="${esc(k)}">
+        <div class="thumb">
+            ${thumb(db[k])}
+            <div class="overlay"><span>Abrir mapa</span></div>
+        </div>
+        <div class="in">
+            <div class="nm"><div><b>${esc(db[k].title || 'Sem título')}</b><span>Criado ${fmt(t(k, 'created')).toLowerCase()}</span></div></div>
+            <div class="act">${star(k)}${menu(k)}</div>
+        </div>
+      </div>`).join('') + '</div>';
   } else {
     $('list').innerHTML = '<div class="row h"><div>Nome</div><div>Criado em</div><div>Modificado</div><div>Titular</div><div></div></div>' +
       keys.map(k => `<div class="row it" data-open="${esc(k)}"><div class="nm">${thumb(db[k])}<div style="min-width:0"><b>${esc(db[k].title || 'Sem título')}</b><span>${info(db[k], k)}</span></div></div>
@@ -66,21 +74,79 @@ $('list').onclick = e => {
   const fav = e.target.closest('[data-fav]'), mn = e.target.closest('[data-menu]'), ac = e.target.closest('[data-act]'), op = e.target.closest('[data-open]');
   document.querySelectorAll('.menu').forEach(m => m.remove());
   if (fav) { const m = loadMeta(), k = fav.dataset.fav; m[k] = { ...m[k], fav: !(m[k] || {}).fav }; saveMeta(m); return render(); }
-  if (mn) { const k = mn.dataset.menu, d = document.createElement('div'); d.className = 'menu';
-    d.innerHTML = `<button data-act="open" data-k="${esc(k)}">Abrir</button><button data-act="json" data-k="${esc(k)}">Exportar JSON</button><button data-act="del" data-k="${esc(k)}">Excluir</button>`;
-    mn.parentElement.appendChild(d); return e.stopPropagation(); }
-  if (ac) { const k = ac.dataset.k, db = load();
+    if (mn) {
+    const k = mn.dataset.menu;
+    document.querySelectorAll('.menu').forEach(m => m.remove()); // remove menus abertos
+    
+    const d = document.createElement('div');
+    d.className = 'menu';
+    
+    // Adicionada a opção Duplicar
+    d.innerHTML = `
+        <button data-act="open" data-k="${esc(k)}">Abrir</button>
+        <button data-act="dup" data-k="${esc(k)}">Duplicar história</button>
+        <button data-act="json" data-k="${esc(k)}">Exportar JSON</button>
+        <button data-act="del" data-k="${esc(k)}">Excluir</button>
+    `;
+    
+    document.body.appendChild(d); // Solto no body, não é cortado
+
+    // Posiciona o menu logo abaixo do botão de 3 pontinhos
+    const rect = mn.getBoundingClientRect();
+    d.style.top = (rect.bottom + 4) + 'px';
+    d.style.left = (rect.right - 180) + 'px';
+    
+    return e.stopPropagation(); 
+  }
+    if (ac) { 
+    const k = ac.dataset.k, db = load();
+    
     if (ac.dataset.act === 'open') return abrir(k);
-    if (ac.dataset.act === 'json') { const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([JSON.stringify(db[k], null, 2)], { type: 'application/json' }));
-      a.download = (db[k].title || 'mapa').replace(/[^\w-]+/g, '_') + '.json'; return a.click(); }
+    
+    if (ac.dataset.act === 'dup') {
+      const original = db[k];
+      const copy = JSON.parse(JSON.stringify(original));
+      const newK = 'story_' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+      
+      copy.title = (original.title || 'Sem título') + ' (Cópia)';
+      db[newK] = copy;
+      save(db);
+      
+      const m = loadMeta();
+      m[newK] = { opened: Date.now(), modified: Date.now(), created: Date.now() };
+      saveMeta(m);
+      
+      if (window.SM_CLOUD) SM_CLOUD.push(newK, copy);
+      
+      render();
+      return alert('História duplicada com sucesso!');
+    }
+    
+    if (ac.dataset.act === 'json') { 
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(db[k], null, 2)], { type: 'application/json' }));
+        a.download = (db[k].title || 'mapa').replace(/[^\w-]+/g, '_') + '.json'; 
+        return a.click(); 
+    }
+    
     if (ac.dataset.act === 'del') {
       if (Object.keys(db).length <= 1) return alert('Mantenha ao menos uma história.');
-      if (confirm('Excluir "' + db[k].title + '"?')) { delete db[k]; save(db); SM_CLOUD.remove(k).catch(e => { console.warn(e); alert('Excluído aqui, mas não foi possível remover da nuvem agora. Vamos tentar de novo na próxima sincronização.'); }); render(); } }
-    return; }
+      if (confirm('Excluir "' + db[k].title + '"?')) { 
+          delete db[k]; 
+          save(db); 
+          SM_CLOUD.remove(k).catch(e => { console.warn(e); alert('Excluído aqui, mas não foi possível remover da nuvem agora. Vamos tentar de novo na próxima sincronização.'); }); 
+          render(); 
+      } 
+    }
+    return; 
+  }
   if (op) abrir(op.dataset.open);
 };
-document.addEventListener('click', e => { if (!e.target.closest('.act')) document.querySelectorAll('.menu').forEach(m => m.remove()); });
+document.addEventListener('click', e => { 
+    if (!e.target.closest('.act') && !e.target.closest('.menu')) {
+        document.querySelectorAll('.menu').forEach(m => m.remove()); 
+    }
+});
 
 function abrir(k) { const m = loadMeta(); m[k] = { ...m[k], opened: Date.now() }; saveMeta(m); location.href = 'app.html?story=' + encodeURIComponent(k); }
 $('new').onclick = () => { location.href = 'app.html?story=new'; };
