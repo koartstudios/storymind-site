@@ -5828,11 +5828,25 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
 
         function saveStoriesStorage() {
             if (!currentStory || !mindMapData) return;
+
+            // ==============================================================
+            // FIX: PRESERVA O STATUS DE FAVORITO
+            // Evita que o app.html apague a estrela marcada no dashboard
+            // ==============================================================
+            try {
+                const db = JSON.parse(localStorage.getItem('storymind_database_v2')) || {};
+                if (db[currentStoryKey] && typeof db[currentStoryKey].isFavorite !== 'undefined') {
+                    currentStory.isFavorite = db[currentStoryKey].isFavorite;
+                }
+            } catch(e) { console.warn('Erro ao preservar favorito', e); }
+            // ==============================================================
+
             const idx = currentStory.sheets.findIndex(s => s.id === mindMapData.id);
             if (idx >= 0) currentStory.sheets[idx] = mindMapData;
             currentStory.activeSheetId = mindMapData.id;
             storiesDatabase[currentStoryKey] = currentStory;
             setSaveStatus('saving');
+            // ... (o resto do código continua igual)
             if (saveScheduled) return;
             saveScheduled = true;
             const run = () => { saveScheduled = false; flushSaveToDisk(); };
