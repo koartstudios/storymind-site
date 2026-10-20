@@ -324,7 +324,22 @@ body.eyedropper-armed #tool-eyedropper {
             color: #94a3b8; border-bottom-color: #334155;
         }
         body.app-theme-dark #bible-modal .bible-key { color: #e2e8f0; }
-        body.app-theme-dark #bible-modal .bible-count { background: #312e81; color: #c7d2fe; }
+                body.app-theme-dark #bible-modal .bible-count { background: #312e81; color: #c7d2fe; }
+        
+        /* ==================== Rascunho de cena — tag na Bíblia ==================== */
+        .bible-sw-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            background: #ede9fe;
+            color: #6d28d9;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 999px;
+            margin-left: 4px;
+            flex-shrink: 0;
+        }
 
         body.app-theme-dark { background: #0f172a; color: #e2e8f0; }
         body.app-theme-dark header,
@@ -1308,6 +1323,30 @@ body.eyedropper-armed #tool-eyedropper {
             .beat-lane-label .bl-name { font-size: 10px; }
             .beat-lane-label .bl-desc { font-size: 9px; }
         }
+                /* ==================== Rascunho de cena ==================== */
+        .node-card .writing-badge {
+            position: absolute;
+            bottom: -10px;
+            left: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 999px;
+            box-shadow: 0 2px 6px rgba(99,102,241,0.45);
+            z-index: 15;
+            cursor: pointer;
+            transition: transform 0.12s, box-shadow 0.12s;
+        }
+        .node-card .writing-badge:hover {
+            transform: scale(1.08);
+            box-shadow: 0 4px 12px rgba(99,102,241,0.6);
+        }
+        .node-card .writing-badge i { font-size: 8px; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden">
@@ -2089,6 +2128,10 @@ body.eyedropper-armed #tool-eyedropper {
                 <label class="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 border border-slate-300 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-slate-200 transition">
                     <input type="checkbox" id="bible-include-variants" onchange="renderStoryBible()" class="accent-purple-600">
                     <span>Incluir variantes</span>
+                </label>
+                                <label class="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 border border-slate-300 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-slate-200 transition" title="Mostra só cenas que têm rascunho salvo">
+                    <input type="checkbox" id="bible-only-with-draft" onchange="renderStoryBible()" class="accent-purple-600">
+                    <span>✍️ Só com rascunho</span>
                 </label>
                 <button onclick="exportStoryBible()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5" title="Exportar bíblia como Markdown">
                     <i class="fa-brands fa-markdown"></i>
@@ -3501,6 +3544,26 @@ let eyedropperCopyWithIcons = true;
                 if (diag) { const color = diag.level === 'warn' ? '#dc2626' : '#059669'; const bg = diag.level === 'warn' ? '#fef2f2' : '#ecfdf5'; mckeeRows.push(`<div style="margin-top:6px; padding:6px 8px; border-radius:6px; background:${bg}; color:${color}; font-size:10.5px; font-weight:600; line-height:1.4;">${escapeHTML(diag.message)}</div>`); }
                 else if (node.typeData.valueAtStake) mckeeRows.push(`<div class="tt-row"><span class="tt-label">🎯 Valor em Jogo:</span> <span class="tt-value">${escapeHTML(node.typeData.valueAtStake)}</span></div>`);
             }
+                        // Preview do rascunho de cena
+            if (node.type === 'scene' && node.typeData?.sceneWriting) {
+                const sw = node.typeData.sceneWriting;
+                const draftText = (sw.draft || '').trim();
+                const wordCount = (draftText.match(/\S+/g) || []).length;
+                const swFilled = Object.values(sw).some(v => v && String(v).trim());
+                if (swFilled) {
+                    html += `<div class="tt-sw" style="margin-top:8px; padding-top:8px; border-top:1px dashed #e2e8f0;">
+                        <div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#8b5cf6; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+                            <span>✍️ Rascunho da cena</span>
+                            ${wordCount > 0 ? `<span style="background:#ede9fe; color:#6d28d9; padding:1px 7px; border-radius:999px; font-size:9px;">${wordCount} pal.</span>` : ''}
+                        </div>
+                        ${sw.goal ? `<div class="tt-row"><span class="tt-label">🎯 Objetivo:</span> <span class="tt-value">${escapeHTML(sw.goal)}</span></div>` : ''}
+                        ${sw.obstacle ? `<div class="tt-row"><span class="tt-label">⚔ Obstáculo:</span> <span class="tt-value">${escapeHTML(sw.obstacle)}</span></div>` : ''}
+                        ${sw.start && sw.end ? `<div class="tt-row"><span class="tt-label">📊 Valor:</span> <span class="tt-value">${escapeHTML(sw.start)} → ${escapeHTML(sw.end)}</span></div>` : ''}
+                        ${draftText ? `<div style="margin-top:6px; padding:8px 10px; background:#faf5ff; border:1px solid #e9d5ff; border-radius:6px; font-size:11px; color:#475569; font-style:italic; line-height:1.5; max-height:120px; overflow:hidden;">${escapeHTML(draftText.slice(0, 280))}${draftText.length > 280 ? '…' : ''}</div>` : ''}
+                        <button onclick="event.stopPropagation(); closeStoryBible && closeStoryBible(); hideNodeTooltip(); openSceneWritingMode('${node.id}');" style="margin-top:8px; width:100%; padding:6px 10px; border-radius:6px; background:linear-gradient(135deg, #6366f1, #8b5cf6); color:white; font-size:11px; font-weight:700; border:none; cursor:pointer; pointer-events:auto;">Abrir rascunho completo</button>
+                    </div>`;
+                }
+            }
             if (node.type === 'character' && node.typeData.conflictValue) mckeeRows.push(`<div class="tt-row"><span class="tt-label">⚔ Valor em Conflito:</span> <span class="tt-value">${escapeHTML(node.typeData.conflictValue)}</span></div>`);
             if (node.type === 'location' && node.typeData.environmentPressures) mckeeRows.push(`<div class="tt-row"><span class="tt-label">🌍 Pressões:</span> <span class="tt-value">${escapeHTML(node.typeData.environmentPressures)}</span></div>`);
             if (node.type === 'dialogue' && node.typeData.speechAction) mckeeRows.push(`<div class="tt-row"><span class="tt-label">⚡ Ação da Fala:</span> <span class="tt-value">${escapeHTML(node.typeData.speechAction)}</span></div>`);
@@ -4037,6 +4100,7 @@ let eyedropperCopyWithIcons = true;
             const filterType = document.getElementById('bible-filter-type')?.value || '';
             const filterBeat = document.getElementById('bible-filter-beat')?.value || '';
             const includeVariants = document.getElementById('bible-include-variants')?.checked || false;
+                        const onlyWithDraft = document.getElementById('bible-only-with-draft')?.checked || false;
             const variantRootCache = new Map();
             function getVarRoot(id) {
                 if (variantRootCache.has(id)) return variantRootCache.get(id);
@@ -4051,11 +4115,16 @@ let eyedropperCopyWithIcons = true;
             }
             const buckets = { character: [], location: [], event: [], dialogue: [], theme: [], scene: [], timeline: [] };
             const beatCounts = new Map(); const povList = new Set();
-            mindMapData.nodes.forEach(n => {
+                        mindMapData.nodes.forEach(n => {
                 const vr = getVarRoot(n.id); const isVar = !!vr;
                 if (isVar && !includeVariants) return;
                 if (filterType && n.type !== filterType) return;
                 if (filterBeat && n.beatId !== filterBeat) return;
+                if (onlyWithDraft) {
+                    const sw = n.typeData?.sceneWriting;
+                    const filled = sw && Object.values(sw).some(v => v && String(v).trim());
+                    if (!filled) return;
+                }
                 if (n.beatId) beatCounts.set(n.beatId, (beatCounts.get(n.beatId) || 0) + 1);
                 if (n.pov && n.pov.trim()) povList.add(n.pov.trim());
                 if (!n.type || !buckets[n.type]) return;
@@ -4111,7 +4180,17 @@ let eyedropperCopyWithIcons = true;
                     const meta = [];
                     if (beatIcons.length > 0) meta.push(beatIcons.join(''));
                     if (povsHere.size > 0) meta.push('👁 ' + Array.from(povsHere).slice(0, 2).join(', '));
-                    html += `<div class="bible-entry ${hasVar ? 'is-variant' : ''}" onclick="jumpToNodeFromBible('${mainNode.id}')"><span class="bible-key" title="${escapeHTML(key)}">${escapeHTML(key)}</span><span class="bible-meta">${meta.join(' · ')}</span><span class="bible-count">${totalCount}</span></div>`;
+                    // Flag de rascunho (só para scenes)
+                    let draftTag = '';
+                    if (type === 'scene') {
+                        const sw = mainNode.typeData?.sceneWriting;
+                        if (sw) {
+                            const wc = (sw.draft?.trim().match(/\S+/g) || []).length;
+                            const filled = Object.values(sw).some(v => v && String(v).trim());
+                            if (filled) draftTag = `<span class="bible-sw-tag" title="Rascunho vinculado">✍️ ${wc > 0 ? wc + ' pal.' : 'rascunho'}</span>`;
+                        }
+                    }
+                    html += `<div class="bible-entry ${hasVar ? 'is-variant' : ''}" onclick="jumpToNodeFromBible('${mainNode.id}')"><span class="bible-key" title="${escapeHTML(key)}">${escapeHTML(key)}</span>${draftTag}<span class="bible-meta">${meta.join(' · ')}</span><span class="bible-count">${totalCount}</span></div>`;
                 });
                 html += `</div>`;
             });
@@ -6773,6 +6852,16 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
                 const refBadgeHTML = refLinksArr.length > 0
                     ? `<div class="ref-badge" title="${refLinksArr.length} link(s) de referência"><i class="fa-solid fa-link text-[8px]"></i><span>${refLinksArr.length}</span></div>`
                     : '';
+                                    // Badge de rascunho (só aparece quando há conteúdo de escrita)
+                const swData = node.typeData?.sceneWriting;
+                const swHasContent = swData && Object.values(swData).some(v => v && String(v).trim());
+                const swWordCount = (swData?.draft?.trim().match(/\S+/g) || []).length;
+                const writingBadgeHTML = (node.type === 'scene' && swHasContent)
+                    ? `<div class="writing-badge" title="Clique para abrir o rascunho" onclick="event.stopPropagation(); openSceneWritingMode('${node.id}')">
+                        <i class="fa-solid fa-pen-nib"></i>
+                        <span>${swWordCount > 0 ? swWordCount + ' pal.' : 'Rascunho'}</span>
+                    </div>`
+                    : '';
                 const cardTypeSummary = getCardTypeSummary(node);
                 const cardSummaryHTML = cardTypeSummary ? `<div class="text-[10px] font-semibold mb-1 truncate" style="color:${typeDef ? typeDef.color : '#475569'}" title="${escapeHTML(cardTypeSummary)}">${escapeHTML(cardTypeSummary)}</div>` : '';
                 el.innerHTML = `
@@ -6782,6 +6871,7 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
                     ${typeBadgeHTML}
                     ${sceneDiagBadgeHTML}
                     ${refBadgeHTML}
+                    ${writingBadgeHTML}
                     <div class="mb-1.5 min-w-0">${titleHTML}</div>
                     ${cardSummaryHTML}
                     ${povBadgeHTML}
@@ -11146,6 +11236,12 @@ function updateTimelineToggleButton() {
                     if (modal && modal.classList.contains('hidden')) openSkillTree(); else closeSkillTree();
                     return;
                 }
+                                if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyW') {
+                    e.preventDefault(); e.stopPropagation();
+                    const modal = document.getElementById('scene-writing-modal');
+                    if (modal && modal.classList.contains('hidden')) openSceneWritingMode(); else closeSceneWritingMode();
+                    return;
+                }
                                 if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyL') {
                     e.preventDefault(); e.stopPropagation();
                     const modal = document.getElementById('timeline-modal');
@@ -11247,7 +11343,7 @@ function updateTimelineToggleButton() {
         }
 
                 const SCENE_WRITING_FIELDS = ['pov','goal','obstacle','strategy','start','end','result','reveal','hook','draft'];
-        function openSceneWritingMode() {
+                function openSceneWritingMode(sceneId) {
             const modal = document.getElementById('scene-writing-modal');
             if (!modal || !mindMapData) return;
             const select = document.getElementById('sw-scene-select');
@@ -11260,7 +11356,10 @@ function updateTimelineToggleButton() {
                 SCENE_WRITING_FIELDS.forEach(k => { const el=document.getElementById('sw-'+k); if(el) el.value=''; });
                 updateSceneWritingWordCount(); return;
             }
-            const selectedScene = scenes.find(n => selectedNodeIds && selectedNodeIds.has(n.id));
+            // Prioridade: sceneId explícito > nó selecionado > primeira cena
+            let selectedScene = null;
+            if (sceneId) selectedScene = scenes.find(n => n.id === sceneId);
+            if (!selectedScene) selectedScene = scenes.find(n => selectedNodeIds && selectedNodeIds.has(n.id));
             if (selectedScene) select.value = selectedScene.id;
             loadSceneWritingFields();
             modal.classList.remove('hidden');
