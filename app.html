@@ -1363,6 +1363,9 @@ body.eyedropper-armed #tool-eyedropper {
                     <span class="hidden md:inline">Filtros</span>
                 </button>
             </div>
+            <button onclick="openSceneWritingMode()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium transition shadow-sm flex items-center gap-1.5" title="Modo de escrita de cenas">
+                <i class="fa-solid fa-pen-nib"></i><span class="hidden sm:inline">Escrever cena</span>
+            </button>
 
             <button onclick="openStorySettings()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition" title="Configurações">
                 <i class="fa-solid fa-gear"></i>
@@ -2593,6 +2596,47 @@ body.eyedropper-armed #tool-eyedropper {
         </div>
     </div>
     <div id="st-node-tooltip" class="hidden" role="tooltip"></div>
+
+        <div id="scene-writing-modal" class="hidden fixed inset-0 z-[200] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-5" role="dialog" aria-modal="true" aria-labelledby="scene-writing-title">
+        <div class="bg-white w-full max-w-5xl max-h-[96vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div class="px-4 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+                <div><div class="text-[10px] uppercase tracking-[.18em] font-bold text-indigo-600">StoryMind · Oficina de roteiro</div><h2 id="scene-writing-title" class="text-lg sm:text-xl font-bold text-slate-900">✍️ Modo de escrita de cenas</h2><p class="text-xs text-slate-500 mt-1">Planeje a cena e escreva o rascunho sem perder o vínculo com seu mapa.</p></div>
+                <button onclick="closeSceneWritingMode()" class="w-9 h-9 rounded-lg hover:bg-slate-100 text-slate-500" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-4 sm:p-6 overflow-y-auto flex-1">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <label class="text-xs font-semibold text-slate-600">Cena do mapa
+                        <select id="sw-scene-select" onchange="loadSceneWritingFields()" class="mt-1 w-full rounded-lg border border-slate-300 p-2.5 text-sm bg-white"></select>
+                    </label>
+                    <label class="text-xs font-semibold text-slate-600">POV / personagem focal
+                        <input id="sw-pov" class="mt-1 w-full rounded-lg border border-slate-300 p-2.5 text-sm" placeholder="Quem vivencia a cena?">
+                    </label>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                    <label class="text-xs font-semibold text-slate-600">Objetivo do personagem<input id="sw-goal" class="mt-1 w-full rounded-lg border border-slate-300 p-2.5 text-sm" placeholder="O que quer conseguir agora?"></label>
+                    <label class="text-xs font-semibold text-slate-600">Obstáculo / conflito<input id="sw-obstacle" class="mt-1 w-full rounded-lg border border-slate-300 p-2.5 text-sm" placeholder="O que impede? Quem resiste?"></label>
+                    <label class="text-xs font-semibold text-slate-600">Estratégia / ação<input id="sw-strategy" class="mt-1 w-full rounded-lg border border-slate-300 p-2.5 text-sm" placeholder="Como tenta conseguir?"></label>
+                    <label class="text-xs font-semibold text-slate-600">Valor dramático no início<input id="sw-start" class="mt-1 w-full rounded-lg border border-slate-300 p-2.5 text-sm" placeholder="Ex.: confiança, esperança..."></label>
+                    <label class="text-xs font-semibold text-slate-600">Valor dramático no fim<input id="sw-end" class="mt-1 w-full rounded-lg border border-slate-300 p-2.5 text-sm" placeholder="Como mudou?">
+                    </label>
+                    <label class="text-xs font-semibold text-slate-600">Resultado / consequência<input id="sw-result" class="mt-1 w-full rounded-lg border border-slate-300 p-2.5 text-sm" placeholder="O que muda depois da cena?"></label>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <label class="text-xs font-semibold text-slate-600">Informação revelada / subtexto<textarea id="sw-reveal" rows="4" class="mt-1 w-full rounded-lg border border-slate-300 p-3 text-sm resize-y" placeholder="O que o público ou personagem descobre? O que fica implícito?"></textarea></label>
+                    <label class="text-xs font-semibold text-slate-600">Gancho para a próxima cena<textarea id="sw-hook" rows="4" class="mt-1 w-full rounded-lg border border-slate-300 p-3 text-sm resize-y" placeholder="Que pergunta, ameaça ou decisão mantém a história em movimento?"></textarea></label>
+                </div>
+                <label class="block text-xs font-semibold text-slate-600 mt-4">Rascunho da cena
+                    <textarea id="sw-draft" rows="14" class="mt-1 w-full rounded-xl border border-slate-300 p-4 text-sm leading-6 resize-y focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Escreva a cena aqui. Use ações, escolhas, resistência e consequências; evite explicar o que pode ser dramatizado."></textarea>
+                </label>
+                <div class="flex items-center justify-between gap-3 mt-2"><p id="sw-status" class="text-xs text-slate-500">O rascunho será salvo junto à cena selecionada.</p><span id="sw-word-count" class="text-xs text-slate-500 tabular-nums">0 palavras</span></div>
+            </div>
+            <div class="px-4 sm:px-6 py-3 border-t border-slate-200 bg-slate-50 flex flex-wrap justify-end gap-2">
+                <button onclick="exportSceneWritingDraft()" class="px-3 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-sm"><i class="fa-solid fa-file-arrow-down mr-1"></i>Exportar texto</button>
+                <button onclick="closeSceneWritingMode()" class="px-3 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-sm">Fechar</button>
+                <button onclick="saveSceneWritingMode()" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold"><i class="fa-solid fa-floppy-disk mr-1"></i>Salvar cena</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         const CANVAS_CENTER_X = 2600;
@@ -11201,6 +11245,73 @@ function updateTimelineToggleButton() {
                 if (e.code === 'Space' && activeTool === 'pan') setTool('select');
             });
         }
+
+                const SCENE_WRITING_FIELDS = ['pov','goal','obstacle','strategy','start','end','result','reveal','hook','draft'];
+        function openSceneWritingMode() {
+            const modal = document.getElementById('scene-writing-modal');
+            if (!modal || !mindMapData) return;
+            const select = document.getElementById('sw-scene-select');
+            const scenes = (mindMapData.nodes || []).filter(n => n.type === 'scene');
+            select.innerHTML = scenes.map(n => `<option value="${escapeHTML(n.id)}">${escapeHTML(n.title || 'Cena sem título')}</option>`).join('');
+            if (!scenes.length) {
+                select.innerHTML = '<option value="">Nenhuma cena encontrada</option>';
+                modal.classList.remove('hidden');
+                document.getElementById('sw-status').textContent = 'Crie primeiro um nó do tipo Cena no mapa para vincular um rascunho.';
+                SCENE_WRITING_FIELDS.forEach(k => { const el=document.getElementById('sw-'+k); if(el) el.value=''; });
+                updateSceneWritingWordCount(); return;
+            }
+            const selectedScene = scenes.find(n => selectedNodeIds && selectedNodeIds.has(n.id));
+            if (selectedScene) select.value = selectedScene.id;
+            loadSceneWritingFields();
+            modal.classList.remove('hidden');
+            document.addEventListener('keydown', sceneWritingEscapeHandler);
+        }
+        function sceneWritingEscapeHandler(e) { if (e.key === 'Escape') closeSceneWritingMode(); }
+        function closeSceneWritingMode() {
+            const modal = document.getElementById('scene-writing-modal'); if (modal) modal.classList.add('hidden');
+            document.removeEventListener('keydown', sceneWritingEscapeHandler);
+        }
+        function getSceneWritingNode() {
+            const id = document.getElementById('sw-scene-select').value;
+            return (mindMapData.nodes || []).find(n => n.id === id && n.type === 'scene');
+        }
+        function loadSceneWritingFields() {
+            const node = getSceneWritingNode();
+            const data = node && node.typeData && node.typeData.sceneWriting ? node.typeData.sceneWriting : {};
+            SCENE_WRITING_FIELDS.forEach(k => { const el=document.getElementById('sw-'+k); if(el) el.value = data[k] || (k === 'pov' && node ? node.pov || '' : ''); });
+            document.getElementById('sw-status').textContent = node ? `Rascunho vinculado a: ${node.title || 'Cena sem título'}` : 'Selecione uma cena do mapa.';
+            updateSceneWritingWordCount();
+        }
+        function updateSceneWritingWordCount() {
+            const el = document.getElementById('sw-draft'); if (!el) return;
+            const count = (el.value.trim().match(/\S+/g) || []).length;
+            const out = document.getElementById('sw-word-count'); if (out) out.textContent = `${count} ${count === 1 ? 'palavra' : 'palavras'}`;
+        }
+        function saveSceneWritingMode() {
+            const node = getSceneWritingNode();
+            if (!node) { showToast('Crie ou selecione um nó do tipo Cena primeiro.', 'warning', 2500); return; }
+            pushHistory();
+            if (!node.typeData) node.typeData = {};
+            const data = {};
+            SCENE_WRITING_FIELDS.forEach(k => { const el=document.getElementById('sw-'+k); data[k] = el ? el.value : ''; });
+            node.typeData.sceneWriting = data;
+            if (data.pov.trim()) node.pov = data.pov.trim();
+            saveStoriesStorage();
+            document.getElementById('sw-status').textContent = `Salvo em "${node.title || 'Cena sem título'}".`;
+            showToast('Rascunho da cena salvo no mapa.', 'success', 2200);
+        }
+        function exportSceneWritingDraft() {
+            const node = getSceneWritingNode();
+            if (!node) { showToast('Selecione uma cena para exportar.', 'warning', 2000); return; }
+            const val = id => document.getElementById('sw-'+id).value || '';
+            const title = node.title || 'Cena sem título';
+            const text = `# ${title}\n\nPOV: ${val('pov')}\nObjetivo: ${val('goal')}\nObstáculo: ${val('obstacle')}\nEstratégia: ${val('strategy')}\nValor inicial: ${val('start')}\nValor final: ${val('end')}\nResultado: ${val('result')}\n\n## Revelação / subtexto\n${val('reveal')}\n\n## Gancho\n${val('hook')}\n\n## Rascunho\n${val('draft')}\n`;
+            const blob = new Blob([text], {type:'text/markdown;charset=utf-8'});
+            const url = URL.createObjectURL(blob); const a=document.createElement('a');
+            a.href=url; a.download=(title.toLowerCase().replace(/[^a-z0-9áéíóúãõç]+/gi,'-').replace(/^-|-$/g,'') || 'cena')+'.md';
+            document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+        }
+        document.addEventListener('input', e => { if (e.target && e.target.id === 'sw-draft') updateSceneWritingWordCount(); });
 
         function escapeHTML(str) {
             return String(str ?? '').replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
