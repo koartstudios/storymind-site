@@ -9,6 +9,7 @@ const SM_CLOUD = {
   _token: null,
   _channel: null,
   _tabChannel: null,
+  _isPulling: false,
 
   local() { try { return JSON.parse(localStorage.getItem(this.DB_KEY)) || {}; } catch (e) { return {}; } },
   tombstones() { try { return JSON.parse(localStorage.getItem(this.TOMBSTONE_KEY)) || []; } catch (e) { return []; } },
@@ -78,6 +79,8 @@ const SM_CLOUD = {
   },
 
     async pull() {
+       if (this._isPulling) return; // <--- ADICIONE ESTA LINHA
+    this._isPulling = true;      // <--- ADICIONE ESTA LINHA
     try {
       // Traz TODAS as linhas (inclusive deleted = true)
       const { data, error } = await sb.from('stories')
@@ -140,7 +143,9 @@ const SM_CLOUD = {
       window.dispatchEvent(new CustomEvent('cloud:pull:done'));
     } catch (e) {
       console.warn('Sincronização (pull) falhou, usando dados locais:', e);
-      
+         } finally {
+      this._isPulling = false;  // <--- ADICIONE ESTA LINHA NO FINAL
+       
     }
   },
 

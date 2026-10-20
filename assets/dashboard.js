@@ -93,15 +93,15 @@ $('list').onclick = e => {
   
   document.querySelectorAll('.menu').forEach(m => m.remove());
 
-  if (fav) { 
+    if (fav) { 
     const db = load(), k = fav.dataset.fav; 
     if (db[k]) {
         db[k].isFavorite = !db[k].isFavorite; // Inverte o status
         save(db); // Salva no localStorage local
         
-        // A MÁGICA ACONTECE AQUI: Envia a história atualizada para a nuvem
         if (window.SM_CLOUD) {
             SM_CLOUD.push(k, db[k]); 
+            if (SM_CLOUD.flush) SM_CLOUD.flush(); // OBRIGA o envio imediato
         }
     }
     return render(); 
