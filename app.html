@@ -4427,7 +4427,6 @@ let eyedropperCopyWithIcons = true;
 window.addEventListener('cloud:save:done', () => {
                 setSaveStatus('saved');
             });
-             await SM_CLOUD.pull();
             window.addEventListener('resize', () => {
                 renderTensionCurve(); renderMinimap(); hideNodeTooltip();
                 const modal = document.getElementById('reteia-modal');
