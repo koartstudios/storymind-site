@@ -4295,6 +4295,16 @@ let eyedropperCopyWithIcons = true;
                 clickTracker.nodeId = null; clickTracker.time = 0;
                 cancelAllInteractions();
             });
+            window.addEventListener('cloud:pull:done', () => {
+    loadStoriesStorage();
+    renderApp();
+    renderSheetTabs();
+    showToast('Sincronizado com a nuvem.', 'success', 2000);
+});
+window.addEventListener('cloud:save:done', () => {
+                setSaveStatus('saved');
+            });
+             await SM_CLOUD.pull();
             window.addEventListener('resize', () => {
                 renderTensionCurve(); renderMinimap(); hideNodeTooltip();
                 const modal = document.getElementById('reteia-modal');
@@ -5709,8 +5719,7 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
 
         function flushSaveToDisk() {
             try {
-                localStorage.setItem('storymind_database_v2', JSON.stringify(storiesDatabase));
-                setSaveStatus('saved');
+                localStorage.setItem('storymind_database_v2', JSON.stringify(storiesDatabase));            
                 SM_CLOUD.push(currentStoryKey, currentStory);
             } catch(e) { console.warn('Falha ao salvar no localStorage:', e); setSaveStatus('error'); }
         }
