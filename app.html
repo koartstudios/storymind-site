@@ -115,6 +115,77 @@
         body.app-theme-dark #story-title-display:hover { background: #334155; }
         body.app-theme-dark #story-title-display[contenteditable="true"] { background: #0f172a; }
 
+/* ==================== Tooltip do Timeline ==================== */
+#tl-tooltip {
+    position: fixed;
+    max-width: 420px;
+    max-height: 70vh;
+    overflow-y: auto;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 20px 40px -10px rgba(0,0,0,0.25), 0 10px 20px -5px rgba(0,0,0,0.15);
+    padding: 12px 14px;
+    z-index: 300; /* acima do #timeline-modal (z-50) e do #node-tooltip (250) */
+    animation: tooltip-fade 0.15s ease;
+    font-size: 12px;
+    line-height: 1.45;
+    pointer-events: auto;
+}
+#tl-tooltip::-webkit-scrollbar { width: 6px; }
+#tl-tooltip::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+/* Reaproveita as classes .tt-* já existentes do #node-tooltip, mas aplica ao #tl-tooltip */
+#tl-tooltip .tt-badges {
+    display: flex; flex-wrap: wrap; gap: 4px;
+    margin-bottom: 8px; padding-bottom: 8px;
+    border-bottom: 1px solid #e2e8f0;
+}
+#tl-tooltip .tt-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 999px;
+    font-size: 10px; font-weight: 700; color: white;
+}
+#tl-tooltip .tt-title {
+    font-weight: 700; font-size: 13px; color: #0f172a;
+    margin-bottom: 8px; word-break: break-word;
+}
+#tl-tooltip .tt-row { margin-bottom: 4px; word-break: break-word; }
+#tl-tooltip .tt-label {
+    color: #64748b; font-weight: 600; font-size: 10.5px;
+    text-transform: uppercase; letter-spacing: 0.02em;
+}
+#tl-tooltip .tt-value { color: #1e293b; }
+#tl-tooltip .tt-content {
+    color: #475569;
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px dashed #e2e8f0;
+    font-size: 11.5px; line-height: 1.55; white-space: pre-wrap;
+}
+#tl-tooltip .tt-empty {
+    color: #94a3b8; font-style: italic; font-size: 11px;
+    margin-top: 6px;
+}
+#tl-tooltip .tt-hint {
+    margin-top: 10px; padding-top: 8px;
+    border-top: 1px solid #f1f5f9;
+    color: #94a3b8; font-size: 10px;
+}
+
+/* Dark mode */
+body.app-theme-dark #tl-tooltip {
+    background: #1e293b; border-color: #334155;
+}
+body.app-theme-dark #tl-tooltip .tt-badges { border-bottom-color: #334155; }
+body.app-theme-dark #tl-tooltip .tt-title { color: #f1f5f9; }
+body.app-theme-dark #tl-tooltip .tt-label { color: #94a3b8; }
+body.app-theme-dark #tl-tooltip .tt-value { color: #e2e8f0; }
+body.app-theme-dark #tl-tooltip .tt-content {
+    color: #cbd5e1; border-top-color: #334155;
+}
+body.app-theme-dark #tl-tooltip .tt-empty { color: #64748b; }
+body.app-theme-dark #tl-tooltip .tt-hint { border-top-color: #334155; color: #64748b; }
+body.app-theme-dark #tl-tooltip::-webkit-scrollbar-thumb { background: #475569; }
         #node-tooltip {
             position: fixed;
             max-width: 380px;
@@ -2618,7 +2689,7 @@ body.eyedropper-armed #tool-eyedropper {
             <div id="tl-content" class="flex-1 overflow-y-auto px-6 py-4 bg-white"></div>
         </div>
     </div>
-
+<div id="tl-tooltip" class="hidden" role="tooltip" aria-live="polite"></div>
     <div id="toast-container"></div>
     <div id="node-tooltip" class="hidden"></div>
     <div id="st-copy-modal" class="fixed inset-0 z-[300] hidden items-center justify-center bg-slate-900/50 p-4" onclick="if(event.target===this) skillTreeCloseCopyModal()">
@@ -10865,7 +10936,96 @@ function getTimelineYear(node) {
     return isFinite(num) ? num : null;
 }
 
+// ==============================================================
+// TOOLTIP DO TIMELINE — mostra o conteúdo completo do evento
+// ==============================================================
+let tlTooltipTimer = null;
+let tlHoveredCardId = null;
+let tlHideTimer = null;
+
+function buildTimelineTooltipHTML(node) {
+    if (!node) return '';
+    const year = getTimelineYear(node);
+    const category = node.typeData?.category || '';
+    const location = node.typeData?.location || '';
+    const characters = node.typeData?.characters || '';
+    const content = (node.content || '').trim();
+
+    let html = '';
+    const badges = [];
+    badges.push(`<span class="tt-badge" style="background:#0891b2">📅 Timeline</span>`);
+    if (category) badges.push(`<span class="tt-badge" style="background:#0e7490">${escapeHTML(category)}</span>`);
+    if (node.pov) badges.push(`<span class="tt-badge" style="background:#7c3aed">👁 ${escapeHTML(node.pov)}</span>`);
+    if (badges.length) html += `<div class="tt-badges">${badges.join('')}</div>`;
+
+    html += `<div class="tt-title">${escapeHTML(node.title || 'Sem título')}</div>`;
+
+    if (year !== null) {
+        html += `<div class="tt-row"><span class="tt-label">📆 Ano:</span> <span class="tt-value" style="font-weight:700; color:#0891b2; font-size:13px;">${year}</span></div>`;
+    }
+    if (location) {
+        html += `<div class="tt-row"><span class="tt-label">📍 Local:</span> <span class="tt-value">${escapeHTML(location)}</span></div>`;
+    }
+    if (characters) {
+        html += `<div class="tt-row"><span class="tt-label">👥 Personagens:</span> <span class="tt-value">${escapeHTML(characters)}</span></div>`;
+    }
+
+    if (content) {
+        html += `<div class="tt-content">${escapeHTML(content)}</div>`;
+    } else {
+        html += `<div class="tt-empty">Sem descrição detalhada.</div>`;
+    }
+
+    html += `<div class="tt-hint"><i class="fa-solid fa-hand-pointer mr-1"></i>Clique no card para abrir o nó no mapa.</div>`;
+    return html;
+}
+
+function showTimelineTooltip(node, cardEl) {
+    const tooltip = document.getElementById('tl-tooltip');
+    if (!tooltip || !cardEl) return;
+    if (tlHideTimer) { clearTimeout(tlHideTimer); tlHideTimer = null; }
+
+    const html = buildTimelineTooltipHTML(node);
+    if (!html) return;
+
+    tooltip.innerHTML = html;
+    tooltip.classList.remove('hidden');
+    void tooltip.offsetWidth;
+
+    const cardRect = cardEl.getBoundingClientRect();
+    const ttRect = tooltip.getBoundingClientRect();
+    let left = cardRect.right + 12;
+    let top = cardRect.top;
+    if (left + ttRect.width > window.innerWidth - 12) left = cardRect.left - ttRect.width - 12;
+    if (left < 12) left = 12;
+    if (top + ttRect.height > window.innerHeight - 12) top = window.innerHeight - ttRect.height - 12;
+    if (top < 12) top = 12;
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = top + 'px';
+}
+
+function hideTimelineTooltip() {
+    if (tlTooltipTimer) { clearTimeout(tlTooltipTimer); tlTooltipTimer = null; }
+    const tooltip = document.getElementById('tl-tooltip');
+    if (tooltip) tooltip.classList.add('hidden');
+    tlHoveredCardId = null;
+}
+
+// Listeners do próprio tooltip (para não fechar quando o mouse entra nele)
+(function setupTlTooltipHover() {
+    const tooltip = document.getElementById('tl-tooltip');
+    if (!tooltip) return;
+    tooltip.addEventListener('mouseenter', () => {
+        if (tlTooltipTimer) { clearTimeout(tlTooltipTimer); tlTooltipTimer = null; }
+        if (tlHideTimer) { clearTimeout(tlHideTimer); tlHideTimer = null; }
+    });
+    tooltip.addEventListener('mouseleave', () => {
+        hideTimelineTooltip();
+    });
+})();
+
 function openTimeline() {
+    hideTimelineTooltip();
     if (!mindMapData) return;
     const modal = document.getElementById('timeline-modal');
     if (!modal) return;
@@ -10881,6 +11041,7 @@ function openTimeline() {
 }
 
 function closeTimeline() {
+    hideTimelineTooltip();
     const modal = document.getElementById('timeline-modal');
     if (!modal) return;
     modal.classList.add('hidden'); modal.classList.remove('flex');
@@ -10971,6 +11132,7 @@ function renderTimelineFilterBar() {
     }
 }
 
+
 function renderTimelineCards() {
     const container = document.getElementById('tl-content');
     if (!container) return;
@@ -11030,13 +11192,36 @@ function renderTimelineCards() {
         const characters = n.typeData?.characters || '';
         const card = document.createElement('div');
         card.className = 'bg-white border border-slate-200 rounded-xl p-4 hover:shadow-lg hover:border-cyan-300 transition cursor-pointer';
-        card.onclick = () => { jumpToNodeFromBible(n.id); closeTimeline(); };
+        card.onclick = () => {
+    hideTimelineTooltip();
+    jumpToNodeFromBible(n.id);
+    closeTimeline();
+};
+card.addEventListener('mouseenter', () => {
+    if (tlHideTimer) { clearTimeout(tlHideTimer); tlHideTimer = null; }
+    if (tlTooltipTimer) clearTimeout(tlTooltipTimer);
+    tlHoveredCardId = n.id;
+    tlTooltipTimer = setTimeout(() => {
+        tlTooltipTimer = null;
+        if (tlHoveredCardId === n.id) showTimelineTooltip(n, card);
+    }, 400);
+});
+card.addEventListener('mouseleave', () => {
+    if (tlTooltipTimer) { clearTimeout(tlTooltipTimer); tlTooltipTimer = null; }
+    tlHideTimer = setTimeout(() => {
+        tlHideTimer = null;
+        const tooltip = document.getElementById('tl-tooltip');
+        if (tooltip && tooltip.matches(':hover')) return;
+        hideTimelineTooltip();
+    }, 180);
+});
         card.innerHTML = `
             <div class="flex items-center justify-between mb-2 pb-2 border-b border-slate-100 gap-2">
                 <span class="font-bold text-sm text-cyan-700" style="font-family: ui-monospace, monospace;">${year !== null ? 'Ano ' + year : '—'}</span>
                 ${category ? `<span class="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-700">${escapeHTML(category)}</span>` : ''}
             </div>
             <h4 class="font-bold text-sm text-slate-800 mb-1">${escapeHTML(n.title || 'Sem título')}</h4>
+            
             ${n.content ? `<p class="text-[11.5px] text-slate-600 leading-relaxed mb-2" style="display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;">${escapeHTML(n.content)}</p>` : ''}
             <div class="flex flex-wrap gap-1 mt-2">
                 ${n.pov ? `<span class="inline-flex items-center gap-1 text-[10px] bg-violet-50 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded"><i class="fa-solid fa-eye" style="font-size:8px;"></i>${escapeHTML(n.pov)}</span>` : ''}
