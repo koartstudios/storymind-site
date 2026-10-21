@@ -1475,7 +1475,7 @@ body > header > div:first-child #save-status {
             #inspector-sidebar > div:first-child h2 { font-size: 13px; }
             #inspector-sidebar .p-5 { padding: 14px !important; }
             #inspector-sidebar input, #inspector-sidebar select, #inspector-sidebar textarea { font-size: 16px !important; }
-            #sm-mobile-nav { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); position: fixed; z-index: 150; left: 0; right: 0; bottom: 0; padding: 6px 6px calc(6px + var(--sm-safe-bottom)); min-height: calc(var(--sm-mobile-nav-h) + var(--sm-safe-bottom)); background: rgba(255,255,255,.96); border-top: 1px solid #e2e8f0; backdrop-filter: blur(16px); box-shadow: 0 -5px 20px rgba(15,23,42,.08); }
+            #sm-mobile-nav { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); position: fixed; z-index: 150; left: 0; right: 0; bottom: 0; padding: 6px 6px calc(6px + var(--sm-safe-bottom)); min-height: calc(var(--sm-mobile-nav-h) + var(--sm-safe-bottom)); background: rgba(255,255,255,.96); border-top: 1px solid #e2e8f0; backdrop-filter: blur(16px); box-shadow: 0 -5px 20px rgba(15,23,42,.08); }
             #sm-mobile-nav button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; min-width:0; min-height:52px; padding:5px 2px; border-radius:10px; color:#475569; font-size:10px; font-weight:600; }
             #sm-mobile-nav button i { font-size:17px; }
             #sm-mobile-nav button:active, #sm-mobile-nav button.active { color:#4f46e5; background:#eef2ff; }
@@ -2971,12 +2971,13 @@ body > header > div:first-child #save-status {
 
     <!-- Navegação exclusiva para touch: as ações chamam as mesmas funções do desktop. -->
     <nav id="sm-mobile-nav" aria-label="Navegação mobile">
-        <button type="button" data-sm-action="outline" aria-label="Estrutura"><i class="fa-solid fa-list-ul"></i><span>Estrutura</span></button>
-        <button type="button" data-sm-action="select" class="active" aria-label="Selecionar"><i class="fa-solid fa-arrow-pointer"></i><span>Selecionar</span></button>
-        <button type="button" data-sm-action="add" aria-label="Novo nó"><i class="fa-solid fa-circle-plus"></i><span>Novo nó</span></button>
-        <button type="button" data-sm-action="tools" aria-label="Ferramentas"><i class="fa-solid fa-grip"></i><span>Ferramentas</span></button>
-        <button type="button" data-sm-action="edit" aria-label="Editar seleção"><i class="fa-solid fa-sliders"></i><span>Editar</span></button>
-    </nav>
+    <button type="button" data-sm-action="outline" aria-label="Estrutura"><i class="fa-solid fa-list-ul"></i><span>Estrutura</span></button>
+    <button type="button" data-sm-action="select" class="active" aria-label="Selecionar"><i class="fa-solid fa-arrow-pointer"></i><span>Selecionar</span></button>
+    <button type="button" data-sm-action="add-child" aria-label="Novo Filho"><i class="fa-solid fa-code-branch"></i><span>Filho</span></button>
+    <button type="button" data-sm-action="add-sibling" aria-label="Novo Irmão"><i class="fa-solid fa-plus"></i><span>Irmão</span></button>
+    <button type="button" data-sm-action="tools" aria-label="Ferramentas"><i class="fa-solid fa-grip"></i><span>Ferramentas</span></button>
+    <button type="button" data-sm-action="edit" aria-label="Editar seleção"><i class="fa-solid fa-sliders"></i><span>Editar</span></button>
+</nav>
     <div id="sm-header-menu-panel" role="menu" aria-label="Menu principal mobile">
     <div class="sm-tools-heading">
         <span>Menu principal</span>
@@ -2997,8 +2998,8 @@ body > header > div:first-child #save-status {
         <div class="sm-tools-heading"><span>Demais ferramentas</span><button type="button" data-sm-action="tools-close" aria-label="Fechar ferramentas"><i class="fa-solid fa-xmark"></i> Fechar</button></div>
         <button type="button" data-sm-action="select"><i class="fa-solid fa-arrow-pointer"></i>Selecionar</button>
         <button type="button" data-sm-action="pan"><i class="fa-solid fa-hand"></i>Mover tela</button>
-        <button type="button" data-sm-action="add"><i class="fa-solid fa-circle-plus"></i>Novo nó</button>
-        <button type="button" data-sm-action="delete"><i class="fa-solid fa-trash-can"></i>Excluir seleção</button>
+        <button type="button" data-sm-action="add-child"><i class="fa-solid fa-code-branch"></i>Novo Filho</button>
+        <button type="button" data-sm-action="add-sibling"><i class="fa-solid fa-plus"></i>Novo Irmão</button>        <button type="button" data-sm-action="delete"><i class="fa-solid fa-trash-can"></i>Excluir seleção</button>
         <button type="button" data-sm-action="beats"><i class="fa-solid fa-layer-group"></i>Beat Sheet</button>
         <button type="button" data-sm-action="beat-change"><i class="fa-solid fa-shuffle"></i>Trocar estrutura narrativa</button>
         <button type="button" data-sm-action="tension"><i class="fa-solid fa-chart-line"></i>Curva de tensão</button>
@@ -3719,34 +3720,55 @@ let eyedropperArmed = false;
 let eyedropperTargetIds = new Set();   // quais nós vão receber o estilo
 let eyedropperCopyWithIcons = true;
 
-        function startInlineEdit(nodeId, field) { editingNodeId = nodeId; editingField = field || 'title'; renderApp(); }
+function startInlineEdit(nodeId, field) {
+    editingNodeId = nodeId;
+    editingField = field || 'title';
+    renderApp();
 
-        function setupInlineEdit(el, node) {
-            const target = el.querySelector(`[data-edit-target="${editingField}"]`);
-            if (!target) { editingNodeId = null; editingField = null; return; }
+    // NOVO: Centraliza a tela no nó recém-criado se for mobile
+    if (window.DEVICE && window.DEVICE.isMobile) {
+        const node = mindMapData.nodes.find(n => n.id === nodeId);
+        if (node) {
             setTimeout(() => {
-                target.focus();
-                const range = document.createRange(); range.selectNodeContents(target);
-                const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
-            }, 0);
-            let done = false;
-            const finish = (save) => {
-                if (done) return; done = true;
-                if (save) {
-                    const val = target.innerText.trim();
-                    if (editingField === 'title') node.title = val || 'Sem título';
-                    else node.content = val;
-                    pushHistory();
+                const container = document.getElementById('canvas-container');
+                if (container) {
+                    const cw = container.clientWidth, ch = container.clientHeight;
+                    // Move o pan para o centro do nó criado
+                    panX = cw / 2 - (node.x + NODE_W / 2) * scale;
+                    panY = ch / 2 - (node.y + 50) * scale; 
+                    updateCanvasTransform();
                 }
-                editingNodeId = null; editingField = null;
-                saveStoriesStorage(); renderApp();
-            };
-            target.onblur = () => finish(true);
-            target.onkeydown = (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); target.blur(); }
-                else if (e.key === 'Escape') { e.preventDefault(); target.onblur = null; finish(false); }
-            };
+            }, 60); // Pequeno delay para o DOM atualizar
         }
+    }
+}
+        function setupInlineEdit(el, node) {
+    const target = el.querySelector(`[data-edit-target="${editingField}"]`);
+    if (!target) { editingNodeId = null; editingField = null; return; }
+    setTimeout(() => {
+        target.focus();
+        const range = document.createRange(); range.selectNodeContents(target);
+        const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    }, 100); // Aumentado para 100ms (o celular precisa disso para invocar o teclado virtual)
+    
+    let done = false;
+    const finish = (save) => {
+        if (done) return; done = true;
+        if (save) {
+            const val = target.innerText.trim();
+            if (editingField === 'title') node.title = val || 'Sem título';
+            else node.content = val;
+            pushHistory();
+        }
+        editingNodeId = null; editingField = null;
+        saveStoriesStorage(); renderApp();
+    };
+    target.onblur = () => finish(true);
+    target.onkeydown = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); target.blur(); }
+        else if (e.key === 'Escape') { e.preventDefault(); target.onblur = null; finish(false); }
+    };
+}
 
         function handleRelationshipClick(nodeId) {
             if (!relationshipSourceId) { relationshipSourceId = nodeId; renderApp(); return; }
@@ -12014,6 +12036,29 @@ function updateTimelineToggleButton() {
       case 'outline': if (typeof toggleOutline === 'function') toggleOutline(); break;
       case 'select': if (typeof setTool === 'function') setTool('select'); break;
       case 'add': if (typeof addNewNode === 'function') addNewNode(); break;
+            case 'add-child':
+        if (typeof selectedNodeIds !== 'undefined' && selectedNodeIds.size === 1 && typeof addChildToNode === 'function') {
+            addChildToNode(Array.from(selectedNodeIds)[0]); // Tab no desktop
+        } else if (typeof addNewNode === 'function') {
+            addNewNode();
+        }
+        break;
+
+      case 'add-sibling':
+        if (typeof selectedNodeIds !== 'undefined' && selectedNodeIds.size === 1 && typeof createSibling === 'function') {
+            const newId = createSibling(Array.from(selectedNodeIds)[0]); // Enter no desktop
+            if (newId) {
+                if (typeof selectedNodeIds !== 'undefined') {
+                    selectedNodeIds.clear();
+                    selectedNodeIds.add(newId);
+                }
+                if (typeof commit === 'function') commit();
+                if (typeof startInlineEdit === 'function') startInlineEdit(newId, 'title');
+            }
+        } else if (typeof addNewNode === 'function') {
+            addNewNode();
+        }
+        break;
       case 'tools': if (tools) tools.classList.toggle('open'); break;
       case 'tools-close': if (tools) tools.classList.remove('open'); break;
       case 'header-menu-close': closeHeaderMenuNow(); break;
