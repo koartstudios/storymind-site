@@ -1622,6 +1622,87 @@ body > header > div:first-child #save-status {
     }
 }
     </style>
+    <style>
+/* ============================================================
+   FIX DEFINITIVO DO MENU MOBILE (Histórias e Layouts)
+   ============================================================ */
+@media (hover: none) and (max-width: 640px) {
+    /* O painel continua sendo um grid de 2 colunas */
+    #sm-header-menu-panel {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        padding: 12px;
+        max-height: min(75dvh, 600px); /* Aumentei um pouco para caber tudo */
+        overflow-y: auto;
+    }
+
+    /* Essa classe mágica faz o elemento ocupar as 2 colunas inteiras */
+    .sm-full-width {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-bottom: 4px;
+    }
+
+    /* Estilo do texto "História" e "Layout do Mapa" */
+    .sm-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        padding-left: 2px;
+    }
+
+    /* Estilo da caixa que escolhe a história */
+    .sm-select {
+        width: 100%;
+        padding: 10px;
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        background: #f8fafc;
+        font-size: 14px;
+        color: #1e293b;
+        outline: none;
+        font-weight: 500;
+    }
+
+    /* Container dos 3 botões de layout */
+    .sm-layout-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+    }
+
+    /* Botões de layout (Árvore, Radial, Organograma) */
+    .sm-layout-btn {
+        padding: 10px 2px;
+        font-size: 11px;
+        font-weight: 600;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        background: white;
+        color: #475569;
+        transition: all 0.15s;
+        text-align: center;
+    }
+
+    /* Quando o layout está ativo */
+    .sm-layout-btn.active {
+        background: #eef2ff;
+        border-color: #6366f1;
+        color: #4338ca;
+    }
+
+    /* Modo Escuro */
+    body.app-theme-dark #sm-header-menu-panel { background: #1e293b; border-color: #334155; }
+    body.app-theme-dark .sm-select { background: #0f172a; border-color: #475569; color: #e2e8f0; }
+    body.app-theme-dark .sm-layout-btn { background: #1e293b; border-color: #334155; color: #cbd5e1; }
+    body.app-theme-dark .sm-layout-btn.active { background: #312e81; border-color: #6366f1; color: #c7d2fe; }
+    body.app-theme-dark .sm-label { color: #94a3b8; }
+}
+</style>
 
 </head>
 <body class="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden">
@@ -2995,6 +3076,21 @@ body > header > div:first-child #save-status {
     <div class="sm-tools-heading">
         <span>Menu principal</span>
         <button type="button" data-sm-action="header-menu-close" aria-label="Fechar menu"><i class="fa-solid fa-xmark"></i> Fechar</button>
+    </div>
+     <!-- Seletor de Histórias -->
+    <div class="sm-full-width">
+        <label class="sm-label">História</label>
+        <select id="sm-story-select" class="sm-select" onchange="if(window.switchStory) switchStory(this.value);"></select>
+    </div>
+
+    <!-- Seletor de Layout -->
+    <div class="sm-full-width">
+        <label class="sm-label">Layout do Mapa</label>
+        <div class="sm-layout-grid">
+            <button type="button" data-sm-action="layout-tree" class="sm-layout-btn" id="sm-layout-tree">🌳 Árvore</button>
+            <button type="button" data-sm-action="layout-radial" class="sm-layout-btn" id="sm-layout-radial">🎯 Radial</button>
+            <button type="button" data-sm-action="layout-org" class="sm-layout-btn" id="sm-layout-org">🏢 Organograma</button>
+        </div>
     </div>
     <button type="button" data-sm-action="layout"><i class="fa-solid fa-sitemap"></i>Organizar</button>
     <button type="button" data-sm-action="variants"><i class="fa-solid fa-flask"></i>Variantes</button>
@@ -12028,14 +12124,51 @@ function updateTimelineToggleButton() {
     b.classList.toggle('is-desktop', DEVICE.isDesktop);
   }
   function byId(id) { return document.getElementById(id); }
-  function installHeaderMenu() {
+   function installHeaderMenu() {
     const headerLeft = document.querySelector('body > header > div:first-child');
     if (!headerLeft || byId('sm-header-menu')) return;
     const btn = document.createElement('button');
     btn.id = 'sm-header-menu'; btn.type = 'button'; btn.setAttribute('aria-label', 'Abrir menu'); btn.title = 'Menu de ferramentas';
     btn.innerHTML = '<i class="fa-solid fa-bars"></i>';
-    btn.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); const menu = byId('sm-header-menu-panel'); const tools = byId('sm-mobile-tools'); if (tools) tools.classList.remove('open'); if (menu) { menu.classList.toggle('open'); btn.setAttribute('aria-expanded', menu.classList.contains('open') ? 'true' : 'false'); } });
+    
+    btn.addEventListener('click', function (e) { 
+        e.preventDefault(); e.stopPropagation(); 
+        const menu = byId('sm-header-menu-panel'); 
+        const tools = byId('sm-mobile-tools'); 
+        if (tools) tools.classList.remove('open'); 
+        
+        if (menu) { 
+            const isOpening = !menu.classList.contains('open');
+            menu.classList.toggle('open'); 
+            btn.setAttribute('aria-expanded', isOpening ? 'true' : 'false'); 
+            if (isOpening) syncHeaderMenuUI(); // <--- NOVO AQUI
+        } 
+    });
     headerLeft.appendChild(btn);
+  }
+
+  // NOVA FUNÇÃO: Atualiza os dados do menu antes de abrir
+  function syncHeaderMenuUI() {
+      // 1. Atualiza o Select de Histórias
+      const select = byId('sm-story-select');
+      if (select && typeof storiesDatabase !== 'undefined' && typeof currentStoryKey !== 'undefined') {
+          select.innerHTML = '';
+          for (const key in storiesDatabase) {
+              const opt = document.createElement('option');
+              opt.value = key;
+              opt.textContent = storiesDatabase[key].title || `História ${key}`;
+              if (key === currentStoryKey) opt.selected = true;
+              select.appendChild(opt);
+          }
+      }
+      
+      // 2. Atualiza o botão do Layout Ativo
+      document.querySelectorAll('.sm-layout-btn').forEach(b => b.classList.remove('active'));
+      if (typeof mindMapData !== 'undefined') {
+          const currentLayout = mindMapData.layout || 'tree';
+          const activeBtn = byId('sm-layout-' + currentLayout);
+          if (activeBtn) activeBtn.classList.add('active');
+      }
   }
   function openMobileInspector() {
     const panel = byId('inspector-sidebar');
@@ -12136,6 +12269,10 @@ function updateTimelineToggleButton() {
       case 'zoom-out': if (typeof zoomOut === 'function') zoomOut(); break;
       case 'write-scene': if (typeof openSceneWritingMode === 'function') openSceneWritingMode(); if (tools) tools.classList.remove('open'); break;
       case 'settings': if (typeof openStorySettings === 'function') openStorySettings(); if (tools) tools.classList.remove('open'); break;
+            // Layouts
+      case 'layout-tree': if (typeof changeLayout === 'function') changeLayout('tree'); break;
+      case 'layout-radial': if (typeof changeLayout === 'function') changeLayout('radial'); break;
+      case 'layout-org': if (typeof changeLayout === 'function') changeLayout('org'); break;
     }
 
     // --- FAXINA FINAL (A parte que você perguntou) ---
