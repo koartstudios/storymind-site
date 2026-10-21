@@ -2,7 +2,14 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="assets/icons/icon-192.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="assets/icons/icon-192.svg">
     <title>StoryMind Pro - Mapas Mentais para Histórias</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="assets/config.js"></script><script src="assets/auth.js"></script>
@@ -1419,15 +1426,200 @@ body.eyedropper-armed #tool-eyedropper {
         }
         .node-card .writing-badge i { font-size: 8px; }
     </style>
+
+
+    <style>
+        /* ==================== StoryMind Pro: adaptação responsiva isolada ==================== */
+        :root { --sm-mobile-nav-h: 68px; --sm-safe-bottom: env(safe-area-inset-bottom, 0px); }
+        #sm-mobile-nav, #sm-mobile-tools, #sm-mobile-toolbar, #sm-header-menu-panel { display: none; }
+        #sm-header-menu { display: none; }
+        body.is-touch button, body.is-touch select, body.is-touch input, body.is-touch textarea { -webkit-tap-highlight-color: transparent; }
+        body.is-touch button { min-height: 40px; }
+        @media (hover: none) and (max-width: 640px) {
+            html, body { width: 100%; height: 100%; height: 100dvh; overflow: hidden; }
+            body { min-height: 0; padding-bottom: calc(var(--sm-mobile-nav-h) + var(--sm-safe-bottom)); }
+            body > header { min-height: 54px; padding: 7px 10px !important; gap: 8px !important; flex-wrap: nowrap !important; }
+            body > header > div:first-child { min-width: 0; flex: 1 1 auto; gap: 8px !important; }
+            body > header > div:first-child .bg-indigo-600 { width: 34px !important; height: 34px !important; padding: 6px !important; }
+           /* Novo - Garante que o título ocupe o espaço restante e não quebre a tela */
+body > header > div:first-child > div.min-w-0 {
+    flex: 1 1 auto;
+    overflow: hidden;
+}
+#story-title-display {
+    font-size: 14px !important;
+    max-width: 100% !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+body > header > div:first-child p { display: none; }
+body > header > div:first-child #save-status { 
+    margin-left: 4px !important; 
+    font-size: 9px !important; 
+    flex-shrink: 0;
+}
+            /* A barra lateral original permanece no DOM e é apenas ocultada em telas pequenas. */
+            body > header + div > aside:first-child { display: none !important; }
+            #canvas-container { overscroll-behavior: none; }
+            #outline-tab { display: none !important; }
+            #outline-panel { position: absolute !important; inset: 0 auto 0 0 !important; width: min(88vw, 360px) !important; margin-left: 0 !important; transform: translateX(-105%); z-index: 70 !important; transition: transform .22s ease !important; }
+            #outline-panel:not(.-ml-64) { transform: translateX(0); }
+            #minimap { display: none !important; }
+            #node-tooltip, #st-node-tooltip, #tl-tooltip { display: none !important; }
+            #inspector-sidebar { position: fixed !important; z-index: 160 !important; left: 0 !important; right: 0 !important; top: auto !important; bottom: calc(var(--sm-mobile-nav-h) + var(--sm-safe-bottom)) !important; width: 100% !important; max-width: 100vw !important; height: min(82dvh, 760px) !important; border-radius: 18px 18px 0 0 !important; border: 1px solid #cbd5e1 !important; box-shadow: 0 -12px 38px rgba(15,23,42,.22) !important; transform: translateY(calc(100% + 24px)) !important; visibility: hidden; transition: transform .24s ease, visibility .24s ease !important; }
+            #inspector-sidebar.sm-sheet-open { transform: translateY(0) !important; visibility: visible !important; }
+            #inspector-sidebar > div:first-child { padding: 13px 16px !important; border-radius: 18px 18px 0 0; }
+            #inspector-sidebar > div:first-child::before { content: ''; display: block; position: absolute; top: 6px; left: calc(50% - 22px); width: 44px; height: 4px; border-radius: 99px; background: #cbd5e1; }
+            #inspector-sidebar > div:first-child h2 { font-size: 13px; }
+            #inspector-sidebar .p-5 { padding: 14px !important; }
+            #inspector-sidebar input, #inspector-sidebar select, #inspector-sidebar textarea { font-size: 16px !important; }
+            #sm-mobile-nav { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); position: fixed; z-index: 150; left: 0; right: 0; bottom: 0; padding: 6px 6px calc(6px + var(--sm-safe-bottom)); min-height: calc(var(--sm-mobile-nav-h) + var(--sm-safe-bottom)); background: rgba(255,255,255,.96); border-top: 1px solid #e2e8f0; backdrop-filter: blur(16px); box-shadow: 0 -5px 20px rgba(15,23,42,.08); }
+            #sm-mobile-nav button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; min-width:0; min-height:52px; padding:5px 2px; border-radius:10px; color:#475569; font-size:10px; font-weight:600; }
+            #sm-mobile-nav button i { font-size:17px; }
+            #sm-mobile-nav button:active, #sm-mobile-nav button.active { color:#4f46e5; background:#eef2ff; }
+            #sm-mobile-tools, #sm-header-menu-panel { display: none; position: fixed; z-index: 180; left: 10px; right: 10px; bottom: calc(var(--sm-mobile-nav-h) + var(--sm-safe-bottom) + 8px); max-height: min(62dvh, 520px); overflow-y: auto; padding: 14px; border: 1px solid #e2e8f0; border-radius: 18px; background: #fff; color:#334155; box-shadow: 0 18px 45px rgba(15,23,42,.24); grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+            #sm-mobile-tools.open, #sm-header-menu-panel.open { display: grid; }
+            #sm-header-menu-panel { top: 62px; bottom: auto; max-height: min(55dvh, 420px); grid-template-columns: repeat(2,minmax(0,1fr)); }
+            #sm-mobile-toolbar { display:flex; position:relative; z-index:29; flex:0 0 auto; width:100%; min-height:46px; align-items:center; justify-content:space-around; gap:3px; padding:4px 5px; background:#f8fafc; border-bottom:1px solid #e2e8f0; overflow-x:auto; }
+            #sm-mobile-toolbar button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; flex:0 0 auto; min-width:34px; min-height:38px; padding:3px 5px; border-radius:8px; color:#475569; font-size:9px; white-space:nowrap; }
+            #sm-mobile-toolbar button i { font-size:15px; color:#4f46e5; }
+            #sm-mobile-toolbar button:active { background:#eef2ff; }
+            #sm-mobile-tools button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; min-height:70px; padding:9px 5px; border:1px solid #e2e8f0; border-radius:12px; font-size:10px; text-align:center; }
+            #sm-mobile-tools button i { font-size:18px; color:#4f46e5; }
+            #sm-mobile-tools .sm-tools-heading { grid-column:1/-1; display:flex; align-items:center; justify-content:space-between; font-size:13px; font-weight:800; padding:0 2px 5px; }
+            /* Mobile: ferramentas do cabeçalho recolhidas em um menu compacto. */
+            body > header > div:nth-child(2) { display: none !important; }
+            #sm-header-menu { display: inline-flex; align-items:center; justify-content:center; flex:0 0 40px; width:40px; height:40px; border:1px solid #e2e8f0; border-radius:12px; background:#fff; color:#334155; position:relative; z-index:170; }
+            /* A curva fica ancorada acima da navegação, sem cobrir o mapa nem os controles inferiores. */
+            #tension-strip { position:fixed !important; z-index:140 !important; left:8px !important; right:8px !important; bottom:calc(var(--sm-mobile-nav-h) + var(--sm-safe-bottom) + 7px) !important; width:auto !important; height:64px !important; max-height:64px !important; border:1px solid #cbd5e1 !important; border-radius:12px !important; box-shadow:0 4px 18px rgba(15,23,42,.16) !important; opacity:.97; }
+            #tension-strip.collapsed { display:none !important; }
+            #tension-strip > div { padding-left:8px !important; padding-right:8px !important; }
+            #tension-svg { height:44px !important; }
+            body.app-theme-dark #sm-header-menu { background:#1e293b; color:#e2e8f0; border-color:#475569; }
+            /* Dialogs/modals use the viewport instead of desktop-sized centered cards. */
+            body .fixed.inset-0.z-50, body .fixed.inset-0[class*="z-["] { padding: 0 !important; }
+            #story-modal > div, #beat-picker-modal > div, #variant-modal > div, #bible-modal > div, #mentions-modal > div, #timeline-modal > div { width:100% !important; max-width:none !important; height:100dvh !important; max-height:100dvh !important; border-radius:0 !important; margin:0 !important; }
+            #mentions-modal .mm-grid { grid-template-columns: minmax(0,1fr) !important; }
+            #advanced-search-panel { top: 8px !important; left: 8px !important; transform:none !important; width:calc(100vw - 16px) !important; max-height:calc(100dvh - 92px) !important; }
+            #toast-container { left: 12px !important; right: 12px !important; bottom: calc(var(--sm-mobile-nav-h) + var(--sm-safe-bottom) + 10px) !important; }
+            .toast { max-width:100% !important; }
+            .beat-lane-label { width: 150px !important; padding: 8px !important; }
+            .beat-lane-label .bl-desc { display:none; }
+        }
+        @media (hover: none) and (min-width: 641px) and (max-width: 1024px) {
+            body > header { padding-left: 12px !important; padding-right: 12px !important; }
+            body > header > div:first-child p { display:none; }
+            #inspector-sidebar { width: min(420px, 48vw) !important; }
+            #outline-panel { width: min(300px, 38vw) !important; }
+            #minimap { transform: scale(.85); transform-origin: bottom right; }
+            button, select, input { touch-action: manipulation; }
+        }
+        @media (hover: none) {
+            .node-card:hover { box-shadow: none; }
+            .sheet-tab .tab-menu-btn { opacity: .8; width: 28px; height: 28px; }
+            .relationship-path:hover { stroke-width: initial; }
+        }
+        body.app-theme-dark #sm-mobile-nav { background:rgba(30,41,59,.97); border-color:#334155; }
+        body.app-theme-dark #sm-mobile-nav button { color:#cbd5e1; }
+        body.app-theme-dark #sm-mobile-nav button.active, body.app-theme-dark #sm-mobile-nav button:active { color:#c7d2fe; background:#312e81; }
+        body.app-theme-dark #sm-mobile-tools, body.app-theme-dark #sm-header-menu-panel { background:#1e293b; color:#e2e8f0; border-color:#334155; }
+        body.app-theme-dark #sm-mobile-tools button, body.app-theme-dark #sm-header-menu-panel button { border-color:#475569; color:#e2e8f0; }
+        body.app-theme-dark #sm-mobile-toolbar { background:#1e293b; border-color:#334155; }
+        body.app-theme-dark #sm-mobile-toolbar button { color:#e2e8f0; }
+        body.app-theme-dark #sm-mobile-toolbar button i { color:#a5b4fc; }
+        @media (prefers-reduced-motion: reduce) { #inspector-sidebar, #outline-panel, #sm-mobile-tools { transition:none !important; } }
+    /* ============================================================
+   AJUSTES MOBILE - BUSCA NO CABEÇALHO E REMOÇÃO DA BARRA LATERAL
+   ============================================================ */
+@media (hover: none) and (max-width: 640px) {
+    /* 1. REMOVE A BARRA LATERAL ESQUERDA */
+    body > div.flex-1.flex.relative.overflow-hidden > aside:first-child,
+    body > header + div > aside:first-child {
+        display: none !important;
+    }
+
+    /* 2. REORGANIZA O CABEÇALHO PARA COLUNA */
+    body > header {
+        display: flex !important;
+        flex-direction: column !important;
+        padding: 10px 12px !important;
+        gap: 10px !important;
+        align-items: stretch !important;
+    }
+
+    /* 3. LINHA SUPERIOR: TÍTULO E MENU HAMBURGUER */
+    body > header > div:first-child {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        width: 100% !important;
+    }
+
+    /* 4. LINHA INFERIOR: ÁREA DE AÇÕES E BUSCA */
+    body > header > div:nth-child(2) {
+        display: flex !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        gap: 8px !important;
+    }
+
+    /* 5. ESCONDE TODOS OS BOTÕES/SELETORES DO HEADER NO MOBILE */
+    body > header > div:nth-child(2) > * {
+        display: none !important;
+    }
+
+    /* 6. MOSTRA ESPECIFICAMENTE A BARRA DE BUSCA */
+    body > header > div:nth-child(2) > div.relative.flex.items-center:not(#export-menu-wrap) {
+        display: flex !important;
+        width: 100% !important;
+        margin: 0 !important;
+    }
+
+    /* 7. FAZ O INPUT DA BUSCA OCUPAR TODA A LARGURA E AUMENTA PARA O DEDO */
+    body > header > div:nth-child(2) > div.relative.flex.items-center:not(#export-menu-wrap) input#search-input {
+        width: 100% !important;
+        max-width: none !important;
+        flex: 1 !important;
+        height: 38px !important;
+        font-size: 15px !important; /* Evita zoom automático no iOS */
+        padding-right: 85px !important; /* Espaço para as setas e o botão */
+    }
+
+    /* 8. MOSTRA O BOTÃO DE FILTROS AO LADO DA BUSCA */
+    body > header > div:nth-child(2) > div.relative.flex.items-center:not(#export-menu-wrap) button {
+        display: flex !important;
+        flex-shrink: 0 !important;
+        height: 38px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 0 12px !important;
+    }
+
+    /* 9. AJUSTA A POSIÇÃO DO CONTADOR "0/0" E DAS SETAS PARA NÃO BATER NO BOTÃO */
+    body > header > div:nth-child(2) > div.relative.flex.items-center:not(#export-menu-wrap) #search-nav {
+        right: 55px !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        display: none;
+    }
+    body > header > div:nth-child(2) > div.relative.flex.items-center:not(#export-menu-wrap) #search-nav.visible {
+        display: flex !important;
+    }
+}
+    </style>
+
 </head>
 <body class="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden">
 
     <header class="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between z-30 shadow-sm gap-2 flex-wrap">
         <div class="flex items-center space-x-3 min-w-0">
-            <a href="dashboard.html" title="Voltar ao Dashboard" class="text-slate-500 hover:text-indigo-600 text-sm shrink-0"><i class="fa-solid fa-arrow-left"></i></a>
-            <div class="bg-indigo-600 text-white p-2 rounded-xl shadow-md flex items-center justify-center w-10 h-10 shrink-0">
-                <i class="fa-solid fa-brain text-lg"></i>
-            </div>
+           <a href="dashboard.html" title="Voltar ao Dashboard" class="text-slate-500 hover:text-indigo-600 text-sm shrink-0"><i class="fa-solid fa-arrow-left"></i></a>
+<a href="dashboard.html" title="Ir para o Dashboard" class="bg-indigo-600 hover:bg-indigo-700 transition-colors text-white p-2 rounded-xl shadow-md flex items-center justify-center w-10 h-10 shrink-0">
+    <i class="fa-solid fa-brain text-lg"></i>
+</a>
             <div class="min-w-0 flex items-center gap-2">
                 <div class="min-w-0">
                     <h1 onclick="startEditStoryTitle()" title="Clique para renomear"
@@ -1536,7 +1728,93 @@ body.eyedropper-armed #tool-eyedropper {
                 <span class="hidden md:inline">Timeline</span>
             </button>
         </div>
+        <style>
+/* ============================================================
+   FIX MOBILE — estiliza #sm-header-menu-panel e ações diretas
+   ============================================================ */
+@media (hover: none) and (max-width: 640px) {
+    #sm-header-menu-panel {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: 12px;
+        gap: 8px;
+        max-height: min(68dvh, 560px);
+        overflow-y: auto;
+    }
+    #sm-header-menu-panel .sm-tools-heading {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 13px;
+        font-weight: 800;
+        padding: 0 2px 6px;
+        color: #1e293b;
+    }
+    #sm-header-menu-panel .sm-tools-heading button {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        min-height: auto;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        color: #475569;
+        cursor: pointer;
+    }
+    #sm-header-menu-panel .sm-tools-heading button i { font-size: 10px; }
+
+    #sm-header-menu-panel > button {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-height: 68px;
+        padding: 10px 4px;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        font-size: 10.5px;
+        font-weight: 600;
+        color: #334155;
+        background: #fff;
+        cursor: pointer;
+        text-align: center;
+        line-height: 1.2;
+        transition: background 0.12s, color 0.12s;
+    }
+    #sm-header-menu-panel > button i { font-size: 17px; color: #4f46e5; }
+    #sm-header-menu-panel > button:hover,
+    #sm-header-menu-panel > button:active { background: #eef2ff; color: #4338ca; }
+
+    body.app-theme-dark #sm-header-menu-panel > button {
+        background: #0f172a;
+        border-color: #475569;
+        color: #e2e8f0;
+    }
+    body.app-theme-dark #sm-header-menu-panel > button i { color: #a5b4fc; }
+    body.app-theme-dark #sm-header-menu-panel > button:hover,
+    body.app-theme-dark #sm-header-menu-panel > button:active { background: #312e81; color: #c7d2fe; }
+    body.app-theme-dark #sm-header-menu-panel .sm-tools-heading { color: #f1f5f9; }
+    body.app-theme-dark #sm-header-menu-panel .sm-tools-heading button {
+        background: #334155; border-color: #475569; color: #e2e8f0;
+    }
+}
+</style>
     </header>
+
+    <div id="sm-mobile-toolbar" aria-label="Ações rápidas do mapa">
+        <button type="button" data-sm-action="relation" title="Criar relação"><i class="fa-solid fa-link"></i><span>Relação</span></button>
+        <button type="button" data-sm-action="eyedropper" title="Conta-gotas"><i class="fa-solid fa-eye-dropper"></i><span>Conta-gotas</span></button>
+        <button type="button" data-sm-action="undo" title="Desfazer"><i class="fa-solid fa-rotate-left"></i></button>
+        <button type="button" data-sm-action="redo" title="Refazer"><i class="fa-solid fa-rotate-right"></i></button>
+        <button type="button" data-sm-action="collapse" title="Recolher tudo"><i class="fa-solid fa-compress"></i></button>
+        <button type="button" data-sm-action="expand" title="Expandir tudo"><i class="fa-solid fa-expand"></i></button>
+        <button type="button" data-sm-action="fit" title="Centralizar mapa"><i class="fa-solid fa-crosshairs"></i></button>
+        <button type="button" data-sm-action="focus" title="Foco no ramo"><i class="fa-solid fa-eye"></i></button>
+    </div>
 
     <div class="flex-1 flex relative overflow-hidden">
 
@@ -2690,6 +2968,53 @@ body.eyedropper-armed #tool-eyedropper {
         </div>
     </div>
 <div id="tl-tooltip" class="hidden" role="tooltip" aria-live="polite"></div>
+
+    <!-- Navegação exclusiva para touch: as ações chamam as mesmas funções do desktop. -->
+    <nav id="sm-mobile-nav" aria-label="Navegação mobile">
+        <button type="button" data-sm-action="outline" aria-label="Estrutura"><i class="fa-solid fa-list-ul"></i><span>Estrutura</span></button>
+        <button type="button" data-sm-action="select" class="active" aria-label="Selecionar"><i class="fa-solid fa-arrow-pointer"></i><span>Selecionar</span></button>
+        <button type="button" data-sm-action="add" aria-label="Novo nó"><i class="fa-solid fa-circle-plus"></i><span>Novo nó</span></button>
+        <button type="button" data-sm-action="tools" aria-label="Ferramentas"><i class="fa-solid fa-grip"></i><span>Ferramentas</span></button>
+        <button type="button" data-sm-action="edit" aria-label="Editar seleção"><i class="fa-solid fa-sliders"></i><span>Editar</span></button>
+    </nav>
+    <div id="sm-header-menu-panel" role="menu" aria-label="Menu principal mobile">
+    <div class="sm-tools-heading">
+        <span>Menu principal</span>
+        <button type="button" data-sm-action="header-menu-close" aria-label="Fechar menu"><i class="fa-solid fa-xmark"></i> Fechar</button>
+    </div>
+    <button type="button" data-sm-action="layout"><i class="fa-solid fa-sitemap"></i>Organizar</button>
+    <button type="button" data-sm-action="variants"><i class="fa-solid fa-flask"></i>Variantes</button>
+    <button type="button" data-sm-action="narrative"><i class="fa-solid fa-book-open"></i>Modo Narrativo</button>
+    <button type="button" data-sm-action="timeline-mode"><i class="fa-solid fa-timeline"></i>Timeline</button>
+    <button type="button" data-sm-action="export-png"><i class="fa-solid fa-image"></i>Exportar PNG</button>
+    <button type="button" data-sm-action="export-svg"><i class="fa-solid fa-bezier-curve"></i>Exportar SVG</button>
+    <button type="button" data-sm-action="export-md"><i class="fa-brands fa-markdown"></i>Exportar Markdown</button>
+    <button type="button" data-sm-action="export-json"><i class="fa-solid fa-download"></i>Salvar JSON</button>
+    <button type="button" data-sm-action="import-json"><i class="fa-solid fa-upload"></i>Importar JSON</button>
+</div>
+
+    <div id="sm-mobile-tools" role="dialog" aria-label="Demais ferramentas" aria-modal="false">
+        <div class="sm-tools-heading"><span>Demais ferramentas</span><button type="button" data-sm-action="tools-close" aria-label="Fechar ferramentas"><i class="fa-solid fa-xmark"></i> Fechar</button></div>
+        <button type="button" data-sm-action="select"><i class="fa-solid fa-arrow-pointer"></i>Selecionar</button>
+        <button type="button" data-sm-action="pan"><i class="fa-solid fa-hand"></i>Mover tela</button>
+        <button type="button" data-sm-action="add"><i class="fa-solid fa-circle-plus"></i>Novo nó</button>
+        <button type="button" data-sm-action="delete"><i class="fa-solid fa-trash-can"></i>Excluir seleção</button>
+        <button type="button" data-sm-action="beats"><i class="fa-solid fa-layer-group"></i>Beat Sheet</button>
+        <button type="button" data-sm-action="beat-change"><i class="fa-solid fa-shuffle"></i>Trocar estrutura narrativa</button>
+        <button type="button" data-sm-action="tension"><i class="fa-solid fa-chart-line"></i>Curva de tensão</button>
+        <button type="button" data-sm-action="minimap"><i class="fa-solid fa-map"></i>Minimapa</button>
+        <button type="button" data-sm-action="bible"><i class="fa-solid fa-book-bible"></i>Bíblia da história</button>
+        <button type="button" data-sm-action="relations"><i class="fa-solid fa-diagram-project"></i>Teia de relações</button>
+        <button type="button" data-sm-action="mentions"><i class="fa-solid fa-users-viewfinder"></i>Grafo de menções</button>
+        <button type="button" data-sm-action="skilltree"><i class="fa-solid fa-sitemap"></i>Árvore de habilidades</button>
+        <button type="button" data-sm-action="zoom-in"><i class="fa-solid fa-magnifying-glass-plus"></i>Zoom +</button>
+        <button type="button" data-sm-action="zoom-out"><i class="fa-solid fa-magnifying-glass-minus"></i>Zoom −</button>
+        <button type="button" data-sm-action="reset"><i class="fa-solid fa-crosshairs"></i>Resetar vista</button>
+        <button type="button" data-sm-action="write-scene"><i class="fa-solid fa-pen-nib"></i>Escrever cena</button>
+        <button type="button" data-sm-action="settings"><i class="fa-solid fa-gear"></i>Configurações</button>
+        <button type="button" data-sm-action="outline"><i class="fa-solid fa-list-ul"></i>Estrutura / Outline</button>
+    </div>
+
     <div id="toast-container"></div>
     <div id="node-tooltip" class="hidden"></div>
     <div id="st-copy-modal" class="fixed inset-0 z-[300] hidden items-center justify-center bg-slate-900/50 p-4" onclick="if(event.target===this) skillTreeCloseCopyModal()">
@@ -6914,6 +7239,14 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
                 }
                 if (typeDef) el.style.borderLeftWidth = '4px';
                 el.setAttribute('data-node-id', node.id);
+                // Em mobile, duplo clique/toque no cartão inicia edição inline do título; toque simples continua selecionando/arrastando.
+                el.addEventListener('dblclick', function (ev) {
+                    if (!window.DEVICE?.isMobile || ev.target.closest('button, [contenteditable="true"], .writing-badge')) return;
+                    ev.preventDefault(); ev.stopPropagation();
+                    selectedNodeIds.clear(); selectedNodeIds.add(node.id);
+                    closeInspector();
+                    startInlineEdit(node.id, 'title');
+                });
                 const children = childCount(node.id);
                 const titleHTML = isEditing ? `<h3 class="font-bold text-xs tracking-wide uppercase outline-none" contenteditable="true" data-edit-target="title">${escapeHTML(node.title)}</h3>` : `<h3 class="font-bold text-xs tracking-wide uppercase line-clamp-2" data-edit-target="title">${highlightMatch(node.title, isSearchHit)}</h3>`;
                 const contentHTML = isEditing ? `<p class="text-[11px] opacity-80 leading-relaxed font-normal outline-none min-h-[16px]" contenteditable="true" data-edit-target="content" data-placeholder="Sem notas...">${escapeHTML(node.content || '')}</p>` : `<p class="text-[11px] opacity-80 line-clamp-3 leading-relaxed font-normal" data-edit-target="content">${highlightMatch(node.content || 'Sem notas...', isSearchHit)}</p>`;
@@ -6980,7 +7313,7 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
                         if (activeTool === 'relation') { e.preventDefault(); handleRelationshipClick(node.id); return; }
                         if (activeTool === 'select') {
                             const now = Date.now();
-                            if (clickTracker.nodeId === node.id && (now - clickTracker.time) < DBLCLICK_MS) {
+                            if (!window.DEVICE?.isMobile && clickTracker.nodeId === node.id && (now - clickTracker.time) < DBLCLICK_MS) {
                                 clearTimeout(clickTracker.timer);
                                 clickTracker.nodeId = null; clickTracker.time = 0;
                                 cancelAllInteractions();
@@ -7000,9 +7333,14 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
                                 selectedNodeIds.add(node.id);
                             }
                             startDragSelectedNodes(e);
-                            if (selectedNodeIds.size === 1 && selectedNodeIds.has(node.id)) openInspectorFor(node.id);
-                            else if (selectedNodeIds.size > 1) { openMultiInspector(); renderApp(); }
-                            else { closeInspector(); renderApp(); }
+                            // Em mobile, tocar/arrastar seleciona e move o nó. A edição abre apenas pelo botão inferior.
+                            if (!window.DEVICE?.isMobile) {
+                                if (selectedNodeIds.size === 1 && selectedNodeIds.has(node.id)) openInspectorFor(node.id);
+                                else if (selectedNodeIds.size > 1) { openMultiInspector(); renderApp(); }
+                                else { closeInspector(); renderApp(); }
+                            } else {
+                                closeInspector();
+                            }
                         }
                     };
                 }
@@ -7476,8 +7814,10 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
             if (isMarqueeSelecting) {
                 isMarqueeSelecting = false;
                 document.getElementById('marquee-box').classList.add('hidden');
-                if (selectedNodeIds.size > 1) openMultiInspector();
-                else if (selectedNodeIds.size === 1) openInspectorFor(Array.from(selectedNodeIds)[0]);
+                if (!window.DEVICE?.isMobile) {
+                    if (selectedNodeIds.size > 1) openMultiInspector();
+                    else if (selectedNodeIds.size === 1) openInspectorFor(Array.from(selectedNodeIds)[0]);
+                }
             }
         }
 
@@ -11619,5 +11959,164 @@ function updateTimelineToggleButton() {
             return String(str ?? '').replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
         }
     </script>
+
+<script>
+/* StoryMind responsive layer: não substitui nem reescreve as funções centrais do app. */
+(function () {
+  'use strict';
+  const touchQuery = window.matchMedia('(hover: none), (pointer: coarse)');
+  const mobileQuery = window.matchMedia('(hover: none) and (max-width: 640px)');
+  const tabletQuery = window.matchMedia('(hover: none) and (min-width: 641px) and (max-width: 1024px)');
+  window.DEVICE = {
+    get isTouch() { return !!(touchQuery.matches || navigator.maxTouchPoints > 0); },
+    get isMobile() { return mobileQuery.matches; },
+    get isTablet() { return tabletQuery.matches; },
+    get isDesktop() { return !mobileQuery.matches && !tabletQuery.matches; }
+  };
+  function applyDeviceClasses() {
+    const b = document.body;
+    b.classList.toggle('is-touch', DEVICE.isTouch);
+    b.classList.toggle('is-mobile', DEVICE.isMobile);
+    b.classList.toggle('is-tablet', DEVICE.isTablet);
+    b.classList.toggle('is-desktop', DEVICE.isDesktop);
+  }
+  function byId(id) { return document.getElementById(id); }
+  function installHeaderMenu() {
+    const headerLeft = document.querySelector('body > header > div:first-child');
+    if (!headerLeft || byId('sm-header-menu')) return;
+    const btn = document.createElement('button');
+    btn.id = 'sm-header-menu'; btn.type = 'button'; btn.setAttribute('aria-label', 'Abrir menu'); btn.title = 'Menu de ferramentas';
+    btn.innerHTML = '<i class="fa-solid fa-bars"></i>';
+    btn.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); const menu = byId('sm-header-menu-panel'); const tools = byId('sm-mobile-tools'); if (tools) tools.classList.remove('open'); if (menu) { menu.classList.toggle('open'); btn.setAttribute('aria-expanded', menu.classList.contains('open') ? 'true' : 'false'); } });
+    headerLeft.appendChild(btn);
+  }
+  function openMobileInspector() {
+    const panel = byId('inspector-sidebar');
+    if (panel) { panel.classList.add('sm-sheet-open'); panel.classList.remove('translate-x-full'); }
+  }
+  function closeMobileInspector() {
+    const panel = byId('inspector-sidebar');
+    if (panel) panel.classList.remove('sm-sheet-open');
+  }
+    // Função auxiliar para fechar o painel do topo
+  function closeHeaderMenuNow() {
+    const m = byId('sm-header-menu-panel');
+    if (m) {
+      m.classList.remove('open');
+      m.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function runAction(action) {
+    const tools = byId('sm-mobile-tools');
+    
+    switch (action) {
+      case 'outline': if (typeof toggleOutline === 'function') toggleOutline(); break;
+      case 'select': if (typeof setTool === 'function') setTool('select'); break;
+      case 'add': if (typeof addNewNode === 'function') addNewNode(); break;
+      case 'tools': if (tools) tools.classList.toggle('open'); break;
+      case 'tools-close': if (tools) tools.classList.remove('open'); break;
+      case 'header-menu-close': closeHeaderMenuNow(); break;
+      
+      // Layout e Modos
+      case 'layout': if (typeof autoLayoutNodes === 'function') autoLayoutNodes(); break;
+      case 'narrative': if (typeof toggleBeatSortMode === 'function') toggleBeatSortMode(); break;
+      case 'timeline-mode': if (typeof toggleTimelineMode === 'function') toggleTimelineMode(); break;
+      case 'variants': if (typeof toggleShowVariants === 'function') toggleShowVariants(); break;
+      
+      // Exportações Diretas (sem depender do menu desktop)
+      case 'export-png': if (typeof exportPNG === 'function') exportPNG('all'); break;
+      case 'export-svg': if (typeof exportSVG === 'function') exportSVG(); break;
+      case 'export-md': if (typeof exportMarkdown === 'function') exportMarkdown(); break;
+      case 'export-json': if (typeof exportDataWithDialog === 'function') exportDataWithDialog(); break;
+      case 'import-json': if (typeof openImportDialog === 'function') openImportDialog(); break;
+      case 'export': closeHeaderMenuNow(); break; // Fallback antigo
+      
+      // Ferramentas e Edição
+      case 'beat-change': if (typeof openBeatSheetPicker === 'function') openBeatSheetPicker(); break;
+      case 'minimap': if (typeof toggleMinimap === 'function') toggleMinimap(); break;
+      case 'reset': if (typeof resetView === 'function') resetView(); break;
+      case 'edit':
+        if (typeof selectedNodeIds !== 'undefined' && selectedNodeIds.size > 1 && typeof openMultiInspector === 'function') openMultiInspector();
+        else if (typeof selectedNodeIds !== 'undefined' && selectedNodeIds.size === 1 && typeof openInspectorFor === 'function') openInspectorFor(Array.from(selectedNodeIds)[0]);
+        else if (tools) { tools.classList.add('open'); }
+        break;
+      case 'pan': if (typeof setTool === 'function') setTool('pan'); if (tools) tools.classList.remove('open'); break;
+      case 'relation': if (typeof setTool === 'function') setTool('relation'); if (tools) tools.classList.remove('open'); break;
+      case 'eyedropper': if (typeof toggleEyedropper === 'function') toggleEyedropper(); break;
+      case 'delete': if (typeof deleteSelectedNodes === 'function') deleteSelectedNodes(); break;
+      case 'undo': if (typeof undo === 'function') undo(); break;
+      case 'redo': if (typeof redo === 'function') redo(); break;
+      case 'collapse': if (typeof collapseAll === 'function') collapseAll(); break;
+      case 'expand': if (typeof expandAll === 'function') expandAll(); break;
+      case 'focus': if (typeof toggleFocusMode === 'function') toggleFocusMode(); break;
+      case 'beats': if (typeof onBeatSheetButtonClick === 'function') onBeatSheetButtonClick(); break;
+      case 'tension': if (typeof toggleTensionStrip === 'function') toggleTensionStrip(); break;
+      case 'bible': if (typeof openStoryBible === 'function') openStoryBible(); break;
+      case 'relations': if (typeof openRelationWeb === 'function') openRelationWeb(); break;
+      case 'mentions': if (typeof openMentionsGraph === 'function') openMentionsGraph(); break;
+      case 'skilltree': if (typeof openSkillTree === 'function') openSkillTree(); break;
+      case 'timeline': if (typeof openTimeline === 'function') openTimeline(); break;
+      case 'fit': if (typeof fitView === 'function') fitView(); break;
+      case 'zoom-in': if (typeof zoomIn === 'function') zoomIn(); break;
+      case 'zoom-out': if (typeof zoomOut === 'function') zoomOut(); break;
+      case 'write-scene': if (typeof openSceneWritingMode === 'function') openSceneWritingMode(); if (tools) tools.classList.remove('open'); break;
+      case 'settings': if (typeof openStorySettings === 'function') openStorySettings(); if (tools) tools.classList.remove('open'); break;
+    }
+
+    // --- FAXINA FINAL (A parte que você perguntou) ---
+    // 1. Se executou qualquer ação, fecha o menu do topo (exceto se a ação for abrir a barra de ferramentas)
+    if (action !== 'tools' && action !== 'header-menu-close') {
+      closeHeaderMenuNow();
+    }
+
+    // 2. Atualiza o botão ativo da barra de navegação inferior
+    if (action !== 'tools') {
+      document.querySelectorAll('#sm-mobile-nav button').forEach(b => 
+        b.classList.toggle('active', b.dataset.smAction === action)
+      );
+    }
+  }
+  document.addEventListener('click', function (e) {
+    const button = e.target.closest('[data-sm-action]');
+    if (button) { e.preventDefault(); runAction(button.dataset.smAction); return; }
+    const tools = byId('sm-mobile-tools'); const headerMenu = byId('sm-header-menu-panel');
+    if (tools && tools.classList.contains('open') && !tools.contains(e.target)) tools.classList.remove('open');
+    if (headerMenu && headerMenu.classList.contains('open') && !headerMenu.contains(e.target) && !e.target.closest('#sm-header-menu')) headerMenu.classList.remove('open');
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { const tools = byId('sm-mobile-tools'); const headerMenu = byId('sm-header-menu-panel'); if (tools) tools.classList.remove('open'); if (headerMenu) headerMenu.classList.remove('open'); closeMobileInspector(); } });
+  // A chamada existente closeInspector é preservada e recebe somente um gancho mobile.
+  const originalCloseInspector = window.closeInspector;
+  if (typeof originalCloseInspector === 'function') {
+    window.closeInspector = function () { originalCloseInspector.apply(this, arguments); closeMobileInspector(); };
+  }
+  const originalOpenInspectorFor = window.openInspectorFor;
+  if (typeof originalOpenInspectorFor === 'function') {
+    window.openInspectorFor = function () {
+      const result = originalOpenInspectorFor.apply(this, arguments);
+      if (DEVICE.isMobile) openMobileInspector();
+      return result;
+    };
+  }
+  const originalOpenMultiInspector = window.openMultiInspector;
+  if (typeof originalOpenMultiInspector === 'function') {
+    window.openMultiInspector = function () {
+      const result = originalOpenMultiInspector.apply(this, arguments);
+      if (DEVICE.isMobile) openMobileInspector();
+      return result;
+    };
+  }
+  // Reaplica classes ao girar a tela ou conectar/desconectar recursos de toque.
+  [touchQuery, mobileQuery, tabletQuery].forEach(q => { if (q.addEventListener) q.addEventListener('change', applyDeviceClasses); else if (q.addListener) q.addListener(applyDeviceClasses); });
+  window.addEventListener('resize', applyDeviceClasses, { passive: true });
+  applyDeviceClasses();
+  installHeaderMenu();
+  // Registra PWA apenas em contexto seguro e sem interferir no fluxo de autenticação.
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('./service-worker.js').catch(function (err) { console.warn('StoryMind: service worker indisponível', err); }); }, { once: true });
+  }
+})();
+</script>
+
 </body>
 </html>
