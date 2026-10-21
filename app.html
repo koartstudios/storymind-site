@@ -1475,9 +1475,21 @@ body > header > div:first-child #save-status {
             #inspector-sidebar > div:first-child h2 { font-size: 13px; }
             #inspector-sidebar .p-5 { padding: 14px !important; }
             #inspector-sidebar input, #inspector-sidebar select, #inspector-sidebar textarea { font-size: 16px !important; }
-            #sm-mobile-nav { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); position: fixed; z-index: 150; left: 0; right: 0; bottom: 0; padding: 6px 6px calc(6px + var(--sm-safe-bottom)); min-height: calc(var(--sm-mobile-nav-h) + var(--sm-safe-bottom)); background: rgba(255,255,255,.96); border-top: 1px solid #e2e8f0; backdrop-filter: blur(16px); box-shadow: 0 -5px 20px rgba(15,23,42,.08); }
-            #sm-mobile-nav button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; min-width:0; min-height:52px; padding:5px 2px; border-radius:10px; color:#475569; font-size:10px; font-weight:600; }
-            #sm-mobile-nav button i { font-size:17px; }
+            #sm-mobile-nav { 
+    display: grid; 
+    grid-template-columns: repeat(7, minmax(0,1fr)); /* Mudou de 5 para 7 */
+    position: fixed; z-index: 150; left: 0; right: 0; bottom: 0; 
+    padding: 6px 4px calc(6px + var(--sm-safe-bottom)); 
+    min-height: calc(var(--sm-mobile-nav-h) + var(--sm-safe-bottom)); 
+    background: rgba(255,255,255,.96); border-top: 1px solid #e2e8f0; 
+    backdrop-filter: blur(16px); box-shadow: 0 -5px 20px rgba(15,23,42,.08); 
+}
+#sm-mobile-nav button { 
+    display:flex; flex-direction:column; align-items:center; justify-content:center; 
+    gap:4px; min-width:0; min-height:52px; padding:4px 2px; border-radius:10px; 
+    color:#475569; font-size:9.5px; font-weight:600; 
+}
+#sm-mobile-nav button i { font-size:16px; }
             #sm-mobile-nav button:active, #sm-mobile-nav button.active { color:#4f46e5; background:#eef2ff; }
             #sm-mobile-tools, #sm-header-menu-panel { display: none; position: fixed; z-index: 180; left: 10px; right: 10px; bottom: calc(var(--sm-mobile-nav-h) + var(--sm-safe-bottom) + 8px); max-height: min(62dvh, 520px); overflow-y: auto; padding: 14px; border: 1px solid #e2e8f0; border-radius: 18px; background: #fff; color:#334155; box-shadow: 0 18px 45px rgba(15,23,42,.24); grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
             #sm-mobile-tools.open, #sm-header-menu-panel.open { display: grid; }
@@ -2970,11 +2982,12 @@ body > header > div:first-child #save-status {
 <div id="tl-tooltip" class="hidden" role="tooltip" aria-live="polite"></div>
 
     <!-- Navegação exclusiva para touch: as ações chamam as mesmas funções do desktop. -->
-    <nav id="sm-mobile-nav" aria-label="Navegação mobile">
+   <nav id="sm-mobile-nav" aria-label="Navegação mobile">
     <button type="button" data-sm-action="outline" aria-label="Estrutura"><i class="fa-solid fa-list-ul"></i><span>Estrutura</span></button>
     <button type="button" data-sm-action="select" class="active" aria-label="Selecionar"><i class="fa-solid fa-arrow-pointer"></i><span>Selecionar</span></button>
     <button type="button" data-sm-action="add-child" aria-label="Novo Filho"><i class="fa-solid fa-code-branch"></i><span>Filho</span></button>
     <button type="button" data-sm-action="add-sibling" aria-label="Novo Irmão"><i class="fa-solid fa-plus"></i><span>Irmão</span></button>
+    <button type="button" data-sm-action="delete" aria-label="Excluir nó"><i class="fa-solid fa-trash-can"></i><span>Excluir</span></button>
     <button type="button" data-sm-action="tools" aria-label="Ferramentas"><i class="fa-solid fa-grip"></i><span>Ferramentas</span></button>
     <button type="button" data-sm-action="edit" aria-label="Editar seleção"><i class="fa-solid fa-sliders"></i><span>Editar</span></button>
 </nav>
@@ -3721,26 +3734,37 @@ let eyedropperTargetIds = new Set();   // quais nós vão receber o estilo
 let eyedropperCopyWithIcons = true;
 
 function startInlineEdit(nodeId, field) {
+    // NOVO: No mobile, usamos prompt para garantir a abertura do teclado e a digitação
+    if (window.DEVICE && window.DEVICE.isMobile && field === 'title') {
+        const node = mindMapData.nodes.find(n => n.id === nodeId);
+        if (node) {
+            // 1. Centraliza o nó na tela primeiro
+            const container = document.getElementById('canvas-container');
+            if (container) {
+                const cw = container.clientWidth, ch = container.clientHeight;
+                panX = cw / 2 - (node.x + NODE_W / 2) * scale;
+                panY = ch / 2 - (node.y + 50) * scale;
+                updateCanvasTransform();
+            }
+            
+            // 2. Abre a caixa de texto nativa do celular
+            setTimeout(() => {
+                const newTitle = prompt("Digite o título do nó:", (node.title === 'Novo tópico' || node.title === 'Novo nó de enredo') ? '' : node.title);
+                if (newTitle !== null) {
+                    pushHistory();
+                    node.title = newTitle.trim() || 'Sem título';
+                    saveStoriesStorage();
+                    renderApp();
+                }
+            }, 100);
+            return; // Interrompe o fluxo aqui no mobile
+        }
+    }
+
+    // Fluxo normal do Desktop (edição direta no card)
     editingNodeId = nodeId;
     editingField = field || 'title';
     renderApp();
-
-    // NOVO: Centraliza a tela no nó recém-criado se for mobile
-    if (window.DEVICE && window.DEVICE.isMobile) {
-        const node = mindMapData.nodes.find(n => n.id === nodeId);
-        if (node) {
-            setTimeout(() => {
-                const container = document.getElementById('canvas-container');
-                if (container) {
-                    const cw = container.clientWidth, ch = container.clientHeight;
-                    // Move o pan para o centro do nó criado
-                    panX = cw / 2 - (node.x + NODE_W / 2) * scale;
-                    panY = ch / 2 - (node.y + 50) * scale; 
-                    updateCanvasTransform();
-                }
-            }, 60); // Pequeno delay para o DOM atualizar
-        }
-    }
 }
         function setupInlineEdit(el, node) {
     const target = el.querySelector(`[data-edit-target="${editingField}"]`);
@@ -7758,6 +7782,7 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
             if (draggedNodeId !== null) {
                 if (!dragMoved) {
                     const dx = clientX - dragStartClientX, dy = clientY - dragStartClientY;
+                     const deadzone = event.pointerType === 'touch' ? 15 : DRAG_DEADZONE_PX;
                     if (dx * dx + dy * dy < DRAG_DEADZONE_PX * DRAG_DEADZONE_PX) return;
                     if (altCopyPending) { performAltCopy(); altCopyPending = false; }
                     dragMoved = true;
@@ -12038,7 +12063,7 @@ function updateTimelineToggleButton() {
       case 'add': if (typeof addNewNode === 'function') addNewNode(); break;
             case 'add-child':
         if (typeof selectedNodeIds !== 'undefined' && selectedNodeIds.size === 1 && typeof addChildToNode === 'function') {
-            addChildToNode(Array.from(selectedNodeIds)[0]); // Tab no desktop
+            addChildToNode(Array.from(selectedNodeIds)[0]); 
         } else if (typeof addNewNode === 'function') {
             addNewNode();
         }
@@ -12046,7 +12071,7 @@ function updateTimelineToggleButton() {
 
       case 'add-sibling':
         if (typeof selectedNodeIds !== 'undefined' && selectedNodeIds.size === 1 && typeof createSibling === 'function') {
-            const newId = createSibling(Array.from(selectedNodeIds)[0]); // Enter no desktop
+            const newId = createSibling(Array.from(selectedNodeIds)[0]); 
             if (newId) {
                 if (typeof selectedNodeIds !== 'undefined') {
                     selectedNodeIds.clear();
@@ -12058,6 +12083,10 @@ function updateTimelineToggleButton() {
         } else if (typeof addNewNode === 'function') {
             addNewNode();
         }
+        break;
+
+      case 'delete':
+        if (typeof deleteSelectedNodes === 'function') deleteSelectedNodes();
         break;
       case 'tools': if (tools) tools.classList.toggle('open'); break;
       case 'tools-close': if (tools) tools.classList.remove('open'); break;
