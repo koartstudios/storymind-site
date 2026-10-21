@@ -1,0 +1,53 @@
+{
+  "name": "StoryMind Pro",
+  "short_name": "StoryMind",
+  "description": "Mapas mentais para histórias, roteiros e narrativas interativas.",
+  "start_url": "./dashboard.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f8fafc",
+  "theme_color": "#6366f1",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "categories": ["productivity", "writing", "education"],
+  "icons": [
+    {
+      "src": "assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "assets/icons/icon-apple-touch-180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Meus mapas",
+      "short_name": "Mapas",
+      "url": "./dashboard.html",
+      "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Nova história",
+      "short_name": "Nova",
+      "url": "./app.html?story=new",
+      "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
