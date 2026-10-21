@@ -1703,6 +1703,34 @@ body > header > div:first-child #save-status {
     body.app-theme-dark .sm-label { color: #94a3b8; }
 }
 </style>
+<style>
+@media (hover: none) and (max-width: 640px) {
+    /* Compacta as pílulas superiores */
+    #beat-pill, #narrative-pill, #timeline-pill, #focus-pill {
+        top: 6px !important;
+        padding: 4px 8px !important;
+        font-size: 9.5px !important;
+        max-width: calc(100vw - 16px) !important;
+        gap: 4px !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+    }
+    /* Esconde os ícones maiores para economizar espaço */
+    #beat-pill > i, #narrative-pill > i, #timeline-pill > i, #focus-pill > i { 
+        display: none !important; 
+    }
+    /* Botões internos menores */
+    #beat-pill button, #narrative-pill button, #timeline-pill button {
+        padding: 2px 6px !important;
+        font-size: 9.5px !important;
+        white-space: nowrap;
+    }
+    #beat-pill .text-\[10px\], #narrative-pill .text-\[10px\], #timeline-pill .text-\[10px\] {
+        font-size: 8.5px !important;
+        padding: 1px 4px !important;
+    }
+}
+</style>
 
 </head>
 <body class="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden">
@@ -3065,7 +3093,10 @@ body > header > div:first-child #save-status {
     <!-- Navegação exclusiva para touch: as ações chamam as mesmas funções do desktop. -->
    <nav id="sm-mobile-nav" aria-label="Navegação mobile">
     <button type="button" data-sm-action="outline" aria-label="Estrutura"><i class="fa-solid fa-list-ul"></i><span>Estrutura</span></button>
-    <button type="button" data-sm-action="select" class="active" aria-label="Selecionar"><i class="fa-solid fa-arrow-pointer"></i><span>Selecionar</span></button>
+    
+    <!-- NOVO BOTÃO DE ABAS -->
+    <button type="button" data-sm-action="sheets" class="active" aria-label="Abas"><i class="fa-solid fa-layer-group"></i><span>Abas</span></button>
+    
     <button type="button" data-sm-action="add-child" aria-label="Novo Filho"><i class="fa-solid fa-code-branch"></i><span>Filho</span></button>
     <button type="button" data-sm-action="add-sibling" aria-label="Novo Irmão"><i class="fa-solid fa-plus"></i><span>Irmão</span></button>
     <button type="button" data-sm-action="delete" aria-label="Excluir nó"><i class="fa-solid fa-trash-can"></i><span>Excluir</span></button>
@@ -12187,6 +12218,70 @@ function updateTimelineToggleButton() {
     }
   }
 
+    function openMobileSheetSelector() {
+      if (typeof currentStory === 'undefined' || !currentStory || !mindMapData) return;
+      
+      let menu = document.getElementById('mobile-sheets-menu');
+      if (menu) { menu.remove(); return; } // Se já está aberto, apenas fecha
+
+      menu = document.createElement('div');
+      menu.id = 'mobile-sheets-menu';
+      // Estilo do menu flutuante
+      menu.style.cssText = 'position:fixed; z-index:200; left:10px; right:10px; bottom:calc(var(--sm-mobile-nav-h) + var(--sm-safe-bottom) + 10px); max-height:60vh; overflow-y:auto; background:white; border:1px solid #e2e8f0; border-radius:16px; box-shadow:0 -10px 40px rgba(0,0,0,0.25); padding:12px;';
+      
+      if (document.body.classList.contains('app-theme-dark')) {
+          menu.style.background = '#1e293b';
+          menu.style.borderColor = '#334155';
+      }
+
+      menu.innerHTML = `<div style="padding:4px 8px 10px; font-weight:800; border-bottom:1px solid #e2e8f0; margin-bottom:10px; font-size:14px; color:#1e293b;" class="${document.body.classList.contains('app-theme-dark') ? 'text-white' : ''}">Selecione uma Aba</div>`;
+      
+      const list = document.createElement('div');
+      list.style.cssText = 'display:flex; flex-direction:column; gap:8px;';
+      
+      currentStory.sheets.forEach(sheet => {
+          const isActive = sheet.id === mindMapData.id;
+          const btn = document.createElement('button');
+          btn.style.cssText = `display:flex; align-items:center; justify-content:space-between; padding:12px; border-radius:10px; border:2px solid ${isActive ? '#6366f1' : '#e2e8f0'}; background:${isActive ? '#eef2ff' : 'white'}; color:${isActive ? '#4338ca' : '#334155'}; font-size:14px; font-weight:600; cursor:pointer; text-align:left;`;
+          if (document.body.classList.contains('app-theme-dark') && !isActive) {
+             btn.style.background = '#0f172a'; btn.style.borderColor = '#475569'; btn.style.color = '#e2e8f0';
+          }
+          btn.innerHTML = `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${escapeHTML(sheet.name)}</span><span style="font-size:11px; color:#94a3b8; margin-left:8px; flex-shrink:0;">${(sheet.nodes||[]).length} nós</span>`;
+          btn.onclick = () => {
+              menu.remove();
+              if (typeof switchSheet === 'function') switchSheet(sheet.id);
+          };
+          list.appendChild(btn);
+      });
+      menu.appendChild(list);
+      
+      // Botões de Ação (Nova Aba / Fechar)
+      const actions = document.createElement('div');
+      actions.style.cssText = 'display:flex; gap:8px; margin-top:14px; padding-top:10px; border-top:1px solid #e2e8f0;';
+      actions.innerHTML = `
+          <button id="mobile-sheets-add" style="flex:1; padding:10px; border-radius:10px; border:none; background:#6366f1; color:white; font-weight:700; font-size:13px; cursor:pointer;"><i class="fa-solid fa-plus mr-1"></i> Nova Aba</button>
+          <button id="mobile-sheets-close" style="flex:1; padding:10px; border-radius:10px; border:none; background:#f1f5f9; color:#475569; font-weight:700; font-size:13px; cursor:pointer;">Fechar</button>
+      `;
+      menu.appendChild(actions);
+      document.body.appendChild(menu);
+      
+      document.getElementById('mobile-sheets-close').onclick = () => menu.remove();
+      document.getElementById('mobile-sheets-add').onclick = () => {
+          menu.remove();
+          if (typeof addSheet === 'function') addSheet();
+      };
+      
+      // Fecha ao clicar fora
+      setTimeout(() => {
+          document.addEventListener('click', function closeMenu(e) {
+              if (menu && !menu.contains(e.target) && e.target.closest('[data-sm-action="sheets"]') === null) {
+                  menu.remove();
+                  document.removeEventListener('click', closeMenu);
+              }
+          });
+      }, 10);
+  }
+
   function runAction(action) {
     const tools = byId('sm-mobile-tools');
     
@@ -12273,6 +12368,9 @@ function updateTimelineToggleButton() {
       case 'layout-tree': if (typeof changeLayout === 'function') changeLayout('tree'); break;
       case 'layout-radial': if (typeof changeLayout === 'function') changeLayout('radial'); break;
       case 'layout-org': if (typeof changeLayout === 'function') changeLayout('org'); break;
+            case 'sheets':
+        if (typeof openMobileSheetSelector === 'function') openMobileSheetSelector();
+        break;
     }
 
     // --- FAXINA FINAL (A parte que você perguntou) ---
