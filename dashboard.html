@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1020">
 <title>Meus mapas — StoryMind</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -384,12 +385,168 @@
         margin-bottom: 20px;
     }
 
+
+    /* =====================================================================
+       AJUSTES VISUAIS (desktop) — corrigem conflitos com o style.css
+       ===================================================================== */
+    /* style.css também tem .hero (centralizado, 820px, margem de 90px): aqui anulamos */
+    .hero { max-width: none; margin: 0; text-align: left; }
+    .hero .sub { margin: 4px 0 0; }
+    /* título com gradiente claro (o escuro ficava invisível no fundo escuro) */
+    .hero h2 { background: linear-gradient(135deg, #ffffff 20%, #a5b4fc); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+    /* miniatura: a lista injeta o <svg> direto em .nm (sem .thumb) — padroniza o tamanho */
+    .thumb, .nm > svg {
+        background-color: #0c0d1e;
+        background-image: radial-gradient(#252850 1px, transparent 1px);
+        background-size: 14px 14px;
+    }
+    .nm > svg { width: 92px; height: 58px; flex: none; border-radius: 8px; border: 1px solid var(--line, #2a2d52); }
+    .nm > div { min-width: 0; }
+
+    /* filtro "Só favoritos" como pílula (quando o navegador suporta :has) */
+    @supports selector(:has(*)) {
+        .bar label.chk { border: 1px solid var(--line, #2a2d52); border-radius: 999px; padding: 8px 14px; gap: 8px; white-space: nowrap; user-select: none; }
+        .bar label.chk input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+        .bar label.chk:has(input:checked) { background: rgba(99,102,241,.18); border-color: var(--pri, #6366f1); color: var(--tx, #e8e9ff); }
+        .bar label.chk:has(input:checked) i { font-weight: 900; color: #fbbf24; }
+        .bar label.chk:has(input:focus-visible) { outline: 2px solid var(--pri2, #818cf8); outline-offset: 2px; }
+    }
+    @supports not selector(:has(*)) {
+        .bar label.chk i { display: none; }
+        @media (max-width: 760px) {
+            .bar label.chk { width: auto; padding: 0 12px; gap: 8px; }
+            .bar label.chk span { position: static; width: auto; height: auto; clip: auto; }
+        }
+    }
+
+    /* menu "⋮": classes utilitárias que o JS usa e que não existiam no CSS */
+    .menu .mr-2 { margin-right: 8px; }
+    .menu .text-slate-400 { color: var(--mut, #9a9dc9); }
+    .menu .text-rose-600 { color: #fb7185; }
+    .menu .hover\:bg-rose-50:hover { background: rgba(251,113,133,.12); }
+    .menu button i { display: inline-block; width: 22px; text-align: center; }
+    .search-wrap { flex: 1 1 280px; max-width: 460px; }
+    .menu hr { border: 0; border-top: 1px solid var(--line, #2a2d52); margin: 4px 2px; }
+
+    :focus-visible { outline: 2px solid var(--pri2, #818cf8); outline-offset: 2px; }
+
+    /* telas sem mouse: sem "levantar" ao tocar e sem o selo "Abrir mapa" */
+    @media (hover: none) {
+        .row.it:hover, .gv .card:hover, .btn-hero:hover, .ic:hover { transform: none; }
+        .gv .thumb .overlay { display: none; }
+    }
+
+    /* tablet */
+    @media (max-width: 1024px) {
+        .wrap { padding: 0 20px; }
+        .row { grid-template-columns: minmax(0,2.4fr) 1fr 1fr minmax(0,1.2fr) 76px; }
+    }
+
+    /* =====================================================================
+       CELULAR  (até 760px)
+       ===================================================================== */
     @media (max-width: 760px) {
-        .row { grid-template-columns: minmax(0,1fr) 72px; padding: 10px 12px; }
-        .row > :nth-child(2),
-        .row > :nth-child(3),
-        .row > :nth-child(4) { display: none; }
-        .hero h2 { font-size: 1.5rem; }
+        /* barra superior */
+        .nav { padding: calc(12px + env(safe-area-inset-top)) 16px 12px; gap: 10px; }
+        .nav > div { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        #who { display: inline-block; max-width: 36vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; }
+        .nav .btn { padding: 8px 14px; font-size: .85rem; }
+
+        .wrap { margin: 8px auto 0; padding: 0 16px calc(104px + env(safe-area-inset-bottom)); }
+
+        /* topo da página */
+        .hero { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 12px; padding: 14px 0 16px; }
+        .hero > div:first-child { flex: 1; min-width: 0; }
+        .hero h2 { font-size: 1.65rem; }
+        .hero .sub { font-size: .85rem; line-height: 1.4; }
+        .hero-actions { flex: none; }
+        .hero-actions .btn-hero { padding: 9px 13px; font-size: .82rem; }
+
+        /* "Novo mapa" vira botão flutuante, sempre à mão do polegar */
+        .hero-actions #new {
+            position: fixed; z-index: 40;
+            right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
+            padding: 14px 20px; font-size: .95rem; border-radius: 999px;
+            box-shadow: 0 12px 28px -6px rgba(99,102,241,.7), 0 0 0 1px rgba(255,255,255,.06) inset;
+        }
+
+        /* busca e filtros */
+        .bar { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 10px; padding: 12px; margin-bottom: 16px; }
+        .search-wrap { grid-column: 1; grid-row: 1; min-width: 0; }
+        .bar label.chk { grid-column: 2; grid-row: 1; width: 46px; height: 46px; padding: 0; justify-content: center; gap: 0; }
+        .bar label.chk i { font-size: 1.05rem; }
+        .bar label.chk span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }  /* texto só para leitor de tela */
+        .bar select { grid-column: 1; grid-row: 2; min-width: 0; width: 100%; text-overflow: ellipsis; }
+        .tg { grid-column: 2; grid-row: 2; }
+        .bar .sp { display: none; }
+        .search-wrap input, .bar select { min-height: 46px; font-size: 16px; }   /* 16px evita o zoom automático do iOS */
+        .tg button { width: 46px; height: 46px; padding: 0; }
+
+        /* ---------- LISTA: cada mapa vira um cartão com todas as propriedades ---------- */
+        .row.h { display: none; }
+        .row.it {
+            position: relative; display: grid; align-items: start;
+            grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+            grid-template-areas: "nm nm" "cr mo" "ow ow";
+            gap: 0 14px; padding: 12px 14px 12px; margin-bottom: 12px; border-radius: 16px;
+        }
+        .row.it > .nm { grid-area: nm; padding-right: 88px; gap: 12px; margin-bottom: 10px; }
+        .row.it > :nth-child(2) { grid-area: cr; }
+        .row.it > :nth-child(3) { grid-area: mo; }
+        .row.it > :nth-child(4) { grid-area: ow; margin-top: 10px; }
+        .row.it > .act { position: absolute; top: 8px; right: 8px; }
+        .row.it > .mut {
+            display: block !important; font-size: .9rem; color: var(--tx, #e8e9ff);
+            padding-top: 10px; border-top: 1px solid var(--line, #2a2d52);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .row.it > .mut::before { display: block; font-size: .72rem; color: var(--mut, #9a9dc9); margin-bottom: 2px; }
+        .row.it > :nth-child(2)::before { content: "Criado em"; }
+        .row.it > :nth-child(3)::before { content: "Modificado"; }
+        .row.it > :nth-child(4)::before { content: "Titular"; display: inline; margin: 0 10px 0 0; }   /* rótulo e e-mail na mesma linha */
+        .nm > svg, .row.it .nm .thumb { width: 88px; height: 62px; }
+        .nm b { font-size: 1.02rem; line-height: 1.25; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .nm span { white-space: normal; line-height: 1.35; }
+
+        /* ---------- GRADE: 2 colunas, ações sobre a miniatura ---------- */
+        .gv { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+        .gv .card { position: relative; border-radius: 16px; }
+        .gv .thumb { height: 108px; }
+        .gv .in { flex-direction: column; align-items: stretch; padding: 10px 12px 12px; gap: 0; }
+        .gv .in .act { position: absolute; top: 6px; right: 6px; z-index: 2; gap: 0; background: rgba(12,13,30,.86); border-radius: 12px; }
+        .gv .nm { align-items: flex-start; }
+
+        /* botões de toque confortáveis (mínimo ~44px) */
+        .ic { padding: 12px; font-size: 1rem; }
+
+        /* menu ⋮ vira "bottom sheet" com fundo escurecido */
+        .menu {
+            left: 12px !important; right: 12px !important; top: auto !important;
+            bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+            width: auto; min-width: 0; padding: 8px; border-radius: 18px;
+            box-shadow: 0 0 0 100vmax rgba(5,6,18,.62), 0 -12px 40px rgba(0,0,0,.45);
+            animation: sheet-up .18s ease;
+        }
+        .menu button { min-height: 50px; padding: 12px 14px; font-size: 1rem; border-radius: 12px; display: flex; align-items: center; }
+        @keyframes sheet-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+        .empty { padding: 44px 18px; }
+    }
+
+    /* celulares pequenos */
+    @media (max-width: 380px) {
+        #who { display: none; }
+        .hero h2 { font-size: 1.45rem; }
+        .gv { gap: 10px; }
+        .nm > svg, .row.it .nm .thumb { width: 76px; height: 56px; }
+        .row.it > .nm { padding-right: 82px; }
+        .nm span { font-size: .76rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .row.it, .gv .card, .empty, .menu { animation: none !important; }
+        * { transition: none !important; }
     }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -423,18 +580,18 @@
     <div class="bar">
         <div class="search-wrap">
             <i class="fa-solid fa-magnifying-glass"></i>
-            <input id="q" placeholder="Buscar por nome…">
+            <input id="q" type="search" placeholder="Buscar por nome…" aria-label="Buscar mapa por nome" autocomplete="off">
         </div>
         <select id="sort">
             <option value="modified">Modificado recentemente</option>
             <option value="created">Criado recentemente</option>
             <option value="name">Título (A–Z)</option>
         </select>
-        <label class="chk"><input type="checkbox" id="favs"> Só favoritos</label>
+        <label class="chk" title="Mostrar só favoritos"><input type="checkbox" id="favs"><i class="fa-regular fa-star" aria-hidden="true"></i><span>Só favoritos</span></label>
         <span class="sp"></span>
         <div class="tg">
-            <button id="vg" title="Grade"><i class="fa-solid fa-table-cells-large"></i></button>
-            <button id="vl" title="Lista"><i class="fa-solid fa-list"></i></button>
+            <button id="vg" title="Grade" aria-label="Ver em grade"><i class="fa-solid fa-table-cells-large"></i></button>
+            <button id="vl" title="Lista" aria-label="Ver em lista"><i class="fa-solid fa-list"></i></button>
         </div>
     </div>
 
