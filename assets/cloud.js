@@ -97,6 +97,15 @@ const SM_CLOUD = {
             const db = this.local();
             const dirty = this.dirty();
             const tombstones = this.tombstones();
+
+            // Recuperação: se a nuvem confirma que uma história está ativa
+            // (deleted=false), uma tombstone local antiga não deve ocultá-la.
+            const activeCloudKeys = new Set((data || [])
+                .filter(row => !row.deleted && row.key)
+                .map(row => row.key));
+            for (let i = tombstones.length - 1; i >= 0; i--) {
+                if (activeCloudKeys.has(tombstones[i])) tombstones.splice(i, 1);
+            }
             const tombstoneSet = new Set(tombstones);
 
             // 1. Aplicar exclusões vindas da nuvem (deleted = true)
