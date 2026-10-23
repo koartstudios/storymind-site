@@ -1498,6 +1498,7 @@ body > header > div:first-child #save-status {
             #sm-mobile-toolbar button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; flex:0 0 auto; min-width:34px; min-height:38px; padding:3px 5px; border-radius:8px; color:#475569; font-size:9px; white-space:nowrap; }
             #sm-mobile-toolbar button i { font-size:15px; color:#4f46e5; }
             #sm-mobile-toolbar button:active { background:#eef2ff; }
+            #sm-mobile-toolbar button span { display: none; }
             #sm-mobile-tools button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; min-height:70px; padding:9px 5px; border:1px solid #e2e8f0; border-radius:12px; font-size:10px; text-align:center; }
             #sm-mobile-tools button i { font-size:18px; color:#4f46e5; }
             #sm-mobile-tools .sm-tools-heading { grid-column:1/-1; display:flex; align-items:center; justify-content:space-between; font-size:13px; font-weight:800; padding:0 2px 5px; }
@@ -2048,6 +2049,7 @@ body > header > div:first-child #save-status {
         <button type="button" data-sm-action="redo" title="Refazer"><i class="fa-solid fa-rotate-right"></i></button>
         <button type="button" data-sm-action="collapse" title="Recolher tudo"><i class="fa-solid fa-compress"></i></button>
         <button type="button" data-sm-action="expand" title="Expandir tudo"><i class="fa-solid fa-expand"></i></button>
+        <button type="button" data-sm-action="layout" title="Organizar automaticamente"><i class="fa-solid fa-sitemap"></i><span>Organizar</span></button>
         <button type="button" data-sm-action="fit" title="Centralizar mapa"><i class="fa-solid fa-crosshairs"></i></button>
         <button type="button" data-sm-action="focus" title="Foco no ramo"><i class="fa-solid fa-eye"></i></button>
     </div>
@@ -12448,7 +12450,15 @@ function syncHeaderMenuUI() {
       case 'header-menu-close': closeHeaderMenuNow(); break;
       
       // Layout e Modos
-      case 'layout': if (typeof autoLayoutNodes === 'function') autoLayoutNodes(); break;
+      case 'layout':
+    if (typeof autoLayoutNodes === 'function') {
+        autoLayoutNodes();
+        if (typeof showToast === 'function') {
+            const label = { tree: 'Árvore', radial: 'Radial', org: 'Organograma' }[mindMapData?.layout || 'tree'];
+            showToast(`Mapa reorganizado (${label}).`, 'success', 1500);
+        }
+    }
+    break;
       case 'narrative': if (typeof toggleBeatSortMode === 'function') toggleBeatSortMode(); break;
       case 'timeline-mode': if (typeof toggleTimelineMode === 'function') toggleTimelineMode(); break;
       case 'variants': if (typeof toggleShowVariants === 'function') toggleShowVariants(); break;
