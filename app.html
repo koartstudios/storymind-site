@@ -1732,6 +1732,112 @@ body > header > div:first-child #save-status {
 }
 </style>
 <script src="assets/pwa.js" defer></script>
+<style>
+/* ============================================================
+   MOBILE: botão exportar no header + menu de modos colorido
+   ============================================================ */
+#sm-header-export { display: none; }
+
+@media (hover: none) and (max-width: 640px) {
+    #sm-header-export {
+        display: inline-flex; align-items: center; justify-content: center;
+        flex: 0 0 40px; width: 40px; height: 40px;
+        border: 1px solid #e2e8f0; border-radius: 12px;
+        background: #fff; color: #334155;
+        position: relative; z-index: 170; cursor: pointer;
+    }
+    #sm-header-export:active { background: #eef2ff; color: #4338ca; }
+    body.app-theme-dark #sm-header-export {
+        background: #1e293b; color: #e2e8f0; border-color: #475569;
+    }
+    body.app-theme-dark #sm-header-export:active { background: #312e81; color: #c7d2fe; }
+
+    /* Botões de modo: brancos quando inativos, coloridos quando ativos */
+    #sm-header-menu-panel > button.sm-mode-btn {
+        background: #ffffff !important;
+        color: #334155 !important;
+        border: 1.5px solid #e2e8f0 !important;
+        transition: background .15s, color .15s, border-color .15s, box-shadow .15s;
+        position: relative;
+    }
+    #sm-header-menu-panel > button.sm-mode-btn i {
+        color: #64748b !important;
+        transition: color .15s;
+    }
+    body.app-theme-dark #sm-header-menu-panel > button.sm-mode-btn {
+        background: #0f172a !important;
+        color: #e2e8f0 !important;
+        border-color: #475569 !important;
+    }
+    body.app-theme-dark #sm-header-menu-panel > button.sm-mode-btn i { color: #a5b4fc !important; }
+
+    /* Cor por modo ativo */
+    #sm-header-menu-panel > button.sm-mode-btn.active[data-mode="beats"] {
+        background: #4f46e5 !important; border-color: #4f46e5 !important;
+        color: #fff !important; box-shadow: 0 4px 12px rgba(79,70,229,.35);
+    }
+    #sm-header-menu-panel > button.sm-mode-btn.active[data-mode="narrative"] {
+        background: #7c3aed !important; border-color: #7c3aed !important;
+        color: #fff !important; box-shadow: 0 4px 12px rgba(124,58,237,.35);
+    }
+    #sm-header-menu-panel > button.sm-mode-btn.active[data-mode="timeline"] {
+        background: #0891b2 !important; border-color: #0891b2 !important;
+        color: #fff !important; box-shadow: 0 4px 12px rgba(8,145,178,.35);
+    }
+    #sm-header-menu-panel > button.sm-mode-btn.active[data-mode="variants"] {
+        background: #9333ea !important; border-color: #9333ea !important;
+        color: #fff !important; box-shadow: 0 4px 12px rgba(147,51,234,.35);
+    }
+    #sm-header-menu-panel > button.sm-mode-btn.active i { color: #fff !important; }
+    #sm-header-menu-panel > button.sm-mode-btn.active::after {
+        content: '✓'; position: absolute; top: 4px; right: 6px;
+        font-size: 10px; font-weight: 800; opacity: .95;
+    }
+
+    /* Menu de exportação mobile */
+    #sm-mobile-export-menu {
+        display: none;
+        position: fixed; z-index: 190;
+        left: 10px; right: 10px; top: 62px;
+        max-height: min(70dvh, 500px); overflow-y: auto;
+        padding: 8px; flex-direction: column; gap: 2px;
+        background: #ffffff; border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        box-shadow: 0 18px 45px rgba(15,23,42,.24);
+    }
+    #sm-mobile-export-menu.open { display: flex; }
+    #sm-mobile-export-menu .sm-export-heading {
+        padding: 8px 12px 4px;
+        font-size: 10px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .05em; color: #64748b;
+    }
+    #sm-mobile-export-menu .sm-export-item {
+        display: flex; align-items: center; gap: 10px;
+        padding: 11px 14px; border-radius: 8px;
+        font-size: 13px; font-weight: 500; color: #1e293b;
+        cursor: pointer; background: transparent;
+        border: none; text-align: left; width: 100%;
+        transition: background .1s;
+    }
+    #sm-mobile-export-menu .sm-export-item:hover,
+    #sm-mobile-export-menu .sm-export-item:active { background: #eef2ff; }
+    #sm-mobile-export-menu .sm-export-item i {
+        width: 20px; text-align: center; font-size: 14px;
+    }
+    #sm-mobile-export-menu .sm-export-divider {
+        height: 1px; background: #e2e8f0; margin: 4px 8px;
+    }
+    body.app-theme-dark #sm-mobile-export-menu {
+        background: #1e293b; border-color: #334155;
+    }
+    body.app-theme-dark #sm-mobile-export-menu .sm-export-heading { color: #94a3b8; }
+    body.app-theme-dark #sm-mobile-export-menu .sm-export-item { color: #e2e8f0; }
+    body.app-theme-dark #sm-mobile-export-menu .sm-export-item:hover,
+    body.app-theme-dark #sm-mobile-export-menu .sm-export-item:active { background: #334155; }
+    body.app-theme-dark #sm-mobile-export-menu .sm-export-divider { background: #334155; }
+}
+</style>
+
 </head>
 <body class="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden">
 
@@ -3103,35 +3209,25 @@ body > header > div:first-child #save-status {
     <button type="button" data-sm-action="tools" aria-label="Ferramentas"><i class="fa-solid fa-grip"></i><span>Ferramentas</span></button>
     <button type="button" data-sm-action="edit" aria-label="Editar seleção"><i class="fa-solid fa-sliders"></i><span>Editar</span></button>
 </nav>
-    <div id="sm-header-menu-panel" role="menu" aria-label="Menu principal mobile">
+   <div id="sm-header-menu-panel" role="menu" aria-label="Modos do mapa">
     <div class="sm-tools-heading">
-        <span>Menu principal</span>
-        <button type="button" data-sm-action="header-menu-close" aria-label="Fechar menu"><i class="fa-solid fa-xmark"></i> Fechar</button>
+        <span>Modos</span>
+        <button type="button" data-sm-action="header-menu-close" aria-label="Fechar menu">
+            <i class="fa-solid fa-xmark"></i> Fechar
+        </button>
     </div>
-     <!-- Seletor de Histórias -->
-    <div class="sm-full-width">
-        <label class="sm-label">História</label>
-        <select id="sm-story-select" class="sm-select" onchange="if(window.switchStory) switchStory(this.value);"></select>
-    </div>
-
-    <!-- Seletor de Layout -->
-    <div class="sm-full-width">
-        <label class="sm-label">Layout do Mapa</label>
-        <div class="sm-layout-grid">
-            <button type="button" data-sm-action="layout-tree" class="sm-layout-btn" id="sm-layout-tree">🌳 Árvore</button>
-            <button type="button" data-sm-action="layout-radial" class="sm-layout-btn" id="sm-layout-radial">🎯 Radial</button>
-            <button type="button" data-sm-action="layout-org" class="sm-layout-btn" id="sm-layout-org">🏢 Organograma</button>
-        </div>
-    </div>
-    <button type="button" data-sm-action="layout"><i class="fa-solid fa-sitemap"></i>Organizar</button>
-    <button type="button" data-sm-action="variants"><i class="fa-solid fa-flask"></i>Variantes</button>
-    <button type="button" data-sm-action="narrative"><i class="fa-solid fa-book-open"></i>Modo Narrativo</button>
-    <button type="button" data-sm-action="timeline-mode"><i class="fa-solid fa-timeline"></i>Timeline</button>
-    <button type="button" data-sm-action="export-png"><i class="fa-solid fa-image"></i>Exportar PNG</button>
-    <button type="button" data-sm-action="export-svg"><i class="fa-solid fa-bezier-curve"></i>Exportar SVG</button>
-    <button type="button" data-sm-action="export-md"><i class="fa-brands fa-markdown"></i>Exportar Markdown</button>
-    <button type="button" data-sm-action="export-json"><i class="fa-solid fa-download"></i>Salvar JSON</button>
-    <button type="button" data-sm-action="import-json"><i class="fa-solid fa-upload"></i>Importar JSON</button>
+    <button type="button" data-sm-action="beats" class="sm-mode-btn" data-mode="beats" aria-pressed="false">
+        <i class="fa-solid fa-layer-group"></i>Beats
+    </button>
+    <button type="button" data-sm-action="narrative" class="sm-mode-btn" data-mode="narrative" aria-pressed="false">
+        <i class="fa-solid fa-book-open"></i>Modo Narrativo
+    </button>
+    <button type="button" data-sm-action="timeline-mode" class="sm-mode-btn" data-mode="timeline" aria-pressed="false">
+        <i class="fa-solid fa-timeline"></i>Timeline
+    </button>
+    <button type="button" data-sm-action="variants" class="sm-mode-btn" data-mode="variants" aria-pressed="false">
+        <i class="fa-solid fa-flask"></i>Variantes
+    </button>
 </div>
 
     <div id="sm-mobile-tools" role="dialog" aria-label="Ferramentas" aria-modal="false">
@@ -12171,27 +12267,8 @@ function updateTimelineToggleButton() {
 
   // NOVA FUNÇÃO: Atualiza os dados do menu antes de abrir
   function syncHeaderMenuUI() {
-      // 1. Atualiza o Select de Histórias
-      const select = byId('sm-story-select');
-      if (select && typeof storiesDatabase !== 'undefined' && typeof currentStoryKey !== 'undefined') {
-          select.innerHTML = '';
-          for (const key in storiesDatabase) {
-              const opt = document.createElement('option');
-              opt.value = key;
-              opt.textContent = storiesDatabase[key].title || `História ${key}`;
-              if (key === currentStoryKey) opt.selected = true;
-              select.appendChild(opt);
-          }
-      }
-      
-      // 2. Atualiza o botão do Layout Ativo
-      document.querySelectorAll('.sm-layout-btn').forEach(b => b.classList.remove('active'));
-      if (typeof mindMapData !== 'undefined') {
-          const currentLayout = mindMapData.layout || 'tree';
-          const activeBtn = byId('sm-layout-' + currentLayout);
-          if (activeBtn) activeBtn.classList.add('active');
-      }
-  }
+    syncMobileModeButtons();
+}
   function openMobileInspector() {
     const panel = byId('inspector-sidebar');
     if (panel) { panel.classList.add('sm-sheet-open'); panel.classList.remove('translate-x-full'); }
@@ -12364,27 +12441,147 @@ function updateTimelineToggleButton() {
         break;
     }
 
-    // --- FAXINA FINAL (A parte que você perguntou) ---
-    // 1. Se executou qualquer ação, fecha o menu do topo (exceto se a ação for abrir a barra de ferramentas)
-    if (action !== 'tools' && action !== 'header-menu-close') {
-      closeHeaderMenuNow();
+    // --- FAXINA FINAL ---
+    const keepMenuOpenActions = ['beats', 'narrative', 'timeline-mode', 'variants', 'header-menu-close', 'tools'];
+    if (!keepMenuOpenActions.includes(action)) {
+        closeHeaderMenuNow();
     }
-
-    // 2. Atualiza o botão ativo da barra de navegação inferior
-    if (action !== 'tools') {
-      document.querySelectorAll('#sm-mobile-nav button').forEach(b => 
-        b.classList.toggle('active', b.dataset.smAction === action)
-      );
+    if (keepMenuOpenActions.includes(action) && action !== 'header-menu-close' && action !== 'tools') {
+        syncMobileModeButtons();
+    }
+    if (action !== 'tools' && action !== 'beats' && action !== 'narrative' && action !== 'timeline-mode' && action !== 'variants') {
+        document.querySelectorAll('#sm-mobile-nav button').forEach(b =>
+            b.classList.toggle('active', b.dataset.smAction === action)
+        );
     }
   }
+  /* ============================================================
+   NOVO: botão Exportar no header + menu de exportação mobile
+   ============================================================ */
+function installHeaderExportButton() {
+    const headerLeft = document.querySelector('body > header > div:first-child');
+    if (!headerLeft || byId('sm-header-export')) return;
+    const btn = document.createElement('button');
+    btn.id = 'sm-header-export';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Exportar mapa');
+    btn.setAttribute('aria-expanded', 'false');
+    btn.title = 'Exportar mapa';
+    btn.innerHTML = '<i class="fa-solid fa-camera"></i>';
+    btn.addEventListener('click', function (e) {
+        e.preventDefault(); e.stopPropagation();
+        toggleMobileExportMenu();
+    });
+    const hamburger = byId('sm-header-menu');
+    if (hamburger) headerLeft.insertBefore(btn, hamburger);
+    else headerLeft.appendChild(btn);
+}
+
+function installMobileExportMenu() {
+    if (byId('sm-mobile-export-menu')) return;
+    const menu = document.createElement('div');
+    menu.id = 'sm-mobile-export-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'Exportar mapa');
+    menu.innerHTML = `
+        <div class="sm-export-heading">Exportar mapa</div>
+        <button class="sm-export-item" data-sm-export="png-all" type="button">
+            <i class="fa-solid fa-image" style="color:#059669"></i><span>PNG do mapa inteiro</span>
+        </button>
+        <button class="sm-export-item" data-sm-export="png-selected" type="button">
+            <i class="fa-solid fa-crop" style="color:#4f46e5"></i><span>PNG dos nós selecionados</span>
+        </button>
+        <button class="sm-export-item" data-sm-export="svg" type="button">
+            <i class="fa-solid fa-bezier-curve" style="color:#9333ea"></i><span>SVG vetorial</span>
+        </button>
+        <button class="sm-export-item" data-sm-export="markdown" type="button">
+            <i class="fa-brands fa-markdown" style="color:#334155"></i><span>Markdown (.md)</span>
+        </button>
+        <div class="sm-export-divider"></div>
+        <div class="sm-export-heading">Dados</div>
+        <button class="sm-export-item" data-sm-export="save-json" type="button">
+            <i class="fa-solid fa-download" style="color:#64748b"></i><span>Salvar como JSON...</span>
+        </button>
+        <button class="sm-export-item" data-sm-export="open-json" type="button">
+            <i class="fa-solid fa-upload" style="color:#64748b"></i><span>Abrir JSON...</span>
+        </button>
+    `;
+    document.body.appendChild(menu);
+}
+
+function toggleMobileExportMenu() {
+    const menu = byId('sm-mobile-export-menu');
+    if (!menu) return;
+    const isOpen = menu.classList.toggle('open');
+    const btn = byId('sm-header-export');
+    if (btn) btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    if (isOpen) closeHeaderMenuNow();
+}
+
+function closeMobileExportMenu() {
+    const menu = byId('sm-mobile-export-menu');
+    if (menu) menu.classList.remove('open');
+    const btn = byId('sm-header-export');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+}
+
+function runMobileExportAction(action) {
+    closeMobileExportMenu();
+    switch (action) {
+        case 'png-all':      if (typeof exportPNG === 'function') exportPNG('all'); break;
+        case 'png-selected': if (typeof exportPNG === 'function') exportPNG('selected'); break;
+        case 'svg':          if (typeof exportSVG === 'function') exportSVG(); break;
+        case 'markdown':     if (typeof exportMarkdown === 'function') exportMarkdown(); break;
+        case 'save-json':    if (typeof exportDataWithDialog === 'function') exportDataWithDialog(); break;
+        case 'open-json':    if (typeof openImportDialog === 'function') openImportDialog(); break;
+    }
+}
+
+function syncMobileModeButtons() {
+    const panel = byId('sm-header-menu-panel');
+    if (!panel) return;
+    const state = {
+        beats:     !!(typeof mindMapData !== 'undefined' && mindMapData && mindMapData.beatSheetMode),
+        narrative: !!(typeof mindMapData !== 'undefined' && mindMapData && mindMapData.beatSortMode),
+        timeline:  !!(typeof mindMapData !== 'undefined' && mindMapData && mindMapData.timelineMode),
+        variants:  (typeof showVariants !== 'undefined') ? !!showVariants : false
+    };
+    panel.querySelectorAll('.sm-mode-btn').forEach(btn => {
+        const mode = btn.dataset.mode;
+        const active = !!state[mode];
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+}
   document.addEventListener('click', function (e) {
     const button = e.target.closest('[data-sm-action]');
     if (button) { e.preventDefault(); runAction(button.dataset.smAction); return; }
-    const tools = byId('sm-mobile-tools'); const headerMenu = byId('sm-header-menu-panel');
+
+    const exportItem = e.target.closest('[data-sm-export]');
+    if (exportItem) {
+        e.preventDefault();
+        runMobileExportAction(exportItem.dataset.smExport);
+        return;
+    }
+
+    const tools = byId('sm-mobile-tools');
+    const headerMenu = byId('sm-header-menu-panel');
+    const exportMenu = byId('sm-mobile-export-menu');
+
     if (tools && tools.classList.contains('open') && !tools.contains(e.target)) tools.classList.remove('open');
     if (headerMenu && headerMenu.classList.contains('open') && !headerMenu.contains(e.target) && !e.target.closest('#sm-header-menu')) headerMenu.classList.remove('open');
-  });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { const tools = byId('sm-mobile-tools'); const headerMenu = byId('sm-header-menu-panel'); if (tools) tools.classList.remove('open'); if (headerMenu) headerMenu.classList.remove('open'); closeMobileInspector(); } });
+    if (exportMenu && exportMenu.classList.contains('open') && !exportMenu.contains(e.target) && !e.target.closest('#sm-header-export')) exportMenu.classList.remove('open');
+});
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    const tools = byId('sm-mobile-tools');
+    const headerMenu = byId('sm-header-menu-panel');
+    const exportMenu = byId('sm-mobile-export-menu');
+    if (tools) tools.classList.remove('open');
+    if (headerMenu) headerMenu.classList.remove('open');
+    if (exportMenu) exportMenu.classList.remove('open');
+    closeMobileInspector();
+});
   // A chamada existente closeInspector é preservada e recebe somente um gancho mobile.
   const originalCloseInspector = window.closeInspector;
   if (typeof originalCloseInspector === 'function') {
@@ -12411,6 +12608,8 @@ function updateTimelineToggleButton() {
   window.addEventListener('resize', applyDeviceClasses, { passive: true });
   applyDeviceClasses();
   installHeaderMenu();
+    installHeaderExportButton();   // NOVO
+  installMobileExportMenu();     // NOVO
   // Registra PWA apenas em contexto seguro e sem interferir no fluxo de autenticação.
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     window.addEventListener('load', function () { navigator.serviceWorker.register('./service-worker.js').catch(function (err) { console.warn('StoryMind: service worker indisponível', err); }); }, { once: true });
