@@ -1794,6 +1794,14 @@ body > header > div:first-child #save-status {
         content: '✓'; position: absolute; top: 4px; right: 6px;
         font-size: 10px; font-weight: 800; opacity: .95;
     }
+        /* Divisores entre as 3 seções do menu */
+    #sm-header-menu-panel .sm-section-divider {
+        grid-column: 1 / -1;
+        height: 1px;
+        background: #e2e8f0;
+        margin: 6px 2px;
+    }
+    body.app-theme-dark #sm-header-menu-panel .sm-section-divider { background: #334155; }
 
     /* Menu de exportação mobile */
     #sm-mobile-export-menu {
@@ -3210,12 +3218,40 @@ body > header > div:first-child #save-status {
     <button type="button" data-sm-action="tools" aria-label="Ferramentas"><i class="fa-solid fa-grip"></i><span>Ferramentas</span></button>
     <button type="button" data-sm-action="edit" aria-label="Editar seleção"><i class="fa-solid fa-sliders"></i><span>Editar</span></button>
 </nav>
-   <div id="sm-header-menu-panel" role="menu" aria-label="Modos do mapa">
+   <div id="sm-header-menu-panel" role="menu" aria-label="Menu principal mobile">
     <div class="sm-tools-heading">
-        <span>Modos</span>
+        <span>Menu principal</span>
         <button type="button" data-sm-action="header-menu-close" aria-label="Fechar menu">
             <i class="fa-solid fa-xmark"></i> Fechar
         </button>
+    </div>
+
+    <!-- ==================== SEÇÃO 1: HISTÓRIA ==================== -->
+    <div class="sm-full-width">
+        <label class="sm-label">📚 História</label>
+        <select id="sm-story-select" class="sm-select"
+                onchange="if(window.switchStory) switchStory(this.value);"></select>
+    </div>
+
+    <!-- ==================== DIVISOR ==================== -->
+    <div class="sm-section-divider"></div>
+
+    <!-- ==================== SEÇÃO 2: ESTILO DO MAPA ==================== -->
+    <div class="sm-full-width">
+        <label class="sm-label">🗺️ Estilo do Mapa</label>
+        <div class="sm-layout-grid">
+            <button type="button" data-sm-action="layout-tree"   id="sm-layout-tree"   class="sm-layout-btn">🌳<br>Árvore</button>
+            <button type="button" data-sm-action="layout-radial" id="sm-layout-radial" class="sm-layout-btn">🎯<br>Radial</button>
+            <button type="button" data-sm-action="layout-org"    id="sm-layout-org"    class="sm-layout-btn">🏢<br>Organograma</button>
+        </div>
+    </div>
+
+    <!-- ==================== DIVISOR ==================== -->
+    <div class="sm-section-divider"></div>
+
+    <!-- ==================== SEÇÃO 3: MODOS ==================== -->
+    <div class="sm-full-width">
+        <label class="sm-label">⚙️ Modos</label>
     </div>
     <button type="button" data-sm-action="beats" class="sm-mode-btn" data-mode="beats" aria-pressed="false">
         <i class="fa-solid fa-layer-group"></i>Beats
@@ -12267,7 +12303,29 @@ function updateTimelineToggleButton() {
   }
 
   // NOVA FUNÇÃO: Atualiza os dados do menu antes de abrir
-  function syncHeaderMenuUI() {
+function syncHeaderMenuUI() {
+    // ---------- 1) HISTÓRIA ----------
+    const select = byId('sm-story-select');
+    if (select && typeof storiesDatabase !== 'undefined' && typeof currentStoryKey !== 'undefined') {
+        select.innerHTML = '';
+        for (const key in storiesDatabase) {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = storiesDatabase[key].title || `História ${key}`;
+            if (key === currentStoryKey) opt.selected = true;
+            select.appendChild(opt);
+        }
+    }
+
+    // ---------- 2) ESTILO DO MAPA ----------
+    document.querySelectorAll('#sm-header-menu-panel .sm-layout-btn').forEach(b => b.classList.remove('active'));
+    if (typeof mindMapData !== 'undefined' && mindMapData) {
+        const currentLayout = mindMapData.layout || 'tree';
+        const activeBtn = byId('sm-layout-' + currentLayout);
+        if (activeBtn) activeBtn.classList.add('active');
+    }
+
+    // ---------- 3) MODOS ----------
     syncMobileModeButtons();
 }
   function openMobileInspector() {
