@@ -1467,7 +1467,7 @@ body > header > div:first-child #save-status {
             #outline-panel { position: absolute !important; inset: 0 auto 0 0 !important; width: min(88vw, 360px) !important; margin-left: 0 !important; transform: translateX(-105%); z-index: 70 !important; transition: transform .22s ease !important; }
             #outline-panel:not(.-ml-64) { transform: translateX(0); }
             #minimap { display: none !important; }
-            #st-node-tooltip, #tl-tooltip { display: none !important; }
+            #node-tooltip, #st-node-tooltip, #tl-tooltip { display: none !important; }
             #inspector-sidebar { position: fixed !important; z-index: 160 !important; left: 0 !important; right: 0 !important; top: auto !important; bottom: calc(var(--sm-mobile-nav-h) + var(--sm-safe-bottom)) !important; width: 100% !important; max-width: 100vw !important; height: min(82dvh, 760px) !important; border-radius: 18px 18px 0 0 !important; border: 1px solid #cbd5e1 !important; box-shadow: 0 -12px 38px rgba(15,23,42,.22) !important; transform: translateY(calc(100% + 24px)) !important; visibility: hidden; transition: transform .24s ease, visibility .24s ease !important; }
             #inspector-sidebar.sm-sheet-open { transform: translateY(0) !important; visibility: visible !important; }
             #inspector-sidebar > div:first-child { padding: 13px 16px !important; border-radius: 18px 18px 0 0; }
@@ -1921,43 +1921,6 @@ body > header > div:first-child #save-status {
     body.app-theme-dark #sm-header-menu-panel .sm-tools-heading { color: #f1f5f9; }
     body.app-theme-dark #sm-header-menu-panel .sm-tools-heading button {
         background: #334155; border-color: #475569; color: #e2e8f0;
-    }
-}
-@media (hover: none) and (max-width: 640px) {
-    /* Estilo do Tooltip no Mobile */
-    #node-tooltip {
-        position: fixed !important;
-        top: 50% !important;
-        left: 50% !important;
-        transform: translate(-50%, -50%) !important;
-        width: calc(100vw - 32px) !important;
-        max-width: 400px !important;
-        max-height: 80vh !important;
-        z-index: 9999 !important;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
-        border-radius: 16px !important;
-        animation: tooltip-pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
-    }
-    
-    /* Fundo escuro atrás do tooltip */
-    body.tooltip-open::before {
-        content: '';
-        position: fixed;
-        inset: 0;
-        background: rgba(15, 23, 42, 0.6);
-        backdrop-filter: blur(2px);
-        z-index: 9998;
-        pointer-events: none;
-    }
-
-    @keyframes tooltip-pop {
-        from { opacity: 0; transform: translate(-50%, -45%) scale(0.95); }
-        to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-    }
-    
-    body.app-theme-dark #node-tooltip {
-        background: #1e293b !important;
-        border-color: #334155 !important;
     }
 }
 </style>
@@ -3888,7 +3851,6 @@ function restoreHistoryForSheet(sheetId) {
         let tensionStripVisible = true;
         let hoveredNodeId = null;
         let tooltipTimer = null;
-        let mobileLongPressTimer = null;
         let previewHeld = false;
         let showVariants = true;
         let variantModalAnchorId = null;
@@ -4209,7 +4171,7 @@ function startInlineEdit(nodeId, field) {
             return html;
         }
 
-                function showNodeTooltipFromCard(nodeId) {
+        function showNodeTooltipFromCard(nodeId) {
             const node = mindMapData.nodes.find(n => n.id === nodeId);
             if (!node) return;
             const html = buildTooltipHTML(node);
@@ -4221,35 +4183,20 @@ function startInlineEdit(nodeId, field) {
             if (!tt) return;
             tt.innerHTML = html;
             tt.classList.remove('hidden');
-            
-            // NOVO: Adiciona classe para escurecer o fundo (apenas mobile)
-            if (window.DEVICE?.isMobile) document.body.classList.add('tooltip-open');
-
             void tt.offsetWidth;
             const ttRect = tt.getBoundingClientRect();
-            
-            // Se for mobile, o CSS já centraliza. Se for desktop, calcula a posição lateral.
-            if (!window.DEVICE?.isMobile) {
-                let left = cardRect.right + 12;
-                let top = cardRect.top;
-                if (left + ttRect.width > window.innerWidth - 12) left = cardRect.left - ttRect.width - 12;
-                if (left < 12) left = 12;
-                if (top + ttRect.height > window.innerHeight - 12) top = window.innerHeight - ttRect.height - 12;
-                if (top < 12) top = 12;
-                tt.style.left = left + 'px'; 
-                tt.style.top = top + 'px';
-            }
+            let left = cardRect.right + 12;
+            let top = cardRect.top;
+            if (left + ttRect.width > window.innerWidth - 12) left = cardRect.left - ttRect.width - 12;
+            if (left < 12) left = 12;
+            if (top + ttRect.height > window.innerHeight - 12) top = window.innerHeight - ttRect.height - 12;
+            if (top < 12) top = 12;
+            tt.style.left = left + 'px'; tt.style.top = top + 'px';
         }
 
         function cancelNodeTooltip() { if (tooltipTimer) { clearTimeout(tooltipTimer); tooltipTimer = null; } }
-        
-        function hideNodeTooltip() { 
-            cancelNodeTooltip(); 
-            const tt = document.getElementById('node-tooltip'); 
-            if (tt) tt.classList.add('hidden'); 
-            // NOVO: Remove o fundo escuro
-            document.body.classList.remove('tooltip-open');
-        }
+        function hideNodeTooltip() { cancelNodeTooltip(); const tt = document.getElementById('node-tooltip'); if (tt) tt.classList.add('hidden'); }
+
         function scheduleTooltipForHovered() {
             cancelNodeTooltip();
             if (!hoveredNodeId) return;
@@ -7528,28 +7475,11 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
                                       ${!isBeatSheet && !isBeatSort && !isTimelineMode && children > 0 ? `<button onclick="event.stopPropagation(); toggleCollapse('${node.id}')" class="absolute -left-3.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full shadow-md flex items-center justify-center text-[10px] font-bold transition ${node.collapsed ? 'bg-slate-700 text-white' : 'bg-white border border-slate-300 text-slate-700'} hover:scale-110 z-20" title="${node.collapsed ? 'Expandir' : 'Recolher'}">${node.collapsed ? '+' + descendantCount(node.id) : '−'}</button>` : ''}
                     ${!isTimelineMode ? `<button onclick="event.stopPropagation(); addChildToNode('${node.id}')" class="absolute -right-3.5 top-1/2 -translate-y-1/2 w-7 h-7 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-md flex items-center justify-center text-xs transition transform hover:scale-110 z-20" title="Adicionar nó filho (Tab)"><i class="fa-solid fa-plus"></i></button>` : ''}
                 `;
-                               if (!isEditing) {
+                if (!isEditing) {
                     el.onpointerdown = (e) => {
-                        if (eyedropperArmed) return;
+  			if (eyedropperArmed) return;
                         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.closest('button')) return;
                         if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
-
-                        // LÓGICA DE LONG PRESS PARA MOBILE
-                        if (e.pointerType === 'touch' || window.DEVICE?.isMobile) {
-                            if (mobileLongPressTimer) clearTimeout(mobileLongPressTimer);
-                            mobileLongPressTimer = setTimeout(() => {
-                                mobileLongPressTimer = null;
-                                // Impede que o nó arraste enquanto o tooltip abre
-                                draggedNodeId = null;
-                                initialDragPositions.clear();
-                                dragMoved = false;
-                                // Abre o tooltip
-                                showNodeTooltipFromCard(node.id);
-                                // Vibração sutil (se suportado)
-                                if (navigator.vibrate) navigator.vibrate(50);
-                            }, 500); // 500ms de segurar
-                        }
-
                         e.stopPropagation();
                         activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
                         if (activePointers.size >= 2) { cancelAllInteractions(); startPinch(); return; }
@@ -7576,6 +7506,7 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
                                 selectedNodeIds.add(node.id);
                             }
                             startDragSelectedNodes(e);
+                            // Em mobile, tocar/arrastar seleciona e move o nó. A edição abre apenas pelo botão inferior.
                             if (!window.DEVICE?.isMobile) {
                                 if (selectedNodeIds.size === 1 && selectedNodeIds.has(node.id)) openInspectorFor(node.id);
                                 else if (selectedNodeIds.size > 1) { openMultiInspector(); renderApp(); }
@@ -7978,7 +7909,6 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
             if (draggedNodeId !== null) {
                 if (!dragMoved) {
                     const dx = clientX - dragStartClientX, dy = clientY - dragStartClientY;
-                 if (mobileLongPressTimer) { clearTimeout(mobileLongPressTimer); mobileLongPressTimer = null; }
                      const deadzone = event.pointerType === 'touch' ? 15 : DRAG_DEADZONE_PX;
                     if (dx * dx + dy * dy < DRAG_DEADZONE_PX * DRAG_DEADZONE_PX) return;
                     if (altCopyPending) { performAltCopy(); altCopyPending = false; }
