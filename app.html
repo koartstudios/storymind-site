@@ -12475,10 +12475,16 @@ function syncHeaderMenuUI() {
       case 'beat-change': if (typeof openBeatSheetPicker === 'function') openBeatSheetPicker(); break;
       case 'minimap': if (typeof toggleMinimap === 'function') toggleMinimap(); break;
       case 'reset': if (typeof resetView === 'function') resetView(); break;
-      case 'edit':
-        if (typeof selectedNodeIds !== 'undefined' && selectedNodeIds.size > 1 && typeof openMultiInspector === 'function') openMultiInspector();
-        else if (typeof selectedNodeIds !== 'undefined' && selectedNodeIds.size === 1 && typeof openInspectorFor === 'function') openInspectorFor(Array.from(selectedNodeIds)[0]);
-        else if (tools) { tools.classList.add('open'); }
+     case 'edit':
+        if (typeof selectedNodeIds !== 'undefined' && selectedNodeIds.size > 1 && typeof openMultiInspector === 'function') {
+          openMultiInspector();
+        } else if (typeof selectedNodeIds !== 'undefined' && selectedNodeIds.size === 1 && typeof openInspectorFor === 'function') {
+          openInspectorFor(Array.from(selectedNodeIds)[0]);
+        } else {
+          if (typeof showToast === 'function') {
+            showToast('Selecione um nó para editar/personalizar', 'warn', 2200);
+          }
+        }
         break;
       case 'pan': if (typeof setTool === 'function') setTool('pan'); if (tools) tools.classList.remove('open'); break;
       case 'relation': if (typeof setTool === 'function') setTool('relation'); if (tools) tools.classList.remove('open'); break;
