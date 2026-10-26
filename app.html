@@ -1848,6 +1848,140 @@ body > header > div:first-child #save-status {
 }
 </style>
 
+<style>
+/* ==================== Mobile Info Badge + Modal (mobile-only) ==================== */
+.node-card .mobile-info-badge {
+    display: none;
+    position: absolute;
+    bottom: -24px;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 4px;
+    padding: 0 9px 0 9px;
+    align-items: center; justify-content: center;
+    gap: 5px;
+    background: rgba(14,165,233,.88);
+    color: #fff;
+    border: 1.5px solid rgba(255,255,255,.7);
+    border-radius: 13px;
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    backdrop-filter: blur(14px) saturate(160%);
+    box-shadow: 0 6px 20px rgba(14,165,233,.5),
+                0 2px 4px rgba(0,0,0,.12),
+                inset 0 1px 0 rgba(255,255,255,.5);
+    z-index: 06;
+    font-family: Inter, sans-serif;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    white-space: nowrap;
+    transition: transform .15s, box-shadow .15s;
+}
+.node-card .mobile-info-badge i { font-size: 10px; }
+.node-card .mobile-info-badge::after {
+    content: 'Info';
+}
+.node-card .mobile-info-badge:active {
+    transform: translateX(-50%) scale(.93);
+    box-shadow: 0 3px 10px rgba(14,165,233,.6);
+}
+
+body.app-theme-dark .node-card .mobile-info-badge {
+    background: rgba(8,145,178,.92);
+    border-color: rgba(103,232,249,.4);
+}
+
+@media (hover: none) and (max-width: 640px) {
+    .node-card .mobile-info-badge { display: inline-flex; }
+
+    #mobile-info-backdrop {
+        position: fixed; inset: 0;
+        background: rgba(15,23,42,.6);
+        z-index: 399; display: none;
+        -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+    }
+    #mobile-info-backdrop.open { display: block; }
+
+    /* Transforma o #node-tooltip em bottom-sheet modal */
+    #node-tooltip.mobile-info-open {
+        display: flex !important;
+        flex-direction: column;
+        position: fixed !important;
+        top: auto !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+        width: 100% !important; max-width: 100vw !important;
+        height: auto !important; max-height: 88dvh !important;
+        margin: 0 !important; padding: 0 !important;
+        border-radius: 22px 22px 0 0 !important;
+        border: none !important;
+        border-top: 3px solid #0ea5e9 !important;
+        box-shadow: 0 -12px 40px rgba(0,0,0,.4) !important;
+        z-index: 400 !important;
+        overflow: hidden;
+        animation: mni-slide-up .26s cubic-bezier(.16,1,.3,1) !important;
+        background: #ffffff !important;
+        font-size: 13px !important;
+    }
+    #node-tooltip.mobile-info-open .mni-modal-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 14px 18px 12px;
+        background: linear-gradient(135deg, #e0f2fe, #f0f9ff);
+        border-bottom: 1px solid #e2e8f0; flex-shrink: 0;
+    }
+    #node-tooltip.mobile-info-open .mni-modal-header-title {
+        font-size: 12px; font-weight: 800; text-transform: uppercase;
+        letter-spacing: .05em; color: #0c4a6e;
+        display: flex; align-items: center; gap: 8px;
+    }
+    #node-tooltip.mobile-info-open .mni-modal-close {
+        width: 34px; height: 34px; border-radius: 50%;
+        background: #fff; color: #475569; border: 1px solid #e2e8f0;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; flex-shrink: 0; font-size: 14px; padding: 0;
+        -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+    }
+    #node-tooltip.mobile-info-open .mni-modal-close:active { background: #f1f5f9; color: #0c4a6e; }
+    #node-tooltip.mobile-info-open .mni-modal-body {
+        padding: 16px 18px calc(24px + env(safe-area-inset-bottom,0px));
+        overflow-y: auto; flex: 1;
+        -webkit-overflow-scrolling: touch;
+        font-size: 13px; line-height: 1.5;
+    }
+    #node-tooltip.mobile-info-open .tt-hint { display: none !important; }
+    #node-tooltip.mobile-info-open .tt-title  { font-size: 16px !important; margin-bottom: 10px; }
+    #node-tooltip.mobile-info-open .tt-row    { font-size: 13px !important; margin-bottom: 6px; }
+    #node-tooltip.mobile-info-open .tt-label  { font-size: 11px !important; }
+    #node-tooltip.mobile-info-open .tt-value  { font-size: 13px !important; }
+    #node-tooltip.mobile-info-open .tt-content {
+        font-size: 13px !important; padding: 10px 12px !important;
+        background: #f8fafc; border-radius: 8px; border-top: none; margin-top: 12px;
+    }
+    #node-tooltip.mobile-info-open .tt-pov   { font-size: 12px !important; padding: 4px 10px !important; }
+    #node-tooltip.mobile-info-open .tt-badge { font-size: 11px !important; padding: 3px 9px !important; }
+    #node-tooltip.mobile-info-open .tt-empty { font-size: 12px !important; }
+
+    /* Dark theme */
+    body.app-theme-dark #node-tooltip.mobile-info-open { background: #1e293b !important; }
+    body.app-theme-dark #node-tooltip.mobile-info-open .mni-modal-header {
+        background: linear-gradient(135deg, #0c4a6e, #164e63);
+        border-bottom-color: #334155;
+    }
+    body.app-theme-dark #node-tooltip.mobile-info-open .mni-modal-header-title { color: #67e8f9; }
+    body.app-theme-dark #node-tooltip.mobile-info-open .mni-modal-close {
+        background: #334155; color: #e2e8f0; border-color: #475569;
+    }
+    body.app-theme-dark #node-tooltip.mobile-info-open .tt-content { background: #0f172a; }
+}
+
+@keyframes mni-slide-up {
+    from { transform: translateY(100%); opacity: .7; }
+    to   { transform: translateY(0);    opacity: 1; }
+}
+</style>
+
 </head>
 <body class="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden">
 
@@ -3281,7 +3415,7 @@ body > header > div:first-child #save-status {
     <button type="button" data-sm-action="skilltree"><i class="fa-solid fa-sitemap"></i>Árvore de Habilidades</button>
     <button type="button" data-sm-action="write-scene"><i class="fa-solid fa-pen-nib"></i>Escrever cena</button>
 </div>
-
+<div id="mobile-info-backdrop" onclick="closeMobileNodeInfo()"></div>
     <div id="toast-container"></div>
     <div id="node-tooltip" class="hidden"></div>
     <div id="st-copy-modal" class="fixed inset-0 z-[300] hidden items-center justify-center bg-slate-900/50 p-4" onclick="if(event.target===this) skillTreeCloseCopyModal()">
@@ -7583,6 +7717,16 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
                         <span>${swWordCount > 0 ? swWordCount + ' pal.' : 'Rascunho'}</span>
                     </div>`
                     : '';
+                    // ⬇️ NOVO: badge de info mobile (mostrado apenas via CSS em telas touch ≤640px)
+const hasMobileInfo = !!(node.type || (node.pov && node.pov.trim()));
+const mobileInfoBadgeHTML = hasMobileInfo
+    ? `<button type="button" class="mobile-info-badge"
+              onclick="event.stopPropagation(); openMobileNodeInfo('${node.id}')"
+              onpointerdown="event.stopPropagation()"
+              title="Ver detalhes do nó" aria-label="Ver detalhes do nó">
+          <i class="fa-solid fa-circle-info"></i>
+       </button>`
+    : '';
                 const cardTypeSummary = getCardTypeSummary(node);
                 const cardSummaryHTML = cardTypeSummary ? `<div class="text-[10px] font-semibold mb-1 truncate" style="color:${typeDef ? typeDef.color : '#475569'}" title="${escapeHTML(cardTypeSummary)}">${escapeHTML(cardTypeSummary)}</div>` : '';
                 el.innerHTML = `
@@ -7593,6 +7737,7 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
                     ${sceneDiagBadgeHTML}
                     ${refBadgeHTML}
                     ${writingBadgeHTML}
+                    ${mobileInfoBadgeHTML}
                     <div class="mb-1.5 min-w-0">${titleHTML}</div>
                     ${cardSummaryHTML}
                     ${povBadgeHTML}
@@ -12690,6 +12835,83 @@ function syncMobileModeButtons() {
     window.addEventListener('load', function () { navigator.serviceWorker.register('./service-worker.js').catch(function (err) { console.warn('StoryMind: service worker indisponível', err); }); }, { once: true });
   }
 })();
+</script>
+<script>
+// ==================== Mobile Node Info Badge + Modal ====================
+function openMobileNodeInfo(nodeId) {
+    // Fallback desktop: usa o tooltip normal de hover
+    if (!window.DEVICE || !window.DEVICE.isMobile) {
+        if (typeof showNodeTooltipFromCard === 'function') showNodeTooltipFromCard(nodeId);
+        return;
+    }
+    const node = mindMapData.nodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    const html = buildTooltipHTML(node);
+    if (!html || !html.trim()) {
+        showToast('Este nó não tem detalhes adicionais.', 'info', 1800);
+        return;
+    }
+    const tt = document.getElementById('node-tooltip');
+    const backdrop = document.getElementById('mobile-info-backdrop');
+    if (!tt || !backdrop) return;
+
+    // Limpa qualquer estado anterior
+    if (typeof hideNodeTooltip === 'function') hideNodeTooltip();
+    tt.classList.remove('hidden');
+    tt.style.cssText = '';
+
+    tt.innerHTML = `
+        <div class="mni-modal-header">
+            <div class="mni-modal-header-title">
+                <i class="fa-solid fa-circle-info"></i>
+                <span>Detalhes do Nó</span>
+            </div>
+            <button type="button" class="mni-modal-close"
+                    onclick="closeMobileNodeInfo()" aria-label="Fechar">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="mni-modal-body">${html}</div>
+    `;
+
+    tt.classList.add('mobile-info-open');
+    backdrop.classList.add('open');
+    if (navigator.vibrate) { try { navigator.vibrate(8); } catch(_) {} }
+}
+
+function closeMobileNodeInfo() {
+    const tt = document.getElementById('node-tooltip');
+    const backdrop = document.getElementById('mobile-info-backdrop');
+    if (!tt) return;
+    tt.classList.remove('mobile-info-open');
+    tt.classList.add('hidden');
+    tt.style.cssText = '';
+    setTimeout(() => {
+        if (!tt.classList.contains('mobile-info-open')) tt.innerHTML = '';
+    }, 280);
+    if (backdrop) backdrop.classList.remove('open');
+}
+
+// ESC fecha (capture-phase para rodar antes dos handlers existentes)
+window.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        const tt = document.getElementById('node-tooltip');
+        if (tt && tt.classList.contains('mobile-info-open')) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            closeMobileNodeInfo();
+        }
+    }
+}, true);
+
+// Fecha se sair do mobile (ex.: rotação de tela)
+window.addEventListener('resize', function () {
+    if (window.DEVICE && !window.DEVICE.isMobile) {
+        const tt = document.getElementById('node-tooltip');
+        if (tt && tt.classList.contains('mobile-info-open')) closeMobileNodeInfo();
+    }
+});
 </script>
 
 </body>
