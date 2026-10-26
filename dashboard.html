@@ -548,6 +548,175 @@
         .row.it, .gv .card, .empty, .menu { animation: none !important; }
         * { transition: none !important; }
     }
+    /* =====================================================================
+   STORY TIPS BANNER — dicas flutuantes de storytelling
+   ===================================================================== */
+#story-tips-banner {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 360px;
+    max-width: calc(100vw - 40px);
+    z-index: 500;
+    background: linear-gradient(135deg, rgba(30,32,60,.97), rgba(18,20,42,.99));
+    border: 1px solid rgba(129,140,248,.28);
+    border-radius: 16px;
+    box-shadow:
+        0 20px 48px -12px rgba(0,0,0,.55),
+        0 0 0 1px rgba(255,255,255,.04) inset;
+    color: #e8e9ff;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    backdrop-filter: blur(16px) saturate(140%);
+    transform: translateY(120%) scale(.96);
+    opacity: 0;
+    transition: transform .45s cubic-bezier(.16,1,.3,1), opacity .3s ease;
+    pointer-events: none;
+}
+#story-tips-banner.show {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#story-tips-banner .stb-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 12px 8px 14px;
+    border-bottom: 1px solid rgba(129,140,248,.14);
+}
+#story-tips-banner .stb-icon {
+    font-size: 15px;
+    line-height: 1;
+    flex: none;
+    filter: drop-shadow(0 0 6px rgba(251,191,36,.45));
+}
+#story-tips-banner .stb-tag {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: #a5b4fc;
+    background: rgba(99,102,241,.18);
+    border: 1px solid rgba(129,140,248,.25);
+    padding: 3px 8px;
+    border-radius: 999px;
+    flex: none;
+}
+#story-tips-banner .stb-counter {
+    font-size: 10px;
+    font-weight: 700;
+    color: #6366f1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .02em;
+    opacity: .85;
+    margin-left: auto;
+    padding-right: 4px;
+}
+#story-tips-banner .stb-nav,
+#story-tips-banner .stb-close {
+    width: 26px;
+    height: 26px;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 7px;
+    border: 0;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 10px;
+    padding: 0;
+    transition: background .12s, color .12s, transform .12s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+#story-tips-banner .stb-nav:hover,
+#story-tips-banner .stb-close:hover {
+    background: rgba(99,102,241,.18);
+    color: #e0e7ff;
+}
+#story-tips-banner .stb-nav:active,
+#story-tips-banner .stb-close:active {
+    transform: scale(.9);
+}
+#story-tips-banner .stb-close {
+    margin-left: 2px;
+}
+#story-tips-banner .stb-close:hover {
+    background: rgba(251,113,133,.18);
+    color: #fda4af;
+}
+
+#story-tips-banner .stb-text {
+    margin: 0;
+    padding: 12px 16px 14px;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: #d8daf5;
+    font-weight: 500;
+    letter-spacing: .005em;
+}
+
+#story-tips-banner .stb-progress {
+    height: 3px;
+    background: rgba(99,102,241,.14);
+    overflow: hidden;
+    position: relative;
+}
+#story-tips-banner .stb-progress-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 100%;
+    background: linear-gradient(90deg, #818cf8, #a855f7, #ec4899);
+    border-radius: 0 3px 3px 0;
+    transform-origin: left center;
+    animation: stb-progress linear forwards;
+}
+@keyframes stb-progress {
+    from { width: 100%; }
+    to   { width: 0%; }
+}
+
+/* Mobile: acima do FAB "Novo mapa" (que fica em bottom:16px) */
+@media (max-width: 760px) {
+    #story-tips-banner {
+        left: 12px;
+        right: 12px;
+        bottom: calc(90px + env(safe-area-inset-bottom));
+        width: auto;
+        max-width: none;
+        border-radius: 14px;
+    }
+    #story-tips-banner .stb-text {
+        font-size: 12px;
+        padding: 11px 14px 13px;
+        line-height: 1.5;
+    }
+    #story-tips-banner .stb-head {
+        padding: 10px 10px 7px 12px;
+    }
+    #story-tips-banner .stb-nav,
+    #story-tips-banner .stb-close {
+        width: 30px;
+        height: 30px;
+        font-size: 11px;
+    }
+}
+
+/* Respeita preferências de movimento reduzido */
+@media (prefers-reduced-motion: reduce) {
+    #story-tips-banner {
+        transform: none !important;
+        transition: opacity .2s ease;
+    }
+    #story-tips-banner .stb-progress-fill {
+        animation: none !important;
+    }
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="assets/config.js"></script><script src="assets/auth.js"></script>
@@ -645,6 +814,252 @@
                 r.style.animationDelay = (i * 25) + 'ms';
             });
         }).observe(listEl, { childList: true, subtree: true });
+    }
+})();
+</script>
+<script>
+/* =====================================================================
+   STORY TIPS — dicas rotativas de storytelling
+   ===================================================================== */
+(function () {
+    'use strict';
+
+    const STORAGE_KEY   = 'storymind_tips_dismissed';
+    const SHOW_MS       = 16000;   // tempo visível de cada dica
+    const GAP_MS        = 42000;   // intervalo entre dicas
+    const FIRST_DELAY_MS = 4000;   // 1ª aparição após carregar
+
+    // Se o usuário já fechou nesta sessão, não mostra mais
+    try { if (sessionStorage.getItem(STORAGE_KEY) === '1') return; } catch(_) {}
+
+    const TIPS = [
+        { tag: 'Trama',       text: 'Toda cena precisa de um ponto de virada. Se o valor em jogo (amor, verdade, poder) começa e termina igual, corte ou reescreva a cena.' },
+        { tag: 'Trama',       text: 'Enter late, leave early: comece cada cena no momento do conflito e saia antes que a energia caia.' },
+        { tag: 'Trama',       text: 'A cena que não muda nada é uma cena a menos. Pergunte: o que mudou do começo ao fim?' },
+        { tag: 'Personagem',  text: 'Personagens não são descritos — são revelados pelas escolhas que fazem sob pressão.' },
+        { tag: 'Personagem',  text: 'Todo protagonista precisa de um "querer" externo e um "precisar" interno. O conflito entre eles é o motor da história.' },
+        { tag: 'Personagem',  text: 'O antagonista é o herói da própria história. Se ele é apenas "mal", ele não é real.' },
+        { tag: 'Personagem',  text: 'Nenhum personagem deve ser o mesmo no final. Se ele não muda, a história não aconteceu.' },
+        { tag: 'Personagem',  text: 'Toda motivação nasce de uma ferida. Qual é a ferida do seu protagonista?' },
+        { tag: 'Diálogo',     text: 'Se a fala pode ser cortada e a cena continua funcionando, corte. Se não, ótimo.' },
+        { tag: 'Diálogo',     text: 'Diálogo é conflito, não informação. Quem fala quer algo de quem ouve.' },
+        { tag: 'Diálogo',     text: 'Subtexto: o que o personagem diz nunca é 100% o que ele sente ou quer.' },
+        { tag: 'Diálogo',     text: 'As pessoas não dizem o que querem — dizem o que acham aceitável dizer.' },
+        { tag: 'Estrutura',   text: 'Save the Cat: coloque o protagonista numa cena salvando algo pequeno nos primeiros minutos. Empatia instantânea.' },
+        { tag: 'Estrutura',   text: 'Incidente incitante: se a história fosse só isso, o leitor já teria motivo para virar a página.' },
+        { tag: 'Estrutura',   text: 'Ato I promete. Ato II complica. Ato III paga. Se prometeu, cumpra.' },
+        { tag: 'Estrutura',   text: 'Midpoint: uma falsa vitória ou derrota que muda o motor da história e as apostas.' },
+        { tag: 'Tensão',      text: 'Tensão não é ação. É a lacuna entre o que o personagem quer e o que ele teme.' },
+        { tag: 'Tensão',      text: 'Drama é expectativa + incerteza. Dê ao leitor algo para esperar, depois duvide que vá acontecer.' },
+        { tag: 'Tensão',      text: 'O silêncio também é diálogo. Deixe o personagem hesitar, e o leitor preenche.' },
+        { tag: 'Revisão',     text: 'Primeiro rascunho é descobrir. Segundo é cortar. Terceiro é afiar.' },
+        { tag: 'Revisão',     text: 'Escreva bêbado, edite sóbrio. O crítico interno é o pior inimigo do primeiro capítulo.' },
+        { tag: 'Revisão',     text: 'Leia em voz alta. Se sua língua tropeçar, o leitor também vai tropeçar.' },
+        { tag: 'Mundo',       text: 'O mundo precisa de regras claras — e de uma regra que o protagonista vai quebrar.' },
+        { tag: 'Mundo',       text: 'Cada cenário deve pressionar o personagem. Se o lugar não causa atrito, é decoração.' },
+        { tag: 'Tema',        text: 'Tema é o que o personagem aprende — ou se recusa a aprender. Se você consegue dizer em uma frase, ele existe.' },
+        { tag: 'Tema',        text: 'Não escreva o tema. Dramatize o tema. Se o leitor não descobrir sozinho, ele não sente.' },
+        { tag: 'Suspense',    text: 'Suspense é quando o leitor sabe mais que o personagem. Mistério é quando ele sabe menos.' },
+        { tag: 'Suspense',    text: 'O assassino precisa aparecer nas primeiras páginas. Não como suspeito — como pessoa.' },
+        { tag: 'Escrita',     text: 'Show, don\'t tell. "Ela ficou triste" é contado. "Ela alisou o casaco três vezes antes de olhar" é mostrado.' },
+        { tag: 'Escrita',     text: 'Chekhov: se você mostrou uma arma no primeiro ato, ela precisa disparar. Se não vai disparar, tire de cena.' },
+        { tag: 'Escrita',     text: 'Villain monologue é o inimigo do clímax. Faça o vilão agir, não explicar.' },
+        { tag: 'Motivação',   text: 'Os personagens mentem primeiro para si mesmos, depois para os outros.' },
+        { tag: 'Motivação',   text: 'Um bom vilão quer algo que o leitor entende — e condena.' },
+        { tag: 'StoryMind',   text: 'Toda cena tem um valor em jogo? Use o campo "Valor em Jogo" para forçar essa pergunta.' },
+        { tag: 'StoryMind',   text: 'POV é poder. Um mesmo evento pode ser contado de forma oposta por personagens diferentes — experimente variantes.' },
+        { tag: 'StoryMind',   text: 'A curva de tensão não é decorativa: se seu clímax não está no pico 9-10, a história está travada.' },
+        { tag: 'StoryMind',   text: 'A Bíblia da História revela padrões invisíveis no mapa. Abra e observe o que se repete.' },
+        { tag: 'StoryMind',   text: 'Salve um JSON backup regularmente. Mapas mentais vivos mudam rápido — e merecem um seguro.' }
+    ];
+
+    // ---- Embaralha a ordem para não repetir na mesma sessão ----
+    const order = TIPS.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [order[i], order[j]] = [order[j], order[i]];
+    }
+    let orderPos = 0;
+
+    let bannerEl = null;
+    let showTimer = null;
+    let hideTimer = null;
+    let isPaused = false;
+
+    function buildBanner() {
+        const el = document.createElement('div');
+        el.id = 'story-tips-banner';
+        el.setAttribute('role', 'complementary');
+        el.setAttribute('aria-label', 'Dicas de storytelling');
+        el.innerHTML = `
+            <div class="stb-head">
+                <span class="stb-icon" aria-hidden="true">💡</span>
+                <span class="stb-tag"></span>
+                <span class="stb-counter" aria-hidden="true"></span>
+                <button type="button" class="stb-nav stb-prev" aria-label="Dica anterior">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <button type="button" class="stb-nav stb-next" aria-label="Próxima dica">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+                <button type="button" class="stb-close" aria-label="Fechar dicas">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <p class="stb-text"></p>
+            <div class="stb-progress"><div class="stb-progress-fill"></div></div>
+        `;
+        document.body.appendChild(el);
+        return el;
+    }
+
+    function paintTip(idx) {
+        const tip = TIPS[idx];
+        bannerEl.querySelector('.stb-text').textContent = tip.text;
+        bannerEl.querySelector('.stb-tag').textContent = tip.tag;
+        bannerEl.querySelector('.stb-counter').textContent = `${idx + 1} / ${TIPS.length}`;
+    }
+
+    function restartProgress() {
+        const fill = bannerEl.querySelector('.stb-progress-fill');
+        fill.style.animation = 'none';
+        void fill.offsetWidth; // força reflow
+        if (!isPaused) {
+            fill.style.animation = `stb-progress ${SHOW_MS}ms linear forwards`;
+        }
+    }
+
+    function show(nextIndex) {
+        if (!bannerEl) return;
+        clearTimeout(hideTimer);
+        clearTimeout(showTimer);
+
+        // Decide qual dica mostrar
+        let idx;
+        if (typeof nextIndex === 'number' && nextIndex >= 0 && nextIndex < TIPS.length) {
+            idx = nextIndex;
+            // Sincroniza a posição no "baralho" para a próxima automática
+            const posInOrder = order.indexOf(idx);
+            orderPos = posInOrder >= 0 ? (posInOrder + 1) % order.length : orderPos;
+        } else {
+            if (orderPos >= order.length) {
+                // Reembaralha ao esgotar o baralho
+                for (let i = order.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [order[i], order[j]] = [order[j], order[i]];
+                }
+                orderPos = 0;
+            }
+            idx = order[orderPos++];
+        }
+
+        paintTip(idx);
+        restartProgress();
+        bannerEl.classList.add('show');
+
+        if (!isPaused) {
+            hideTimer = setTimeout(hide, SHOW_MS);
+        }
+    }
+
+    function hide() {
+        if (!bannerEl) return;
+        bannerEl.classList.remove('show');
+        showTimer = setTimeout(() => show(), GAP_MS);
+    }
+
+    function pause() {
+        isPaused = true;
+        clearTimeout(hideTimer);
+        const fill = bannerEl.querySelector('.stb-progress-fill');
+        fill.style.animationPlayState = 'paused';
+    }
+
+    function resume() {
+        isPaused = false;
+        const fill = bannerEl.querySelector('.stb-progress-fill');
+        fill.style.animationPlayState = 'running';
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(hide, SHOW_MS);
+    }
+
+    function setupHandlers() {
+        bannerEl.addEventListener('mouseenter', () => {
+            if (bannerEl.classList.contains('show')) pause();
+        });
+        bannerEl.addEventListener('mouseleave', () => {
+            if (bannerEl.classList.contains('show')) resume();
+        });
+        // Em telas touch: pause enquanto o dedo estiver sobre o card
+        bannerEl.addEventListener('touchstart', () => {
+            if (bannerEl.classList.contains('show')) pause();
+        }, { passive: true });
+        bannerEl.addEventListener('touchend', () => {
+            if (bannerEl.classList.contains('show')) resume();
+        });
+
+        bannerEl.querySelector('.stb-close').addEventListener('click', (e) => {
+            e.stopPropagation();
+            try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch(_) {}
+            clearTimeout(hideTimer);
+            clearTimeout(showTimer);
+            bannerEl.classList.remove('show');
+            setTimeout(() => { if (bannerEl) bannerEl.remove(); }, 500);
+            bannerEl = null;
+        });
+
+        bannerEl.querySelector('.stb-next').addEventListener('click', (e) => {
+            e.stopPropagation();
+            clearTimeout(hideTimer);
+            show();
+        });
+
+        bannerEl.querySelector('.stb-prev').addEventListener('click', (e) => {
+            e.stopPropagation();
+            clearTimeout(hideTimer);
+            // Encontra o índice atual pelo contador visível
+            const counter = bannerEl.querySelector('.stb-counter').textContent;
+            const current = parseInt(counter.split('/')[0], 10) - 1;
+            const prevIdx = (current - 1 + TIPS.length) % TIPS.length;
+            show(prevIdx);
+        });
+
+        // Pausa enquanto o usuário interage com inputs (busca etc.)
+        document.addEventListener('focusin', (e) => {
+            if (!bannerEl) return;
+            if (e.target.matches('input, textarea, select, [contenteditable]')) {
+                if (bannerEl.classList.contains('show')) pause();
+            }
+        });
+        document.addEventListener('focusout', (e) => {
+            if (!bannerEl) return;
+            if (e.target.matches('input, textarea, select, [contenteditable]')) {
+                if (bannerEl.classList.contains('show')) resume();
+            }
+        });
+
+        // Fecha ao sair da aba (economia) e ao voltar, reaparece se ainda tiver tempo
+        document.addEventListener('visibilitychange', () => {
+            if (!bannerEl) return;
+            if (document.hidden) {
+                if (bannerEl.classList.contains('show')) pause();
+            } else {
+                if (bannerEl.classList.contains('show')) resume();
+            }
+        });
+    }
+
+    function init() {
+        if (document.getElementById('story-tips-banner')) return;
+        bannerEl = buildBanner();
+        setupHandlers();
+        showTimer = setTimeout(() => show(), FIRST_DELAY_MS);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
     }
 })();
 </script>
