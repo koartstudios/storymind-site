@@ -10275,6 +10275,8 @@ else newScale = Math.max(scale / factor, 0.05);
         const SKILL_NODE_SPACING_Y = 130;
 
         let stCurrentCharacterId = null;
+        let stActivePointers = new Map();   //  rastreia dedos para pinch
+let stPinchState = null;            //  estado do pinch (distância, escala inicial)
         let stSelectedSkillId = null;
         const stSelectedSkillIds = new Set();
         let stPanX = 0, stPanY = 0, stScale = 1;
@@ -11106,132 +11108,249 @@ else newScale = Math.max(scale / factor, 0.05);
             updateSkillTreeSelection();
         }
 
-        function onSkillTreeCanvasPointerDown(ev) {
-            if (ev.pointerType === 'mouse' && ev.button !== 0 && ev.button !== 1) return;
-            const svg = document.getElementById('skilltree-svg');
-            if (!svg) return;
-            const target = ev.target;
-            const nodeEl = target && target.closest ? target.closest('.st-node') : null;
-            if (nodeEl) {
-                const skillId = nodeEl.getAttribute('data-skill-id');
-                const skill = findSkillById(skillId);
-                if (!skill) return;
-                const additiveClick = ev.shiftKey || ev.ctrlKey || ev.metaKey;
-                ev.preventDefault(); hideSkillTreeTooltip();
-                stIsPanning = false; stIsMarquee = false;
-                if (additiveClick) {
-                    const next = new Set(stSelectedSkillIds);
-                    if (next.has(skillId)) next.delete(skillId);
-                    else next.add(skillId);
-                    skillTreeSetSelection(next, next.has(skillId) ? skillId : null);
-                    return;
-                }
-                if (!stSelectedSkillIds.has(skillId)) { stSelectedSkillIds.clear(); stSelectedSkillIds.add(skillId); }
-                stSelectedSkillId = skillId;
-                skillTreeRefreshSelectionUI();
-                stDraggingSkillId = skill.id;
-                stDragStartClientX = ev.clientX; stDragStartClientY = ev.clientY;
-                stDragMoved = false; stDragHistoryPushed = false;
-                stDragPointerId = ev.pointerId;
-                stAltCopyPending = !!(ev.altKey && ev.pointerType !== 'touch');
-                stDropTargetId = null;
-                stInitialPositions.clear();
-                getSkillTreeSelectedSkills().forEach(selected => { stInitialPositions.set(selected.id, { x: Number(selected.x) || 0, y: Number(selected.y) || 0 }); });
-                try { svg.setPointerCapture(ev.pointerId); } catch (_) {}
-                return;
-            }
-            hideSkillTreeTooltip();
-            stDraggingSkillId = null; stDragMoved = false; stDragHistoryPushed = false;
-            stDragPointerId = ev.pointerId;
-            if (ev.button === 1 || stSpacePressed) {
-                stIsMarquee = false; stIsPanning = true;
-                svg.style.cursor = 'grabbing';
-                stPanStartX = ev.clientX - stPanX; stPanStartY = ev.clientY - stPanY;
-            } else {
-                stIsPanning = false; stIsMarquee = true;
-                svg.style.cursor = 'crosshair';
-                const point = skillTreePointerPosition(ev);
-                stMarqueeStartX = point.x; stMarqueeStartY = point.y;
-                stMarqueeMoved = false;
-                stMarqueeAdditive = ev.shiftKey || ev.ctrlKey || ev.metaKey;
-                stMarqueeBaseSelection = new Set(stSelectedSkillIds);
-                if (!stMarqueeAdditive) { stSelectedSkillIds.clear(); stSelectedSkillId = null; updateSkillTreeSelection(); }
-                if (stMarqueeRect) {
-                    stMarqueeRect.setAttribute('x', point.x); stMarqueeRect.setAttribute('y', point.y);
-                    stMarqueeRect.setAttribute('width', 1); stMarqueeRect.setAttribute('height', 1);
-                    stMarqueeRect.setAttribute('visibility', 'visible');
-                }
-            }
-            try { svg.setPointerCapture(ev.pointerId); } catch (_) {}
-            ev.preventDefault();
+        // ============================================================
+// PINCH ZOOM — mesmo padrão do canvas principal
+// ============================================================
+function startSkillTreePinch() {
+    const pts = Array.from(stActivePointers.values());
+    if (pts.length < 2) return;
+    const [a, b] = pts;
+    const dist = Math.hypot(a.x - b.x, a.y - b.y);
+    const centerX = (a.x + b.x) / 2;
+    const centerY = (a.y + b.y) / 2;
+    const containerRect = document.getElementById('st-canvas').getBoundingClientRect();
+    const canvasCenterX = (centerX - containerRect.left - stPanX) / stScale;
+    const canvasCenterY = (centerY - containerRect.top  - stPanY) / stScale;
+    stPinchState = {
+        startDist: dist,
+        startScale: stScale,
+        canvasCenterX,
+        canvasCenterY,
+        containerLeft: containerRect.left,
+        containerTop: containerRect.top
+    };
+}
+
+function updateSkillTreePinch() {
+    const pts = Array.from(stActivePointers.values());
+    if (pts.length < 2 || !stPinchState) return;
+    const [a, b] = pts;
+    const dist = Math.hypot(a.x - b.x, a.y - b.y);
+    const centerX = (a.x + b.x) / 2;
+    const centerY = (a.y + b.y) / 2;
+    const rawScale = stPinchState.startScale * (dist / stPinchState.startDist);
+    const newScale = Math.max(0.15, Math.min(2.5, rawScale));
+    stPanX = centerX - stPinchState.containerLeft - stPinchState.canvasCenterX * newScale;
+    stPanY = centerY - stPinchState.containerTop  - stPinchState.canvasCenterY * newScale;
+    stScale = newScale;
+    applySkillTreeTransform();
+}
+
+function cancelSkillTreeInteractions() {
+    stIsPanning = false;
+    stIsMarquee = false;
+    stDraggingSkillId = null;
+    stDragMoved = false;
+    stDragHistoryPushed = false;
+    stDragPointerId = null;
+    stAltCopyPending = false;
+    stDropTargetId = null;
+    if (stInitialPositions) stInitialPositions.clear();
+    if (stMarqueeBaseSelection) stMarqueeBaseSelection.clear();
+    if (stMarqueeRect) stMarqueeRect.setAttribute('visibility', 'hidden');
+    const svg = document.getElementById('skilltree-svg');
+    if (svg) svg.style.cursor = '';
+    document.querySelectorAll('#skilltree-svg .st-node.drop-target').forEach(el => el.classList.remove('drop-target'));
+}
+
+       function onSkillTreeCanvasPointerDown(ev) {
+    if (ev.pointerType === 'mouse' && ev.button !== 0 && ev.button !== 1) return;
+    const svg = document.getElementById('skilltree-svg');
+    if (!svg) return;
+
+    // ── 1. Rastreia o dedo/ponteiro para pinch ─────────────────────
+    if (!stActivePointers) stActivePointers = new Map();
+    stActivePointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+
+    // 2 dedos = pinch zoom (comportamento igual ao canvas principal)
+    if (stActivePointers.size === 2) {
+        cancelSkillTreeInteractions();
+        startSkillTreePinch();
+        return;
+    }
+    if (stActivePointers.size > 2) return;
+
+    // ── 2. Clique em nó: drag do nó (inalterado) ──────────────────
+    const target = ev.target;
+    const nodeEl = target && target.closest ? target.closest('.st-node') : null;
+    if (nodeEl) {
+        const skillId = nodeEl.getAttribute('data-skill-id');
+        const skill = findSkillById(skillId);
+        if (!skill) return;
+        const additiveClick = ev.shiftKey || ev.ctrlKey || ev.metaKey;
+        ev.preventDefault(); hideSkillTreeTooltip();
+        stIsPanning = false; stIsMarquee = false;
+        if (additiveClick) {
+            const next = new Set(stSelectedSkillIds);
+            if (next.has(skillId)) next.delete(skillId);
+            else next.add(skillId);
+            skillTreeSetSelection(next, next.has(skillId) ? skillId : null);
+            return;
         }
+        if (!stSelectedSkillIds.has(skillId)) { stSelectedSkillIds.clear(); stSelectedSkillIds.add(skillId); }
+        stSelectedSkillId = skillId;
+        skillTreeRefreshSelectionUI();
+        stDraggingSkillId = skill.id;
+        stDragStartClientX = ev.clientX; stDragStartClientY = ev.clientY;
+        stDragMoved = false; stDragHistoryPushed = false;
+        stDragPointerId = ev.pointerId;
+        stAltCopyPending = !!(ev.altKey && ev.pointerType !== 'touch');
+        stDropTargetId = null;
+        stInitialPositions.clear();
+        getSkillTreeSelectedSkills().forEach(selected => {
+            stInitialPositions.set(selected.id, { x: Number(selected.x) || 0, y: Number(selected.y) || 0 });
+        });
+        try { svg.setPointerCapture(ev.pointerId); } catch (_) {}
+        return;
+    }
+
+    // ── 3. Fundo vazio ────────────────────────────────────────────
+    hideSkillTreeTooltip();
+    stDraggingSkillId = null; stDragMoved = false; stDragHistoryPushed = false;
+    stDragPointerId = ev.pointerId;
+
+    // NOVO: no touch, arrastar o fundo = PAN (igual ao gesto de 1 dedo em canvas)
+    //       no desktop (mouse), arrastar o fundo = MARQUEE (mantido)
+    const isTouchEvent = ev.pointerType === 'touch';
+    const wantPan = ev.button === 1 || stSpacePressed || isTouchEvent;
+
+    if (wantPan) {
+        stIsMarquee = false; stIsPanning = true;
+        svg.style.cursor = 'grabbing';
+        stPanStartX = ev.clientX - stPanX;
+        stPanStartY = ev.clientY - stPanY;
+    } else {
+        stIsPanning = false; stIsMarquee = true;
+        svg.style.cursor = 'crosshair';
+        const point = skillTreePointerPosition(ev);
+        stMarqueeStartX = point.x; stMarqueeStartY = point.y;
+        stMarqueeMoved = false;
+        stMarqueeAdditive = ev.shiftKey || ev.ctrlKey || ev.metaKey;
+        stMarqueeBaseSelection = new Set(stSelectedSkillIds);
+        if (!stMarqueeAdditive) {
+            stSelectedSkillIds.clear();
+            stSelectedSkillId = null;
+            updateSkillTreeSelection();
+        }
+        if (stMarqueeRect) {
+            stMarqueeRect.setAttribute('x', point.x);
+            stMarqueeRect.setAttribute('y', point.y);
+            stMarqueeRect.setAttribute('width', 1);
+            stMarqueeRect.setAttribute('height', 1);
+            stMarqueeRect.setAttribute('visibility', 'visible');
+        }
+    }
+    try { svg.setPointerCapture(ev.pointerId); } catch (_) {}
+    ev.preventDefault();
+}
 
         function onSkillTreeCanvasPointerMove(ev) {
-            if (stDraggingSkillId) {
-                if (stDragPointerId !== null && ev.pointerId !== stDragPointerId) return;
-                const dx = ev.clientX - stDragStartClientX, dy = ev.clientY - stDragStartClientY;
-                if (!stDragMoved && (dx * dx + dy * dy) < 16) return;
-                if (stAltCopyPending) { stAltCopyPending = false; skillTreeStartAltCopy(); }
-                if (!stDragHistoryPushed) { skillTreePushHistory(); stDragHistoryPushed = true; }
-                stDragMoved = true;
-                stInitialPositions.forEach((initial, id) => {
-                    const skill = findSkillById(id);
-                    if (!skill) return;
-                    skill.x = initial.x + dx / stScale;
-                    skill.y = initial.y + dy / stScale;
-                    const node = document.querySelector(`#skilltree-svg .st-node[data-skill-id="${CSS.escape(skill.id)}"]`);
-                    if (node) node.setAttribute('transform', `translate(${skill.x},${skill.y})`);
-                });
-                updateSkillTreeConnections();
-                skillTreeUpdateDropTarget(ev);
-                hideSkillTreeTooltip();
-                return;
-            }
-            if (stIsMarquee) {
-                if (stDragPointerId !== null && ev.pointerId !== stDragPointerId) return;
-                skillTreeUpdateMarquee(ev); return;
-            }
-            if (stIsPanning) {
-                if (stDragPointerId !== null && ev.pointerId !== stDragPointerId) return;
-                stPanX = ev.clientX - stPanStartX;
-                stPanY = ev.clientY - stPanStartY;
-                applySkillTreeTransform();
-                return;
-            }
-            const nodeEl = ev.target && ev.target.closest ? ev.target.closest('.st-node') : null;
-            if (!nodeEl) { stHoverSkillId = null; hideSkillTreeTooltip(); return; }
-            const skill = findSkillById(nodeEl.getAttribute('data-skill-id'));
-            if (skill) showSkillTreeTooltip(skill, ev);
-        }
+    // Atualiza posição do dedo no mapa (necessário para pinch)
+    if (stActivePointers && stActivePointers.has(ev.pointerId)) {
+        stActivePointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    }
+    // Pinch tem prioridade sobre qualquer outra interação
+    if (stPinchState && stActivePointers.size >= 2) {
+        updateSkillTreePinch();
+        return;
+    }
 
-        function onSkillTreeCanvasPointerUp(ev) {
-            if (stDragPointerId !== null && ev && ev.pointerId !== undefined && ev.pointerId !== stDragPointerId) return;
-            const wasDragged = !!stDraggingSkillId && stDragMoved;
-            const dragId = stDraggingSkillId;
-            const dropId = stDropTargetId;
-            const movedIds = [...stInitialPositions.keys()];
-            stDropTargetId = null; stAltCopyPending = false;
-            document.querySelectorAll('#skilltree-svg .st-node.drop-target').forEach(el => el.classList.remove('drop-target'));
-            const wasMarquee = stIsMarquee;
-            const svg = document.getElementById('skilltree-svg');
-            const pointerId = stDragPointerId;
-            stDraggingSkillId = null; stDragMoved = false; stDragHistoryPushed = false;
-            stIsPanning = false; stIsMarquee = false;
-            if (svg) svg.style.cursor = '';
-            stDragPointerId = null;
-            stInitialPositions.clear(); stMarqueeBaseSelection.clear();
-            if (stMarqueeRect) stMarqueeRect.setAttribute('visibility', 'hidden');
-            if (wasMarquee) {
-                if (!stMarqueeMoved && !stMarqueeAdditive) { stSelectedSkillIds.clear(); stSelectedSkillId = null; }
-                stMarqueeMoved = false;
-                skillTreeRefreshSelectionUI();
-            }
-            if (wasDragged) {
-                if (dragId && dropId) skillTreeApplyDrop(dragId, dropId, movedIds);
-                else { updateSkillTreeConnections(); saveStoriesStorage(); }
-            }
-            if (svg && pointerId !== null) { try { if (svg.hasPointerCapture(pointerId)) svg.releasePointerCapture(pointerId); } catch (_) {} }
+    if (stDraggingSkillId) {
+        if (stDragPointerId !== null && ev.pointerId !== stDragPointerId) return;
+        const dx = ev.clientX - stDragStartClientX;
+        const dy = ev.clientY - stDragStartClientY;
+        if (!stDragMoved && (dx * dx + dy * dy) < 16) return;
+        if (stAltCopyPending) { stAltCopyPending = false; skillTreeStartAltCopy(); }
+        if (!stDragHistoryPushed) { skillTreePushHistory(); stDragHistoryPushed = true; }
+        stDragMoved = true;
+        stInitialPositions.forEach((initial, id) => {
+            const skill = findSkillById(id);
+            if (!skill) return;
+            skill.x = initial.x + dx / stScale;
+            skill.y = initial.y + dy / stScale;
+            const node = document.querySelector(`#skilltree-svg .st-node[data-skill-id="${CSS.escape(skill.id)}"]`);
+            if (node) node.setAttribute('transform', `translate(${skill.x},${skill.y})`);
+        });
+        updateSkillTreeConnections();
+        skillTreeUpdateDropTarget(ev);
+        hideSkillTreeTooltip();
+        return;
+    }
+    if (stIsMarquee) {
+        if (stDragPointerId !== null && ev.pointerId !== stDragPointerId) return;
+        skillTreeUpdateMarquee(ev);
+        return;
+    }
+    if (stIsPanning) {
+        if (stDragPointerId !== null && ev.pointerId !== stDragPointerId) return;
+        stPanX = ev.clientX - stPanStartX;
+        stPanY = ev.clientY - stPanStartY;
+        applySkillTreeTransform();
+        return;
+    }
+    const nodeEl = ev.target && ev.target.closest ? ev.target.closest('.st-node') : null;
+    if (!nodeEl) { stHoverSkillId = null; hideSkillTreeTooltip(); return; }
+    const skill = findSkillById(nodeEl.getAttribute('data-skill-id'));
+    if (skill) showSkillTreeTooltip(skill, ev);
+}
+
+       function onSkillTreeCanvasPointerUp(ev) {
+    // ── 1. Remove o dedo do mapa ─────────────────────────────────
+    if (stActivePointers) stActivePointers.delete(ev.pointerId);
+
+    // ── 2. Pinch acabou de encerrar (um dos dedos saiu) ──────────
+    if (stPinchState && stActivePointers.size < 2) {
+        stPinchState = null;
+        // Não deixa o dedo remanescente virar clique/arrasto — exige novo toque
+        return;
+    }
+    // Se o pinch está ativo, ignora este pointerup individual
+    if (stPinchState) return;
+
+    // ── 3. Guard original ────────────────────────────────────────
+    if (stDragPointerId !== null && ev && ev.pointerId !== undefined && ev.pointerId !== stDragPointerId) return;
+
+    const wasDragged = !!stDraggingSkillId && stDragMoved;
+    const dragId = stDraggingSkillId;
+    const dropId = stDropTargetId;
+    const movedIds = [...stInitialPositions.keys()];
+    stDropTargetId = null; stAltCopyPending = false;
+    document.querySelectorAll('#skilltree-svg .st-node.drop-target').forEach(el => el.classList.remove('drop-target'));
+    const wasMarquee = stIsMarquee;
+    const svg = document.getElementById('skilltree-svg');
+    const pointerId = stDragPointerId;
+    stDraggingSkillId = null; stDragMoved = false; stDragHistoryPushed = false;
+    stIsPanning = false; stIsMarquee = false;
+    if (svg) svg.style.cursor = '';
+    stDragPointerId = null;
+    stInitialPositions.clear(); stMarqueeBaseSelection.clear();
+    if (stMarqueeRect) stMarqueeRect.setAttribute('visibility', 'hidden');
+    if (wasMarquee) {
+        if (!stMarqueeMoved && !stMarqueeAdditive) {
+            stSelectedSkillIds.clear();
+            stSelectedSkillId = null;
         }
+        stMarqueeMoved = false;
+        skillTreeRefreshSelectionUI();
+    }
+    if (wasDragged) {
+        if (dragId && dropId) skillTreeApplyDrop(dragId, dropId, movedIds);
+        else { updateSkillTreeConnections(); saveStoriesStorage(); }
+    }
+    if (svg && pointerId !== null) {
+        try { if (svg.hasPointerCapture(pointerId)) svg.releasePointerCapture(pointerId); } catch (_) {}
+    }
+}
 
         function skillTreeIsDescendant(ancestorId, candidateId) {
             const byId = new Map(getSkillsForSelectedCharacter().map(sk => [sk.id, sk]));
