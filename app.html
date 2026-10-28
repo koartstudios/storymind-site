@@ -1982,6 +1982,83 @@ body.app-theme-dark .node-card .mobile-info-badge {
 }
 </style>
 
+<style>
+/* ============================================================
+   MOBILE: alinhamento compacto — cabe na tela sem overflow
+   ============================================================ */
+@media (hover: none) and (max-width: 640px) {
+
+    /* Vira barra full-width ancorada abaixo das pílulas de modo */
+    #align-toolbar {
+        left: 8px !important;
+        right: 8px !important;
+        transform: none !important;              /* desfaz o -translate-x-1/2 */
+        width: auto !important;
+        max-width: calc(100vw - 16px) !important;
+        top: 56px !important;                    /* abaixo das pills */
+        padding: 4px 6px !important;
+        gap: 2px !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;             /* fallback p/ telas <320px */
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+    #align-toolbar::-webkit-scrollbar { display: none; }
+
+    /* Esconde o rótulo "Alinhar" — os ícones já comunicam */
+    #align-toolbar > #align-actions > span:first-child {
+        display: none !important;
+    }
+
+    /* Botões compactos (28px) e ícones menores */
+    #align-toolbar button {
+        width: 28px !important;
+        height: 28px !important;
+        min-width: 28px !important;
+        padding: 0 !important;
+        flex-shrink: 0 !important;
+    }
+    #align-toolbar button i {
+        font-size: 11px !important;
+    }
+
+    /* Grupo de alinhamento compacto */
+    #align-toolbar > #align-actions {
+        gap: 1px !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Divisores mais curtos e discretos */
+    #align-toolbar .w-px {
+        height: 16px !important;
+        margin: 0 1px !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Contador "N nós" minúsculo — nunca quebra */
+    #align-toolbar > span:last-child {
+        font-size: 9px !important;
+        padding: 0 4px !important;
+        flex-shrink: 0 !important;
+        white-space: nowrap;
+    }
+
+    /* Dark theme mantém consistência com as outras pílulas */
+    body.app-theme-dark #align-toolbar {
+        background: #1e293b !important;
+        border-color: #475569 !important;
+    }
+    body.app-theme-dark #align-toolbar button {
+        color: #cbd5e1;
+    }
+    body.app-theme-dark #align-toolbar .w-px {
+        background: #475569;
+    }
+}
+</style>
+
 </head>
 <body class="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden">
 
@@ -2171,6 +2248,8 @@ body.app-theme-dark .node-card .mobile-info-badge {
     body.app-theme-dark #sm-header-menu-panel .sm-tools-heading { color: #f1f5f9; }
     body.app-theme-dark #sm-header-menu-panel .sm-tools-heading button {
         background: #334155; border-color: #475569; color: #e2e8f0;
+        
+        
     }
 }
 </style>
@@ -2361,36 +2440,50 @@ body.app-theme-dark .node-card .mobile-info-badge {
                         </div>
 
                         <div id="align-toolbar" class="absolute top-20 left-1/2 -translate-x-1/2 bg-white border-2 border-indigo-300 rounded-xl shadow-2xl px-1.5 py-1 z-40 hidden items-center gap-0.5">
-                            <span class="text-[10px] font-bold text-indigo-700 uppercase tracking-wider px-2">Alinhar</span>
-                            <button onclick="alignSelectedNodes('left')" title="Alinhar à esquerda (Ctrl+Shift+←)" class="w-8 h-8 rounded-lg text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-center transition">
-                                <i class="fa-solid fa-align-left text-xs"></i>
-                            </button>
-                            <button onclick="alignSelectedNodes('center-h')" title="Centralizar horizontalmente (Ctrl+Shift+C)" class="w-8 h-8 rounded-lg text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-center transition">
-                                <i class="fa-solid fa-align-center text-xs"></i>
-                            </button>
-                            <button onclick="alignSelectedNodes('right')" title="Alinhar à direita (Ctrl+Shift+→)" class="w-8 h-8 rounded-lg text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-center transition">
-                                <i class="fa-solid fa-align-right text-xs"></i>
-                            </button>
-                            <div class="w-px h-5 bg-slate-200 mx-0.5"></div>
-                            <button onclick="alignSelectedNodes('top')" title="Alinhar ao topo (Ctrl+Shift+↑)" class="w-8 h-8 rounded-lg text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-center transition">
-                                <i class="fa-solid fa-arrow-up text-xs"></i>
-                            </button>
-                            <button onclick="alignSelectedNodes('center-v')" title="Centralizar verticalmente (Ctrl+Shift+M)" class="w-8 h-8 rounded-lg text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-center transition">
-                                <i class="fa-solid fa-minus text-xs"></i>
-                            </button>
-                            <button onclick="alignSelectedNodes('bottom')" title="Alinhar à base (Ctrl+Shift+↓)" class="w-8 h-8 rounded-lg text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-center transition">
-                                <i class="fa-solid fa-arrow-down text-xs"></i>
-                            </button>
-                            <div class="w-px h-5 bg-slate-200 mx-0.5"></div>
-                            <button onclick="alignSelectedNodes('distribute-h')" title="Distribuir horizontalmente (Ctrl+Shift+H)" class="w-8 h-8 rounded-lg text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-center transition">
-                                <i class="fa-solid fa-arrows-left-right text-xs"></i>
-                            </button>
-                            <button onclick="alignSelectedNodes('distribute-v')" title="Distribuir verticalmente (Ctrl+Shift+V)" class="w-8 h-8 rounded-lg text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-center transition">
-                                <i class="fa-solid fa-arrows-up-down text-xs"></i>
-                            </button>
-                            <div class="w-px h-5 bg-slate-200 mx-0.5"></div>
-                            <span class="text-[10px] text-slate-400 italic px-1.5"><span id="align-count">0</span> nós</span>
-                        </div>
+    <!-- GRUPO DE ALINHAMENTO (só efetivo com 2+ nós) -->
+    <div id="align-actions" class="flex items-center gap-0.5 transition-opacity">
+        <span class="text-[10px] font-bold text-indigo-700 uppercase tracking-wider px-2">Alinhar</span>
+        <button onclick="alignSelectedNodes('left')" title="Alinhar à esquerda (Ctrl+Shift+←)" class="w-8 h-8 rounded-lg text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-center transition">
+            <i class="fa-solid fa-align-left text-xs"></i>
+        </button>
+        <button onclick="alignSelectedNodes('center-h')" title="Centralizar horizontalmente (Ctrl+Shift+C)" class="w-8 h-8 rounded-lg text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-center transition">
+            <i class="fa-solid fa-align-center text-xs"></i>
+        </button>
+        <button onclick="alignSelectedNodes('right')" title="Alinhar à direita (Ctrl+Shift+→)" class="w-8 h-8 rounded-lg text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-center transition">
+            <i class="fa-solid fa-align-right text-xs"></i>
+        </button>
+        <div class="w-px h-5 bg-slate-200 mx-0.5"></div>
+        <button onclick="alignSelectedNodes('top')" title="Alinhar ao topo (Ctrl+Shift+↑)" class="w-8 h-8 rounded-lg text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-center transition">
+            <i class="fa-solid fa-arrow-up text-xs"></i>
+        </button>
+        <button onclick="alignSelectedNodes('center-v')" title="Centralizar verticalmente (Ctrl+Shift+M)" class="w-8 h-8 rounded-lg text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-center transition">
+            <i class="fa-solid fa-minus text-xs"></i>
+        </button>
+        <button onclick="alignSelectedNodes('bottom')" title="Alinhar à base (Ctrl+Shift+↓)" class="w-8 h-8 rounded-lg text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-center transition">
+            <i class="fa-solid fa-arrow-down text-xs"></i>
+        </button>
+        <div class="w-px h-5 bg-slate-200 mx-0.5"></div>
+        <button onclick="alignSelectedNodes('distribute-h')" title="Distribuir horizontalmente (Ctrl+Shift+H)" class="w-8 h-8 rounded-lg text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-center transition">
+            <i class="fa-solid fa-arrows-left-right text-xs"></i>
+        </button>
+        <button onclick="alignSelectedNodes('distribute-v')" title="Distribuir verticalmente (Ctrl+Shift+V)" class="w-8 h-8 rounded-lg text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-center transition">
+            <i class="fa-solid fa-arrows-up-down text-xs"></i>
+        </button>
+    </div>
+
+    <!-- DIVISOR -->
+    <div class="w-px h-5 bg-slate-200 mx-0.5"></div>
+
+    <!-- NOVO: BOTÃO DE ZOOM NOS SELECIONADOS -->
+    <button onclick="zoomToSelectedNodes()" title="Zoom nos nós selecionados (Z)" class="w-8 h-8 rounded-lg text-emerald-600 hover:bg-emerald-50 flex items-center justify-center transition">
+        <i class="fa-solid fa-expand text-xs"></i>
+    </button>
+
+    <!-- DIVISOR -->
+    <div class="w-px h-5 bg-slate-200 mx-0.5"></div>
+
+    <span class="text-[10px] text-slate-400 italic px-1.5"><span id="align-count">0</span> nós</span>
+</div>
 
                         <div id="minimap" class="absolute bottom-4 right-4 z-30 hidden-minimap" style="width: 220px; height: 160px;" onpointerdown="event.stopPropagation()">
                             <canvas id="minimap-canvas" width="220" height="160"></canvas>
@@ -8386,6 +8479,40 @@ else newScale = Math.max(scale / factor, 0.05);
             panY = ch / 2 - centerContentY * scale;
             updateCanvasTransform();
         }
+        function zoomToSelectedNodes() {
+    if (!mindMapData) return;
+    const ids = Array.from(selectedNodeIds);
+    if (ids.length === 0) { showToast('Selecione pelo menos um nó.', 'warn', 1800); return; }
+    const nodes = ids.map(id => mindMapData.nodes.find(n => n.id === id)).filter(Boolean);
+    if (nodes.length === 0) return;
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    nodes.forEach(n => {
+        const h = getNodeHeight(n.id);
+        minX = Math.min(minX, n.x);
+        minY = Math.min(minY, n.y);
+        maxX = Math.max(maxX, n.x + NODE_W);
+        maxY = Math.max(maxY, n.y + h);
+    });
+    if (!isFinite(minX)) return;
+
+    const pad = 80;
+    const contentW = (maxX - minX) + pad * 2;
+    const contentH = (maxY - minY) + pad * 2;
+    const container = document.getElementById('canvas-container');
+    const cw = container.clientWidth, ch = container.clientHeight;
+    if (cw === 0 || ch === 0) return;
+
+    // Não amplia demais (máx 1.5x) nem reduz demais (mín 0.1x)
+    const newScale = Math.max(0.1, Math.min(cw / contentW, ch / contentH, 1.5));
+    scale = newScale;
+
+    const centerContentX = (minX + maxX) / 2;
+    const centerContentY = (minY + maxY) / 2;
+    panX = cw / 2 - centerContentX * scale;
+    panY = ch / 2 - centerContentY * scale;
+    updateCanvasTransform();
+}
 
         function isTimelineModeSkipRelationship(rel) {
     if (!mindMapData || !mindMapData.timelineMode) return false;
@@ -9056,14 +9183,21 @@ else newScale = Math.max(scale / factor, 0.05);
         }
 
         function updateAlignToolbar() {
-            const tb = document.getElementById('align-toolbar');
-            if (!tb) return;
-            const show = selectedNodeIds.size >= 2;
-            tb.classList.toggle('hidden', !show);
-            tb.classList.toggle('flex', show);
-            const count = document.getElementById('align-count');
-            if (count) count.textContent = selectedNodeIds.size;
-        }
+    const tb = document.getElementById('align-toolbar');
+    if (!tb) return;
+    const show = selectedNodeIds.size >= 1;   // ← era >= 2
+    tb.classList.toggle('hidden', !show);
+    tb.classList.toggle('flex', show);
+    const count = document.getElementById('align-count');
+    if (count) count.textContent = selectedNodeIds.size;
+    // Esmaece/desabilita os botões de alinhamento quando só 1 nó está selecionado
+    const alignActions = document.getElementById('align-actions');
+    if (alignActions) {
+        const canAlign = selectedNodeIds.size >= 2;
+        alignActions.classList.toggle('opacity-40', !canAlign);
+        alignActions.classList.toggle('pointer-events-none', !canAlign);
+    }
+}
 
         function highlightMatch(text, isHit) {
             const safe = escapeHTML(text || '');
@@ -12404,6 +12538,7 @@ function updateTimelineToggleButton() {
                 if (e.code === 'KeyB' && !e.ctrlKey && !e.metaKey && !e.shiftKey) { e.preventDefault(); onBeatSheetButtonClick(); return; }
                 if (e.code === 'KeyB' && !e.ctrlKey && !e.metaKey && e.shiftKey) { e.preventDefault(); toggleBeatSortMode(); return; }
                 if (e.code === 'KeyF' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); if (e.shiftKey) toggleFocusMode(); else fitView(); return; }
+                if (e.code === 'KeyZ' && !e.ctrlKey && !e.metaKey && !e.shiftKey) { e.preventDefault(); zoomToSelectedNodes(); return; }
                 if (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && e.shiftKey) { e.preventDefault(); addSheet(); return; }
                 if (e.code === 'KeyE' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
                     if (selectedNodeIds.size === 1) {
