@@ -9185,18 +9185,39 @@ else newScale = Math.max(scale / factor, 0.05);
         function updateAlignToolbar() {
     const tb = document.getElementById('align-toolbar');
     if (!tb) return;
-    const show = selectedNodeIds.size >= 1;   // ← era >= 2
+    const show = selectedNodeIds.size >= 1;
     tb.classList.toggle('hidden', !show);
     tb.classList.toggle('flex', show);
+
     const count = document.getElementById('align-count');
     if (count) count.textContent = selectedNodeIds.size;
-    // Esmaece/desabilita os botões de alinhamento quando só 1 nó está selecionado
+
+    const canAlign = selectedNodeIds.size >= 2;
+
+    // ── Grupo de alinhamento ─────────────────────────────────────
+    // Antes: ficava esmaecido/desabilitado. Agora: some de vez.
     const alignActions = document.getElementById('align-actions');
     if (alignActions) {
-        const canAlign = selectedNodeIds.size >= 2;
-        alignActions.classList.toggle('opacity-40', !canAlign);
-        alignActions.classList.toggle('pointer-events-none', !canAlign);
+        alignActions.classList.remove('opacity-40', 'pointer-events-none');
+        alignActions.style.display = canAlign ? '' : 'none';
     }
+
+    // ── Divisor entre "alinhar" e "zoom" ─────────────────────────
+    // Só os divisores que são FILHOS DIRETOS da toolbar entram aqui.
+    // O dividers internos ao #align-actions são ignorados.
+    const directDividers = Array.from(tb.children)
+        .filter(el => el.classList && el.classList.contains('w-px'));
+
+    if (directDividers[0]) {
+        // firstDivider = divisor entre #align-actions e o botão de zoom
+        directDividers[0].style.display = canAlign ? '' : 'none';
+    }
+    const countSpan = Array.from(tb.children)
+    .find(el => el.tagName === 'SPAN' && el.querySelector('#align-count'));
+if (countSpan) countSpan.style.display = canAlign ? '' : 'none';
+if (directDividers[1]) {
+    directDividers[1].style.display = canAlign ? '' : 'none';
+}
 }
 
         function highlightMatch(text, isHit) {
