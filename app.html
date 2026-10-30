@@ -267,7 +267,57 @@ body.app-theme-dark #tl-tooltip::-webkit-scrollbar-thumb { background: #475569; 
         body.app-theme-dark #node-tooltip .tt-empty { color: #64748b; }
         body.app-theme-dark #node-tooltip .tt-hint { border-top-color: #334155; color: #64748b; }
 
-/* ==================== Conta-gotas ==================== */
+        /* ==================== Análise Dramática no Tooltip ==================== */
+#node-tooltip .tt-insights {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #e2e8f0;
+}
+#node-tooltip .tt-insights-title {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: #64748b; margin-bottom: 6px;
+}
+#node-tooltip .tt-insight {
+    margin-bottom: 6px; padding: 6px 8px;
+    border-radius: 6px; border-left: 3px solid #94a3b8;
+}
+#node-tooltip .tt-insight.ok   { background: #ecfdf5; border-left-color: #059669; }
+#node-tooltip .tt-insight.warn { background: #fef2f2; border-left-color: #dc2626; }
+#node-tooltip .tt-insight.info { background: #eef2ff; border-left-color: #6366f1; }
+#node-tooltip .tt-insight-title {
+    font-size: 10.5px; font-weight: 700; line-height: 1.3;
+}
+#node-tooltip .tt-insight.ok   .tt-insight-title { color: #065f46; }
+#node-tooltip .tt-insight.warn .tt-insight-title { color: #991b1b; }
+#node-tooltip .tt-insight.info .tt-insight-title { color: #3730a3; }
+#node-tooltip .tt-insight-message {
+    font-size: 10px; line-height: 1.4; margin-top: 2px; opacity: 0.85;
+}
+#node-tooltip .tt-insight.ok   .tt-insight-message { color: #065f46; }
+#node-tooltip .tt-insight.warn .tt-insight-message { color: #991b1b; }
+#node-tooltip .tt-insight.info .tt-insight-message { color: #3730a3; }
+
+/* Dark mode */
+body.app-theme-dark #node-tooltip .tt-insights { border-top-color: #334155; }
+body.app-theme-dark #node-tooltip .tt-insights-title { color: #94a3b8; }
+body.app-theme-dark #node-tooltip .tt-insight.ok   { background: #064e3b; }
+body.app-theme-dark #node-tooltip .tt-insight.warn { background: #7f1d1d; }
+body.app-theme-dark #node-tooltip .tt-insight.info { background: #312e81; }
+body.app-theme-dark #node-tooltip .tt-insight.ok   .tt-insight-title,
+body.app-theme-dark #node-tooltip .tt-insight.ok   .tt-insight-message { color: #6ee7b7; }
+body.app-theme-dark #node-tooltip .tt-insight.warn .tt-insight-title,
+body.app-theme-dark #node-tooltip .tt-insight.warn .tt-insight-message { color: #fecaca; }
+body.app-theme-dark #node-tooltip .tt-insight.info .tt-insight-title,
+body.app-theme-dark #node-tooltip .tt-insight.info .tt-insight-message { color: #c7d2fe; }
+
+/* Mobile bottom-sheet: aumenta a legibilidade */
+#node-tooltip.mobile-info-open .tt-insights-title  { font-size: 12px !important; margin-bottom: 8px; }
+#node-tooltip.mobile-info-open .tt-insight          { padding: 8px 10px; margin-bottom: 8px; }
+#node-tooltip.mobile-info-open .tt-insight-title    { font-size: 12px !important; }
+#node-tooltip.mobile-info-open .tt-insight-message  { font-size: 11.5px !important; }
+
+
+        /* ==================== Conta-gotas ==================== */
 body.eyedropper-armed #canvas-container,
 body.eyedropper-armed #canvas-container * {
     cursor: crosshair !important;
@@ -3629,6 +3679,123 @@ body.app-theme-dark .node-card .mobile-info-badge {
         const CANVAS_CENTER_X = 2600;
         const CANVAS_CENTER_Y = 2600;
 
+        /* ============================================================
+   ICON SYSTEM — emoji → Font Awesome
+   Não remove os emojis do código: faz o mapeamento na render.
+   Se um emoji não estiver no mapa, cai no fallback (o próprio emoji).
+   ============================================================ */
+const SM_ICON_MAP = {
+    // ---- Node types ----
+    '🎬': 'fa-clapperboard',
+    '🧙': 'fa-user-tie',
+    '📍': 'fa-location-dot',
+    '⚡': 'fa-bolt',
+    '💬': 'fa-comment',
+    '🎭': 'fa-masks-theater',
+    '📝': 'fa-note-sticky',
+    '📅': 'fa-timeline',
+    '✖': 'fa-xmark',
+
+    // ---- Save the Cat ----
+    '🌅': 'fa-mountain-sun',
+    '🏠': 'fa-house',
+    '🤔': 'fa-circle-question',
+    '🚪': 'fa-door-open',
+    '💞': 'fa-heart-pulse',
+    '🎢': 'fa-gamepad',
+    '🎯': 'fa-bullseye',
+    '🔥': 'fa-fire',
+    '💀': 'fa-skull',
+    '🌑': 'fa-moon',
+    '💡': 'fa-lightbulb',
+    '🏁': 'fa-flag-checkered',
+    '🌄': 'fa-mountain-sun',
+
+    // ---- Hero's Journey ----
+    '🏡': 'fa-house',
+    '📢': 'fa-bullhorn',
+    '🚫': 'fa-ban',
+    '🌉': 'fa-arrow-right-to-bracket',
+    '⚔️': 'fa-shield-halved',
+    '🏆': 'fa-trophy',
+    '🛤️': 'fa-road',
+    '✨': 'fa-wand-magic-sparkles',
+    '🏺': 'fa-flask',
+
+    // ---- Story Circle ----
+    '🧍': 'fa-user',
+    '🔍': 'fa-magnifying-glass',
+    '🚀': 'fa-rocket',
+    '🧭': 'fa-compass',
+    '💎': 'fa-gem',
+    '🎁': 'fa-gift',
+    '🔙': 'fa-arrow-rotate-left',
+    '🦋': 'fa-seedling',
+
+    // ---- Three Act ----
+    '📖': 'fa-book-open',
+    '⛰️': 'fa-mountain',
+
+    // ---- Skills ----
+    '💪': 'fa-dumbbell',
+    '🗣️': 'fa-comments',
+    '🌿': 'fa-leaf',
+    '🧠': 'fa-brain',
+    '🥷': 'fa-user-secret',
+    '☯️': 'fa-yin-yang',
+    '📚': 'fa-book',
+    '🛠️': 'fa-screwdriver-wrench',
+    '⭐': 'fa-star',
+
+    // ---- Relations ----
+    '🤝': 'fa-handshake',
+    '🤫': 'fa-user-secret',
+    '🩸': 'fa-droplet',
+    '💕': 'fa-heart',
+    '👪': 'fa-people-roof',
+    '🎓': 'fa-graduation-cap',
+    '🗡️': 'fa-khanda',
+
+    // ---- Big Five ----
+    '🎨': 'fa-palette',
+    '📋': 'fa-clipboard-list',
+
+    // ---- Misc UI ----
+    '🧪': 'fa-flask',
+    '🔗': 'fa-link',
+    '✍️': 'fa-pen-nib',
+    '👁': 'fa-eye',
+    '🎪': 'fa-tent',      // fallback
+    '🎪': 'fa-tent',
+    '📦': 'fa-box',
+    '⚠️': 'fa-triangle-exclamation'
+};
+
+/**
+ * Retorna HTML de um ícone FA. Aceita:
+ *  - emoji        → mapeia para FA (fallback: o próprio emoji)
+ *  - "fa-film"    → usa direto como fa-solid
+ *  - "fa-solid fa-film" → usa a classe completa
+ * O ícone herda a cor do container via currentColor.
+ */
+function renderIcon(iconOrClass, extraClass = '') {
+    if (iconOrClass == null) return '';
+    const s = String(iconOrClass);
+    if (!s) return '';
+    // Já é classe FA?
+    if (s.startsWith('fa-solid ') || s.startsWith('fa-regular ') || s.startsWith('fa-brands ')) {
+        return `<i class="${s} ${extraClass}"></i>`;
+    }
+    if (s.startsWith('fa-')) {
+        return `<i class="fa-solid ${s} ${extraClass}"></i>`;
+    }
+    // Emoji → FA?
+    const mapped = SM_ICON_MAP[s];
+    if (mapped) return `<i class="fa-solid ${mapped} ${extraClass}"></i>`;
+    // Fallback: emoji cru
+    return `<span class="${extraClass}" aria-hidden="true">${escapeHTML(s)}</span>`;
+}
+
         const RELATIONSHIP_COLORS = {
             amber: '#f59e0b', rose: '#f43f5e', indigo: '#6366f1', emerald: '#10b981', slate: '#64748b'
         };
@@ -3872,7 +4039,7 @@ body.app-theme-dark .node-card .mobile-info-badge {
                 row.innerHTML = `
                     <div class="flex items-center justify-between mb-1">
                         <span class="text-[10.5px] font-bold flex items-center gap-1.5" style="color:${trait.color}">
-                            <span>${trait.icon}</span><span>${escapeHTML(trait.name)}</span>
+                            <span>${renderIcon(trait.icon)}</span><span>${escapeHTML(trait.name)}</span>
                         </span>
                         <span id="bf-value-${trait.key}" class="text-[10px] font-bold text-white rounded-full px-2 py-0.5 min-w-[36px] text-center" style="background:${trait.color}">${val}/5</span>
                     </div>
@@ -4493,6 +4660,258 @@ function startInlineEdit(nodeId, field) {
             isDraggingControlPoint = false; draggingControlPointRelId = null; draggingControlPointIndex = null;
             saveStoriesStorage(); pushHistory(); refreshRelationshipEditor();
         }
+        /* ============================================================
+   ANÁLISE DRAMÁTICA COMPUTADA
+   Cruza dados do próprio nó + do mapa (cenas, personagens, tema)
+   para gerar recomendações — sem repetir campos já exibidos.
+   ============================================================ */
+function computeDramaticAnalysis(node) {
+    if (!node || !node.type) return [];
+    const d = node.typeData || {};
+    const insights = [];
+    const push = (level, icon, title, message) => insights.push({ level, icon, title, message });
+    const str   = (v) => String(v || '').trim();
+    const lower = (v) => str(v).toLowerCase();
+
+    // ---------------- PERSONAGEM ----------------
+    if (node.type === 'character') {
+        const want = str(d.want);
+        const need = str(d.need);
+        const arc  = str(d.arc);
+        const role = str(d.role);
+        const conflict = str(d.conflictValue);
+        const first = str(d.firstAppearance);
+        const last  = str(d.lastAppearance);
+
+        // 1) Want × Need — o "motor" clássico do arco
+        if (!want && !need) {
+            push('warn', '⚠️', 'Personagem sem motor dramático',
+                'Nem desejo externo (want) nem necessidade interna (need). Sem isso, ele apenas reage aos eventos — não persegue nada.');
+        } else if (want && !need) {
+            push('warn', '↗️', 'Desejo sem necessidade',
+                'Só querer externo. Sem falta interna, o arco fica plano: ele consegue (ou não) e nada muda por dentro. Defina o que precisa aceitar, perder ou descobrir.');
+        } else if (need && !want) {
+            push('warn', '↘️', 'Necessidade sem objetivo',
+                'Só falta interna. Sem algo concreto para perseguir, o público não enxerga progresso. Defina o que ele quer alcançar.');
+        } else {
+            const nw = want.toLowerCase(), nn = need.toLowerCase();
+            if (nw === nn || nw.includes(nn) || nn.includes(nw)) {
+                push('warn', '🔁', 'Want = Need (sem transformação)',
+                    'Desejo e necessidade apontam para o mesmo. Ele já quer o que precisa — não há mudança. Inverta: persiga um, descubra que precisava do outro.');
+            } else {
+                push('ok', '✅', 'Motor dramático completo',
+                    'Desejo externo e necessidade interna divergem — é a base do arco de transformação. Use o clímax para forçar a escolha entre os dois.');
+            }
+        }
+
+        // 2) Arco × Aparições
+        if (first && last && first.toLowerCase() === last.toLowerCase()) {
+            push('info', '🎬', 'Participação pontual',
+                `Aparece apenas em "${first}". Trate como figura de cena — não gaste arco nele.`);
+        } else if (first && last) {
+            push('ok', '📈', 'Arco estendido',
+                `Da cena "${first}" até "${last}". Distribua marcos de mudança entre os beats — o público precisa *ver* a transformação.`);
+        } else if (!arc && (role.toLowerCase().includes('protagonista') || role.toLowerCase().includes('antagonista'))) {
+            push('warn', '📉', 'Arco em aberto',
+                'Personagem central, mas sem descrição de arco nem marcação de aparições. Defina onde começa e onde termina a transformação.');
+        }
+
+        // 3) Completude por papel
+        const roleChecks = {
+            'protagonista':    ['want', 'need', 'arc', 'conflictValue'],
+            'antagonista':     ['conflictValue', 'arc', 'want'],
+            'co-protagonista': ['want', 'conflictValue'],
+            'secundario':      ['conflictValue']
+        };
+        const roleKey = role.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const required = roleChecks[roleKey];
+        if (required) {
+            const labels = { want: 'desejo', need: 'necessidade', arc: 'arco', conflictValue: 'valor em conflito' };
+            const missing = required.filter(k => !str(d[k]));
+            if (missing.length > 0) {
+                push('warn', '🧩', `Lacunas para ${role.toLowerCase()}`,
+                    `Faltam: ${missing.map(k => labels[k]).join(', ')}. Sem isso, o papel declarado não se sustenta dramaticamente.`);
+            }
+        }
+
+        // 4) Eixos de conflito
+        if (conflict) {
+            const axes = conflict.split(/\s+vs\.?\s+|\s*[,;]\s*|\s+e\s+/i).map(s => s.trim()).filter(Boolean);
+            if (axes.length >= 2) {
+                push('ok', '⚔️', `Conflito em ${axes.length} eixos`,
+                    'Múltiplos valores em tensão. Distribua um por cena para não sobrecarregar uma única decisão.');
+            } else {
+                push('info', '🎯', 'Conflito de um eixo',
+                    'Um valor em conflito. Concentre as cenas em mostrar a virada positiva↔negativa desse valor, sem diluir.');
+            }
+        }
+
+        // 5) Extremos de personalidade
+        const bf = d.bigFive;
+        if (bf && typeof bf === 'object') {
+            const names = { openness: 'Abertura', conscientiousness: 'Consciência',
+                            extraversion: 'Extroversão', agreeableness: 'Amabilidade',
+                            neuroticism: 'Neuroticismo' };
+            const extremes = [];
+            Object.keys(names).forEach(k => {
+                const v = bf[k];
+                if (v === 1 || v === 5) extremes.push(`${names[k]} ${v}/5`);
+            });
+            if (extremes.length > 0) {
+                push('info', '🎭', 'Traços extremos detectados',
+                    `${extremes.join(' · ')}. Extremos geram atrito fácil — use-os para justificar decisões que surpreendem ou irritam outros personagens.`);
+            }
+        }
+    }
+
+    // ---------------- CENA ----------------
+    if (node.type === 'scene') {
+        const obj  = str(d.objective);
+        const conf = str(d.conflict);
+        const diag = getSceneDiagnostic(node);
+
+        if (diag) {
+            push(diag.level === 'warn' ? 'warn' : 'ok',
+                 diag.level === 'warn' ? '🔄' : '✅',
+                 diag.title, diag.message);
+        } else if (str(d.valueAtStake)) {
+            push('info', '🎯', 'Valor declarado, sem virada',
+                'Há "valor em jogo", mas faltam as cargas inicial/final. Sem virada, a cena parece não-evento. Preencha valueStart e valueEnd.');
+        }
+
+        if (obj && !conf) {
+            push('warn', '⚠️', 'Objetivo sem obstáculo',
+                'Tem objetivo, mas nenhum obstáculo. A cena tende a virar exposição — coloque resistência concreta.');
+        } else if (!obj && conf) {
+            push('info', '⚔️', 'Obstáculo sem objetivo',
+                'Tem obstáculo, mas nenhum objetivo. Sem querer, o obstáculo não ameaça nada.');
+        } else if (obj && conf) {
+            push('ok', '✅', 'Cena com motor dramático',
+                'Objetivo + obstáculo definidos. É a base de qualquer cena de confronto — a fricção entre os dois sustenta a cena.');
+        }
+    }
+
+    // ---------------- CENÁRIO ----------------
+    if (node.type === 'location') {
+        const title = str(node.title).toLowerCase();
+        if (title && typeof mindMapData !== 'undefined' && mindMapData) {
+            const refScenes = mindMapData.nodes.filter(n =>
+                n.type === 'scene' && lower(n.typeData?.location) === title
+            );
+            if (refScenes.length === 0) {
+                push('warn', '🚫', 'Cenário sem uso',
+                    'Nenhuma cena referencia este local. Ou crie cenas aqui, ou remova da bíblia para não inflar.');
+            } else {
+                push('ok', '🎯', `Usado em ${refScenes.length} cena(s)`,
+                    'Ancorado na narrativa. Reforce atmosfera e pressões em cada cena passada aqui.');
+            }
+        }
+        const pressures = str(d.environmentPressures);
+        if (pressures) {
+            const pcount = pressures.split(/\n|·|;/).map(s => s.trim()).filter(Boolean).length;
+            if (pcount >= 2) {
+                push('info', '🌍', `${pcount} pressões ambientais`,
+                    'Cada pressão pode virar obstáculo automático em cenas aqui. Distribua entre personagens em vez de concentrar.');
+            }
+        }
+    }
+
+    // ---------------- DIÁLOGO ----------------
+    if (node.type === 'dialogue') {
+        const speaker = str(d.speaker);
+        const target  = str(d.target);
+        const emotion = lower(d.emotion);
+        const action  = lower(d.speechAction);
+
+        if (speaker || target) {
+            const charNames = new Set();
+            if (typeof mindMapData !== 'undefined' && mindMapData) {
+                mindMapData.nodes.filter(n => n.type === 'character').forEach(n => {
+                    charNames.add(lower(n.title));
+                    if (n.typeData?.fullName) charNames.add(lower(n.typeData.fullName));
+                });
+            }
+            const unkSpeaker = speaker && !charNames.has(lower(speaker));
+            const unkTarget  = target  && !charNames.has(lower(target));
+            if (unkSpeaker && unkTarget) {
+                push('warn', '❓', 'Falante e alvo não cadastrados',
+                    'Nenhum dos dois existe como nó de Personagem. Corrija os nomes ou crie os nós — senão não aparecem no grafo de menções.');
+            } else if (unkSpeaker || unkTarget) {
+                const which = unkSpeaker ? speaker : target;
+                push('info', '🔍', 'Personagem não encontrado',
+                    `"${which}" não bate com nenhum nó de Personagem. Pode ser voz externa (intencional) ou erro de digitação.`);
+            }
+        }
+
+        if (emotion && action) {
+            const contradictions = [
+                ['raiva', 'consolar'], ['raiva', 'confessar'], ['raiva', 'esconder'],
+                ['medo', 'confessar'], ['medo', 'desafiar'],
+                ['amor', 'ameaçar'], ['ódio', 'consolar'], ['tristeza', 'provocar']
+            ];
+            const hasContradiction = contradictions.some(([e, a]) => emotion.includes(e) && action.includes(a));
+            if (hasContradiction) {
+                push('ok', '🎭', 'Contradição produtiva',
+                    'Emoção e ação em tensão. Isso é subtexto pronto — escreva a fala em duas camadas (o que diz × o que sente).');
+            } else {
+                push('info', '💬', 'Fala com intenção clara',
+                    'Emoção e ação alinhadas. Bom para cenas diretas — para densidade, considere inverter uma delas.');
+            }
+        }
+    }
+
+    // ---------------- TEMA ----------------
+    if (node.type === 'theme') {
+        const core = str(d.coreValue);
+        if (core && typeof mindMapData !== 'undefined' && mindMapData) {
+            const scenesWithValue = mindMapData.nodes.filter(n =>
+                n.type === 'scene' && lower(n.typeData?.valueAtStake).includes(core.toLowerCase())
+            );
+            if (scenesWithValue.length === 0) {
+                push('warn', '📢', 'Tema declarado, não dramatizado',
+                    `Nenhuma cena tem "${core}" como valor em jogo. Tema só existe quando personagens pagam preço por ele.`);
+            } else {
+                push('ok', '💎', `Tema em ${scenesWithValue.length} cena(s)`,
+                    `"${core}" aparece como valor em jogo em ${scenesWithValue.length} cena(s). O tema está sendo dramatizado.`);
+            }
+        }
+        const motifs = str(d.motifs);
+        if (motifs) {
+            const mcount = motifs.split(/[,;]/).map(s => s.trim()).filter(Boolean).length;
+            if (mcount >= 3) {
+                push('info', '🔁', `${mcount} motivos recorrentes`,
+                    'Muitos motivos podem diluir o tema. Escolha 1–2 para aparecerem em mais cenas e virarem símbolo.');
+            }
+        }
+    }
+
+    // ---------------- EVENTO ----------------
+    if (node.type === 'event') {
+        const outcome = str(d.outcome);
+        const stakes  = str(d.stakes);
+        if (!outcome) push('warn', '❓', 'Evento sem resultado',
+            'Um evento sem resultado explícito tende a virar cena de passagem — nada muda.');
+        if (!stakes) push('info', '🎯', 'Sem apostas declaradas',
+            'Defina o que se perde se o evento falhar. Apostas ausentes = tensão fraca.');
+        if (outcome && stakes) push('ok', '✅', 'Evento com consequência',
+            'Resultado + apostas definidos. É o mínimo para um evento dramático.');
+    }
+
+    return insights;
+}
+
+function buildInsightsHTML(insights) {
+    if (!insights || insights.length === 0) return '';
+    let html = `<div class="tt-insights"><div class="tt-insights-title">${renderIcon('📖')} Análise Dramática</div>`;
+    insights.forEach(ins => {
+        html += `<div class="tt-insight ${ins.level}">
+    <div class="tt-insight-title">${renderIcon(ins.icon)} ${escapeHTML(ins.title)}</div>
+            <div class="tt-insight-message">${escapeHTML(ins.message)}</div>
+        </div>`;
+    });
+    html += `</div>`;
+    return html;
+}
 
         function buildTooltipHTML(node) {
             if (!node) return '';
@@ -4504,8 +4923,8 @@ function startInlineEdit(nodeId, field) {
             const filledFields = typeFields.filter(f => { const v = node.typeData ? node.typeData[f.key] : ''; return v && String(v).trim(); });
             let html = '';
             const badges = [];
-            if (typeDef) badges.push(`<span class="tt-badge" style="background:${typeDef.color}">${typeDef.icon} ${escapeHTML(typeDef.label)}</span>`);
-            if (beat) badges.push(`<span class="tt-badge" style="background:#4f46e5">${beat.icon} ${escapeHTML(beat.name)}</span>`);
+            if (typeDef) badges.push(`<span class="tt-badge" style="background:${typeDef.color}">${renderIcon(typeDef.icon)} ${escapeHTML(typeDef.label)}</span>`);
+if (beat) badges.push(`<span class="tt-badge" style="background:#4f46e5">${renderIcon(beat.icon)} ${escapeHTML(beat.name)}</span>`);
             if (node.tension > 0) { const tColor = tensionColor(node.tension) || '#64748b'; badges.push(`<span class="tt-badge" style="background:${tColor}">🔥 ${node.tension}/10</span>`); }
             if (node.isVariant) badges.push(`<span class="tt-badge" style="background:#a855f7">🧪 Variante</span>`);
             if (badges.length > 0) html += `<div class="tt-badges">${badges.join('')}</div>`;
@@ -4514,44 +4933,37 @@ function startInlineEdit(nodeId, field) {
             if (filledFields.length > 0) {
                 filledFields.forEach(f => { const v = String(node.typeData[f.key]); html += `<div class="tt-row"><span class="tt-label">${escapeHTML(f.label)}:</span> <span class="tt-value">${escapeHTML(v)}</span></div>`; });
             } else if (typeDef && !node.pov) { html += `<div class="tt-empty">Nenhum detalhe preenchido ainda.</div>`; }
-            const mckeeRows = [];
-            if (node.type === 'scene') {
-                const diag = getSceneDiagnostic(node);
-                if (diag) { const color = diag.level === 'warn' ? '#dc2626' : '#059669'; const bg = diag.level === 'warn' ? '#fef2f2' : '#ecfdf5'; mckeeRows.push(`<div style="margin-top:6px; padding:6px 8px; border-radius:6px; background:${bg}; color:${color}; font-size:10.5px; font-weight:600; line-height:1.4;">${escapeHTML(diag.message)}</div>`); }
-                else if (node.typeData.valueAtStake) mckeeRows.push(`<div class="tt-row"><span class="tt-label">🎯 Valor em Jogo:</span> <span class="tt-value">${escapeHTML(node.typeData.valueAtStake)}</span></div>`);
-            }
-                        // Preview do rascunho de cena
-            if (node.type === 'scene' && node.typeData?.sceneWriting) {
-                const sw = node.typeData.sceneWriting;
-                const draftText = (sw.draft || '').trim();
-                const wordCount = (draftText.match(/\S+/g) || []).length;
-                const swFilled = Object.values(sw).some(v => v && String(v).trim());
-                if (swFilled) {
-                    html += `<div class="tt-sw" style="margin-top:8px; padding-top:8px; border-top:1px dashed #e2e8f0;">
-                        <div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#8b5cf6; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
-                            <span>✍️ Rascunho da cena</span>
-                            ${wordCount > 0 ? `<span style="background:#ede9fe; color:#6d28d9; padding:1px 7px; border-radius:999px; font-size:9px;">${wordCount} pal.</span>` : ''}
-                        </div>
-                        ${sw.goal ? `<div class="tt-row"><span class="tt-label">🎯 Objetivo:</span> <span class="tt-value">${escapeHTML(sw.goal)}</span></div>` : ''}
-                        ${sw.obstacle ? `<div class="tt-row"><span class="tt-label">⚔ Obstáculo:</span> <span class="tt-value">${escapeHTML(sw.obstacle)}</span></div>` : ''}
-                        ${sw.start && sw.end ? `<div class="tt-row"><span class="tt-label">📊 Valor:</span> <span class="tt-value">${escapeHTML(sw.start)} → ${escapeHTML(sw.end)}</span></div>` : ''}
-                        ${draftText ? `<div style="margin-top:6px; padding:8px 10px; background:#faf5ff; border:1px solid #e9d5ff; border-radius:6px; font-size:11px; color:#475569; font-style:italic; line-height:1.5; max-height:120px; overflow:hidden;">${escapeHTML(draftText.slice(0, 280))}${draftText.length > 280 ? '…' : ''}</div>` : ''}
-                        <button onclick="event.stopPropagation(); closeStoryBible && closeStoryBible(); hideNodeTooltip(); openSceneWritingMode('${node.id}');" style="margin-top:8px; width:100%; padding:6px 10px; border-radius:6px; background:linear-gradient(135deg, #6366f1, #8b5cf6); color:white; font-size:11px; font-weight:700; border:none; cursor:pointer; pointer-events:auto;">Abrir rascunho completo</button>
-                    </div>`;
-                }
-            }
-            if (node.type === 'character' && node.typeData.conflictValue) mckeeRows.push(`<div class="tt-row"><span class="tt-label">⚔ Valor em Conflito:</span> <span class="tt-value">${escapeHTML(node.typeData.conflictValue)}</span></div>`);
-            if (node.type === 'location' && node.typeData.environmentPressures) mckeeRows.push(`<div class="tt-row"><span class="tt-label">🌍 Pressões:</span> <span class="tt-value">${escapeHTML(node.typeData.environmentPressures)}</span></div>`);
-            if (node.type === 'dialogue' && node.typeData.speechAction) mckeeRows.push(`<div class="tt-row"><span class="tt-label">⚡ Ação da Fala:</span> <span class="tt-value">${escapeHTML(node.typeData.speechAction)}</span></div>`);
-            if (node.type === 'theme' && node.typeData.coreValue) mckeeRows.push(`<div class="tt-row"><span class="tt-label">💎 Valor Central:</span> <span class="tt-value">${escapeHTML(node.typeData.coreValue)}</span></div>`);
-            if (mckeeRows.length > 0) html += `<div style="margin-top:8px; padding-top:8px; border-top:1px dashed #e2e8f0;"><div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#64748b; margin-bottom:6px;">📖 Análise Dramática</div>${mckeeRows.join('')}</div>`;
+            // Preview do rascunho de cena (mantido — não é repetição)
+if (node.type === 'scene' && node.typeData?.sceneWriting) {
+    const sw = node.typeData.sceneWriting;
+    const draftText = (sw.draft || '').trim();
+    const wordCount = (draftText.match(/\S+/g) || []).length;
+    const swFilled = Object.values(sw).some(v => v && String(v).trim());
+    if (swFilled) {
+        html += `<div class="tt-sw" style="margin-top:8px; padding-top:8px; border-top:1px dashed #e2e8f0;">
+            <div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#8b5cf6; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+                <span>✍️ Rascunho da cena</span>
+                ${wordCount > 0 ? `<span style="background:#ede9fe; color:#6d28d9; padding:1px 7px; border-radius:999px; font-size:9px;">${wordCount} pal.</span>` : ''}
+            </div>
+            ${sw.goal ? `<div class="tt-row"><span class="tt-label">🎯 Objetivo:</span> <span class="tt-value">${escapeHTML(sw.goal)}</span></div>` : ''}
+            ${sw.obstacle ? `<div class="tt-row"><span class="tt-label">⚔ Obstáculo:</span> <span class="tt-value">${escapeHTML(sw.obstacle)}</span></div>` : ''}
+            ${sw.start && sw.end ? `<div class="tt-row"><span class="tt-label">📊 Valor:</span> <span class="tt-value">${escapeHTML(sw.start)} → ${escapeHTML(sw.end)}</span></div>` : ''}
+            ${draftText ? `<div style="margin-top:6px; padding:8px 10px; background:#faf5ff; border:1px solid #e9d5ff; border-radius:6px; font-size:11px; color:#475569; font-style:italic; line-height:1.5; max-height:120px; overflow:hidden;">${escapeHTML(draftText.slice(0, 280))}${draftText.length > 280 ? '…' : ''}</div>` : ''}
+            <button onclick="event.stopPropagation(); closeStoryBible && closeStoryBible(); hideNodeTooltip(); openSceneWritingMode('${node.id}');" style="margin-top:8px; width:100%; padding:6px 10px; border-radius:6px; background:linear-gradient(135deg, #6366f1, #8b5cf6); color:white; font-size:11px; font-weight:700; border:none; cursor:pointer; pointer-events:auto;">Abrir rascunho completo</button>
+        </div>`;
+    }
+}
+
+// NOVA: Análise dramática computada (insights calculados, sem repetir campos)
+const insights = computeDramaticAnalysis(node);
+if (insights.length > 0) html += buildInsightsHTML(insights);
             if (node.type === 'character' && hasBigFiveData(node)) {
                 const bf = node.typeData.bigFive;
                 html += `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e2e8f0;"><div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#64748b; margin-bottom:6px;">🎭 Traços de Personalidade</div>`;
                 BIG_FIVE_TRAITS.forEach(t => {
                     const v = bf[t.key];
                     const bars = Array.from({length: 5}, (_, i) => `<span style="display:inline-block;width:10px;height:6px;border-radius:1px;margin-right:1px;background:${i < v ? t.color : '#e2e8f0'};"></span>`).join('');
-                    html += `<div style="display:flex; align-items:center; gap:6px; margin-bottom:3px; font-size:10.5px;"><span style="min-width:14px;">${t.icon}</span><span style="min-width:86px; color:#475569;">${escapeHTML(t.short)}</span><span>${bars}</span><b style="color:${t.color}; margin-left:2px;">${v}</b></div>`;
+                    html += `<div style="display:flex; align-items:center; gap:6px; margin-bottom:3px; font-size:10.5px;"><span style="min-width:14px;">${renderIcon(t.icon)}</span><span style="min-width:86px; color:#475569;">${escapeHTML(t.short)}</span><span>${bars}</span><b style="color:${t.color}; margin-left:2px;">${v}</b></div>`;
                 });
                 html += `</div>`;
             }
@@ -4744,7 +5156,7 @@ function startInlineEdit(nodeId, field) {
                     if (t.color) { btn.style.borderColor = t.color; btn.style.background = t.color + '22'; btn.style.color = t.color; }
                     else { btn.style.borderColor = '#6366f1'; btn.style.background = '#eef2ff'; btn.style.color = '#4338ca'; }
                 } else { btn.style.borderColor = '#e2e8f0'; btn.style.color = '#64748b'; btn.style.background = 'transparent'; }
-                btn.innerHTML = `<span style="font-size:15px;line-height:1">${t.icon}</span><span class="truncate w-full text-center leading-tight">${t.label}</span>`;
+                btn.innerHTML = `<span style="font-size:15px;line-height:1">${renderIcon(t.icon)}</span><span class="truncate w-full text-center leading-tight">${t.label}</span>`;
                 btn.onmouseenter = () => { if (!isActive) btn.style.background = '#f1f5f9'; };
                 btn.onmouseleave = () => { if (!isActive) btn.style.background = 'transparent'; };
                 btn.onclick = (e) => { e.preventDefault(); onNodeTypeChange(t.id); renderTypePicker(); };
@@ -5141,7 +5553,7 @@ function startInlineEdit(nodeId, field) {
                 hasContent = true;
                 const grouped = groupByKey(list);
                 const sortedKeys = Array.from(grouped.keys()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-                html += `<div class="bible-section"><div class="bible-section-title"><span style="font-size:14px">${icon}</span><span>${title}</span><span style="font-weight:400;color:#94a3b8">(${grouped.size})</span></div>`;
+                html += `<div class="bible-section"><div class="bible-section-title"><span style="font-size:14px">${renderIcon(icon)}</span><span>${title}</span><span style="font-weight:400;color:#94a3b8">(${grouped.size})</span></div>`;
                 sortedKeys.forEach(key => {
                     const items = grouped.get(key);
                     const first = items[0];
@@ -5152,7 +5564,7 @@ function startInlineEdit(nodeId, field) {
                     const povsHere = new Set(items.map(it => it.node.pov).filter(Boolean));
                     const beatIcons = [];
                     const fw = getCurrentFramework();
-                    if (fw) fw.beats.forEach(b => { if (beatsHere.has(b.id)) beatIcons.push(b.icon); });
+                    if (fw) fw.beats.forEach(b => { if (beatsHere.has(b.id)) beatIcons.push(renderIcon(b.icon)); });
                     const meta = [];
                     if (beatIcons.length > 0) meta.push(beatIcons.join(''));
                     if (povsHere.size > 0) meta.push('👁 ' + Array.from(povsHere).slice(0, 2).join(', '));
@@ -5350,7 +5762,7 @@ function startInlineEdit(nodeId, field) {
                         const n = m.node;
                         const td = n.type ? NODE_TYPES[n.type] : null;
                         const beat = n.beatId ? findBeatById(n.beatId) : null;
-                        const icon = td ? td.icon : '·';
+                        const icon = td ? renderIcon(td.icon) : '·';
                         const prefix = m.source === 'speaker' ? '🗣 ' : m.source === 'target' ? '👂 ' : '';
                         html += `<div class="mm-mention" onclick="event.stopPropagation(); jumpToNodeFromBible('${n.id}')"><span class="mm-m-icon">${prefix}${icon}</span><span class="mm-m-title" title="${escapeHTML(n.title)}">${escapeHTML(n.title)}</span>${beat ? `<span style="font-size:10px;">${beat.icon}</span>` : ''}</div>`;
                     });
@@ -5362,7 +5774,7 @@ function startInlineEdit(nodeId, field) {
             const fw = getCurrentFramework();
             if (fw && totalMentions > 0) {
                 html += `<div class="mm-section"><div class="mm-section-title"><span>🔥</span><span>Heatmap — aparições por beat</span></div><div class="mm-heatmap"><table><thead><tr><th style="min-width:140px;">Personagem</th>`;
-                fw.beats.forEach(b => { html += `<th title="${escapeHTML(b.desc)}" style="text-align:center;">${b.icon}<div style="font-size:9px;font-weight:500;margin-top:2px;">${escapeHTML(b.name)}</div></th>`; });
+                fw.beats.forEach(b => { html += `<th title="${escapeHTML(b.desc)}" style="text-align:center;">${renderIcon(b.icon)}<div style="font-size:9px;font-weight:500;margin-top:2px;">${escapeHTML(b.name)}</div></th>`; });
                 html += `</tr></thead><tbody>`;
                 const charList = characters.filter(c => c.mentions.length > 0).slice(0, 30);
                 charList.forEach(({ character, mentions }) => {
@@ -6085,7 +6497,7 @@ window.addEventListener('cloud:save:done', () => {
                 card.className = 'fw-card ' + (isActive ? 'active' : '');
                 card.onclick = () => pickBeatFramework(key);
                 const previewBeats = fw.beats.slice(0, Math.min(7, fw.beats.length));
-                const previewIcons = previewBeats.map(b => `<span title="${escapeHTML(b.name)}">${b.icon}</span>`).join('');
+                const previewIcons = previewBeats.map(b => `<span title="${escapeHTML(b.name)}">${renderIcon(b.icon)}</span>`).join('');
                 const moreIndicator = fw.beats.length > previewBeats.length ? `<span class="text-slate-400 text-[10px] font-bold self-center">+${fw.beats.length - previewBeats.length}</span>` : '';
                 card.innerHTML = `<div class="flex items-start justify-between gap-2 mb-2"><div class="min-w-0"><div class="font-bold text-sm text-slate-800 flex items-center gap-1.5"><span>${escapeHTML(fw.name)}</span>${isActive ? '<i class="fa-solid fa-circle-check text-indigo-600 text-xs"></i>' : ''}</div><div class="text-[10px] text-slate-500 italic">${escapeHTML(fw.author)}</div></div><span class="text-[10px] bg-slate-100 text-slate-600 rounded px-1.5 py-0.5 shrink-0 font-bold">${fw.beats.length} beats</span></div><div class="fw-preview">${previewIcons}${moreIndicator}</div><p class="text-[11px] text-slate-500 leading-snug">${escapeHTML(fw.tagline)}</p>`;
                 grid.appendChild(card);
@@ -6210,7 +6622,7 @@ window.addEventListener('cloud:save:done', () => {
                 const countCls = count > 0 ? '' : 'empty';
                 const label = document.createElement('div');
                 label.className = 'beat-lane-label';
-                label.innerHTML = `<div class="bl-icon">${beat.icon}</div><div class="bl-name">${escapeHTML(beat.name)}</div><div class="bl-desc">${escapeHTML(beat.desc)}</div><div class="bl-count ${countCls}">${count}</div>`;
+                label.innerHTML = `<div class="bl-icon">${renderIcon(beat.icon)}</div><div class="bl-name">${escapeHTML(beat.name)}</div><div class="bl-desc">${escapeHTML(beat.desc)}</div><div class="bl-count ${countCls}">${count}</div>`;
                 lane.appendChild(label);
                 lanesLayer.appendChild(lane);
             });
@@ -6225,7 +6637,7 @@ window.addEventListener('cloud:save:done', () => {
                 const label = document.createElement('div');
                 label.className = 'beat-lane-label';
                 label.style.borderRight = '2px solid rgba(148,163,184,0.3)';
-                label.innerHTML = `<div class="bl-icon">📦</div><div class="bl-name" style="color:#475569">Sem Beat</div><div class="bl-desc">Nós ainda não atribuídos a um beat.</div><div class="bl-count empty">${orphans.length}</div>`;
+                label.innerHTML = `<div class="bl-icon">${renderIcon('📦')}<div class="bl-name" style="color:#475569">Sem Beat</div><div class="bl-desc">Nós ainda não atribuídos a um beat.</div><div class="bl-count empty">${orphans.length}</div>`;
                 lane.appendChild(label);
                 lanesLayer.appendChild(lane);
             }
@@ -7839,9 +8251,9 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
                 if (isVariantRootNode && variantLabel) variantBadgeHTML = `<div class="variant-badge" title="Variante: ${escapeHTML(variantLabel)}"><i class="fa-solid fa-flask text-[8px]"></i><span>${escapeHTML(variantLabel)}</span></div>`;
                 else if (isInVariant) variantBadgeHTML = `<div class="variant-badge" title="Ramo de variante"><i class="fa-solid fa-flask text-[8px]"></i></div>`;
                 let beatBadgeHTML = '';
-                if (beat) beatBadgeHTML = `<div class="absolute -top-2 -left-2 flex items-center gap-1 bg-indigo-600 text-white rounded-full shadow-md px-2 py-0.5 text-[9px] font-bold pointer-events-none z-10" title="${escapeHTML(beat.name)}"><span>${beat.icon}</span><span class="hidden sm:inline max-w-[100px] truncate">${escapeHTML(beat.name)}</span></div>`;
+                if (beat) beatBadgeHTML = `<div class="absolute -top-2 -left-2 flex items-center gap-1 bg-indigo-600 text-white rounded-full shadow-md px-2 py-0.5 text-[9px] font-bold pointer-events-none z-10" title="${escapeHTML(beat.name)}"><span>${renderIcon(beat.icon)}</span><span class="hidden sm:inline max-w-[100px] truncate">${escapeHTML(beat.name)}</span></div>`;
                 let typeBadgeHTML = '';
-                if (typeDef) typeBadgeHTML = `<div class="absolute -top-2 -right-2 flex items-center gap-1 rounded-full shadow-md px-2 py-0.5 text-[9px] font-bold pointer-events-none z-10" style="background:${typeDef.color}; color:white;" title="${escapeHTML(typeDef.label)}"><span>${typeDef.icon}</span><span class="hidden sm:inline max-w-[80px] truncate">${escapeHTML(typeDef.label)}</span></div>`;
+                if (typeDef) typeBadgeHTML = `<div class="absolute -top-2 -right-2 flex items-center gap-1 rounded-full shadow-md px-2 py-0.5 text-[9px] font-bold pointer-events-none z-10" style="background:${typeDef.color}; color:white;" title="${escapeHTML(typeDef.label)}"><span>${renderIcon(typeDef.icon)}</span><span class="hidden sm:inline max-w-[80px] truncate">${escapeHTML(typeDef.label)}</span></div>`;
                 let sceneDiagBadgeHTML = '';
                 if (node.type === 'scene') {
                     const diag = getSceneDiagnostic(node);
@@ -9350,8 +9762,8 @@ function updateMobileZoomButton() {
             const typeDef = node.type ? NODE_TYPES[node.type] : null;
             const variantIcon = node.isVariant ? '🧪' : '';
             const dotHTML = tColor ? `<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${tColor}"></span>` : `<span class="w-1.5 h-1.5 shrink-0"></span>`;
-            const beatHTML = beat ? `<span class="text-[10px] shrink-0" title="${escapeHTML(beat.name)}">${beat.icon}</span>` : '';
-            const typeHTML = typeDef ? `<span class="text-[10px] shrink-0" title="${escapeHTML(typeDef.label)}">${typeDef.icon}</span>` : '';
+            const beatHTML = beat ? `<span class="text-[10px] shrink-0" title="${escapeHTML(beat.name)}">${renderIcon(beat.icon)}</span>` : '';
+const typeHTML = typeDef ? `<span class="text-[10px] shrink-0" title="${escapeHTML(typeDef.label)}">${renderIcon(typeDef.icon)}</span>` : '';
             const variantHTML = variantIcon ? `<span class="text-[10px] shrink-0" title="Variante">${variantIcon}</span>` : '';
             row.innerHTML = `<span class="w-4 text-slate-400 text-[10px] flex items-center justify-center">${hasChildren ? (collapsed ? '▶' : '▼') : ''}</span>${dotHTML}${variantHTML}${beatHTML}${typeHTML}<span class="truncate flex-1 text-xs ${depth === 0 ? 'font-bold text-slate-800' : 'text-slate-700'}">${escapeHTML(node.title)}</span>`;
             row.onclick = (e) => {
@@ -10049,7 +10461,7 @@ function updateMobileZoomButton() {
             el.innerHTML = Object.values(RELATION_TYPES).map(t => `
                 <span class="inline-flex items-center gap-1 text-[10px] text-slate-600 font-medium">
                     <span style="display:inline-block; width:18px; height:3px; background:${t.color}; border-radius:2px; ${t.dash ? `background-image: repeating-linear-gradient(90deg, ${t.color} 0 4px, transparent 4px 8px); background-color:transparent;` : ''}"></span>
-                    <span>${t.icon} ${escapeHTML(t.label)}</span>
+                    <span>${renderIcon(t.icon)} ${escapeHTML(t.label)}</span>
                 </span>
             `).join('');
         }
@@ -12085,7 +12497,7 @@ function buildTimelineTooltipHTML(node) {
 
     let html = '';
     const badges = [];
-    badges.push(`<span class="tt-badge" style="background:#0891b2">📅 Timeline</span>`);
+    badges.push(`<span class="tt-badge" style="background:#0891b2">${renderIcon('📅')} Timeline</span>`);
     if (category) badges.push(`<span class="tt-badge" style="background:#0e7490">${escapeHTML(category)}</span>`);
     if (node.pov) badges.push(`<span class="tt-badge" style="background:#7c3aed">👁 ${escapeHTML(node.pov)}</span>`);
     if (badges.length) html += `<div class="tt-badges">${badges.join('')}</div>`;
