@@ -2058,6 +2058,53 @@ body.app-theme-dark .node-card .mobile-info-badge {
     }
 }
 </style>
+<style>
+/* ============================================================
+   MOBILE: botão flutuante "Zoom no nó" abaixo da toolbar mobile
+   ============================================================ */
+#sm-mobile-zoom-selected { display: none; }
+
+@media (hover: none) and (max-width: 640px) {
+    #sm-mobile-zoom-selected.sm-visible {
+        display: inline-flex;
+        position: fixed;
+        z-index: 145;
+        top: 108px; /* fallback — o JS ajusta com base na toolbar */
+        left: 50%;
+        transform: translateX(-50%);
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 7px 14px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: #ffffff;
+        border: none;
+        box-shadow: 0 4px 16px rgba(16,185,129,0.5);
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        animation: sm-zoom-btn-in 0.2s ease;
+    }
+    #sm-mobile-zoom-selected.sm-visible:active {
+        transform: translateX(-50%) scale(0.95);
+    }
+    #sm-mobile-zoom-selected.sm-visible i {
+        font-size: 13px;
+    }
+    body.app-theme-dark #sm-mobile-zoom-selected.sm-visible {
+        background: linear-gradient(135deg, #059669, #047857);
+        box-shadow: 0 4px 16px rgba(5,150,105,0.55);
+    }
+}
+
+@keyframes sm-zoom-btn-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+</style>
 
 </head>
 <body class="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden">
@@ -2266,6 +2313,13 @@ body.app-theme-dark .node-card .mobile-info-badge {
         <button type="button" data-sm-action="fit" title="Centralizar mapa"><i class="fa-solid fa-crosshairs"></i></button>
         <button type="button" data-sm-action="focus" title="Foco no ramo"><i class="fa-solid fa-eye"></i></button>
     </div>
+      <button id="sm-mobile-zoom-selected" type="button"
+            onclick="zoomToSelectedNodes()"
+            title="Zoom no nó selecionado"
+            aria-label="Zoom no nó selecionado">
+        <i class="fa-solid fa-expand"></i>
+        <span>Zoom no nó</span>
+    </button>
 
     <div class="flex-1 flex relative overflow-hidden">
 
@@ -9182,42 +9236,61 @@ else newScale = Math.max(scale / factor, 0.05);
             saveStoriesStorage(); renderApp();
         }
 
-        function updateAlignToolbar() {
+    function updateAlignToolbar() {
     const tb = document.getElementById('align-toolbar');
     if (!tb) return;
-    const show = selectedNodeIds.size >= 1;
+
+    const isMobile = !!(window.DEVICE && window.DEVICE.isMobile);
+
+    // Em mobile com apenas 1 nó, escondemos a align-toolbar
+    // e usamos o botão flutuante dedicado de zoom.
+    const show = isMobile ? (selectedNodeIds.size >= 2) : (selectedNodeIds.size >= 1);
     tb.classList.toggle('hidden', !show);
     tb.classList.toggle('flex', show);
+
+    // Sincroniza o botão mobile de zoom
+    updateMobileZoomButton();
 
     const count = document.getElementById('align-count');
     if (count) count.textContent = selectedNodeIds.size;
 
     const canAlign = selectedNodeIds.size >= 2;
 
-    // ── Grupo de alinhamento ─────────────────────────────────────
-    // Antes: ficava esmaecido/desabilitado. Agora: some de vez.
     const alignActions = document.getElementById('align-actions');
     if (alignActions) {
         alignActions.classList.remove('opacity-40', 'pointer-events-none');
         alignActions.style.display = canAlign ? '' : 'none';
     }
 
-    // ── Divisor entre "alinhar" e "zoom" ─────────────────────────
-    // Só os divisores que são FILHOS DIRETOS da toolbar entram aqui.
-    // O dividers internos ao #align-actions são ignorados.
     const directDividers = Array.from(tb.children)
         .filter(el => el.classList && el.classList.contains('w-px'));
 
-    if (directDividers[0]) {
-        // firstDivider = divisor entre #align-actions e o botão de zoom
-        directDividers[0].style.display = canAlign ? '' : 'none';
-    }
+    if (directDividers[0]) directDividers[0].style.display = canAlign ? '' : 'none';
+
     const countSpan = Array.from(tb.children)
-    .find(el => el.tagName === 'SPAN' && el.querySelector('#align-count'));
-if (countSpan) countSpan.style.display = canAlign ? '' : 'none';
-if (directDividers[1]) {
-    directDividers[1].style.display = canAlign ? '' : 'none';
+        .find(el => el.tagName === 'SPAN' && el.querySelector('#align-count'));
+    if (countSpan) countSpan.style.display = canAlign ? '' : 'none';
+
+    if (directDividers[1]) directDividers[1].style.display = canAlign ? '' : 'none';
 }
+
+// NOVO: controla o botão flutuante "Zoom no nó" (mobile, 1 nó selecionado)
+function updateMobileZoomButton() {
+    const btn = document.getElementById('sm-mobile-zoom-selected');
+    if (!btn) return;
+    const isMobile = !!(window.DEVICE && window.DEVICE.isMobile);
+    const shouldShow = isMobile && selectedNodeIds.size === 1;
+    btn.classList.toggle('sm-visible', shouldShow);
+
+    if (!shouldShow) return;
+
+    // Posiciona logo abaixo da barra de ferramentas mobile
+    requestAnimationFrame(() => {
+        const toolbar = document.getElementById('sm-mobile-toolbar');
+        if (!toolbar) return;
+        const rect = toolbar.getBoundingClientRect();
+        btn.style.top = (rect.bottom + 8) + 'px';
+    });
 }
 
         function highlightMatch(text, isHit) {
@@ -13100,7 +13173,10 @@ function syncMobileModeButtons() {
   }
   // Reaplica classes ao girar a tela ou conectar/desconectar recursos de toque.
   [touchQuery, mobileQuery, tabletQuery].forEach(q => { if (q.addEventListener) q.addEventListener('change', applyDeviceClasses); else if (q.addListener) q.addListener(applyDeviceClasses); });
-  window.addEventListener('resize', applyDeviceClasses, { passive: true });
+  window.addEventListener('resize', function () {
+    applyDeviceClasses();
+    if (typeof updateMobileZoomButton === 'function') updateMobileZoomButton();
+}, { passive: true });
   applyDeviceClasses();
   installHeaderMenu();
     installHeaderExportButton();   // NOVO
