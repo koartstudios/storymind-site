@@ -716,6 +716,18 @@ body.eyedropper-armed #tool-eyedropper {
             dominant-baseline: central;
             user-select: none;
         }
+        /* Fase 4: ajustes visuais dos ícones FA na teia */
+#reteia-modal .reteia-node .sm-reteia-role-icon path {
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+}
+#reteia-modal .reteia-node.selected .sm-reteia-role-icon path,
+#reteia-modal .reteia-node.relation-source .sm-reteia-role-icon path {
+    opacity: 1;
+}
+body.app-theme-dark #reteia-modal .reteia-node circle[fill="#ffffff"] {
+    fill: #1e293b;
+}
         body.app-theme-dark #reteia-modal .bg-white { background:#1e293b !important; }
         body.app-theme-dark #reteia-modal .bg-slate-50 { background:#0f172a !important; }
         body.app-theme-dark #reteia-modal .border-slate-200 { border-color:#334155 !important; }
@@ -3893,6 +3905,7 @@ const SM_ICON_MAP = {
     '📖': 'fa-book-open',
 '🌳': 'fa-tree',
 '🏢': 'fa-building',
+'👤': 'fa-user',
     '⛰️': 'fa-mountain',
 
     // ---- Skills ----
@@ -10770,25 +10783,51 @@ const typeHTML = typeDef ? `<span class="text-[10px] shrink-0" title="${escapeHT
                     return '#94a3b8';
                 })
                 .attr('stroke-width', 3);
-            nodeSel.each(function(d) {
-                const g = d3.select(this);
-                if (d.avatar) {
-                    g.append('image')
-                        .attr('href', d.avatar).attr('xlink:href', d.avatar)
-                        .attr('x', -42).attr('y', -42).attr('width', 84).attr('height', 84)
-                        .attr('preserveAspectRatio', 'xMidYMid slice')
-                        .attr('clip-path', `url(#reteia-clip-${d.id.replace(/[^a-zA-Z0-9_-]/g, '_')})`)
-                        .attr('class', 'reteia-avatar-clip')
-                        .on('error', function() {
-                            d3.select(this).remove();
-                            g.append('circle').attr('r', 42).attr('fill', '#475569');
-                            g.append('text').attr('class', 'reteia-initials').attr('font-size', '24').text(d.initials);
-                        });
-                } else {
-                    g.append('circle').attr('r', 42).attr('fill', '#475569');
-                    g.append('text').attr('class', 'reteia-initials').attr('font-size', '24').text(d.initials);
-                }
+ nodeSel.each(function(d) {
+    const g = d3.select(this);
+    const roleColor = getCharacterRoleColor(d.role);
+    const drawFallbackIcon = () => {
+        const faName = getCharacterFaIconName(d.nodeRef);
+        const faD = (typeof getFAPathData === 'function') ? getFAPathData(faName) : null;
+        if (faD) {
+            // Fundo suave na cor do role + anel de contorno
+            g.append('circle').attr('r', 42)
+                .attr('fill', roleColor).attr('opacity', 0.12);
+            g.append('circle').attr('r', 42)
+                .attr('fill', 'transparent')
+                .attr('stroke', roleColor).attr('stroke-width', 1.5)
+                .attr('stroke-dasharray', '3 3').attr('opacity', 0.6);
+            // Ícone FA centralizado
+            const iconSize = 44;
+            const scale = iconSize / 512;
+            const off = -(iconSize / 2);
+            g.append('g')
+                .attr('transform', `translate(${off}, ${off}) scale(${scale})`)
+                .append('path')
+                .attr('d', faD)
+                .attr('fill', roleColor);
+        } else {
+            // Fallback final: iniciais
+            g.append('circle').attr('r', 42).attr('fill', roleColor);
+            g.append('text').attr('class', 'reteia-initials').attr('font-size', '24').text(d.initials);
+        }
+    };
+
+    if (d.avatar) {
+        g.append('image')
+            .attr('href', d.avatar).attr('xlink:href', d.avatar)
+            .attr('x', -42).attr('y', -42).attr('width', 84).attr('height', 84)
+            .attr('preserveAspectRatio', 'xMidYMid slice')
+            .attr('clip-path', `url(#reteia-clip-${d.id.replace(/[^a-zA-Z0-9_-]/g, '_')})`)
+            .attr('class', 'reteia-avatar-clip')
+            .on('error', function() {
+                d3.select(this).remove();
+                drawFallbackIcon();
             });
+    } else {
+        drawFallbackIcon();
+    }
+});
             nodeSel.append('text')
                 .attr('text-anchor', 'middle').attr('y', 62)
                 .attr('fill', '#0f172a').attr('font-size', '12').attr('font-weight', '700')
@@ -11151,12 +11190,19 @@ class SMSelect {
         return { emoji: null, label: text };
     }
 
-    _iconHTML(emoji) {
-        if (!emoji) return '';
-        const mapped = (typeof SM_ICON_MAP !== 'undefined') ? SM_ICON_MAP[emoji] : null;
-        if (mapped) return `<i class="fa-solid ${mapped}"></i>`;
-        return `<span aria-hidden="true">${escapeHTML(emoji)}</span>`;
+    _iconHTML(emoji, opt) {
+    // Fase 4: se a option tem data-avatar, mostra a imagem
+    if (opt && opt.dataset && opt.dataset.avatar) {
+        return `<img src="${escapeHTML(opt.dataset.avatar)}" alt=""
+                    style="width:100%;height:100%;object-fit:cover;border-radius:50%;"
+                    onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='')">`
+             + `<i class="fa-solid fa-user" style="display:none"></i>`;
     }
+    if (!emoji) return '';
+    const mapped = (typeof SM_ICON_MAP !== 'undefined') ? SM_ICON_MAP[emoji] : null;
+    if (mapped) return `<i class="fa-solid ${mapped}"></i>`;
+    return `<span aria-hidden="true">${escapeHTML(emoji)}</span>`;
+}
 
     sync() {
         if (!this.button) return;
@@ -11165,9 +11211,23 @@ class SMSelect {
         const { emoji, label } = this._extractEmojiAndLabel(raw);
 
         const iconEl = this.button.querySelector('.sm-select-icon');
-        const textEl = this.button.querySelector('.sm-select-text');
-        if (iconEl) iconEl.innerHTML = this._iconHTML(emoji);
-        if (textEl) textEl.textContent = label || raw;
+const textEl = this.button.querySelector('.sm-select-text');
+if (iconEl) {
+    iconEl.innerHTML = this._iconHTML(emoji, opt);
+    // Ajusta o tamanho do slot quando é avatar
+    if (opt && opt.dataset && opt.dataset.avatar) {
+        iconEl.style.width = '20px';
+        iconEl.style.height = '20px';
+        iconEl.style.borderRadius = '50%';
+        iconEl.style.overflow = 'hidden';
+    } else {
+        iconEl.style.width = '';
+        iconEl.style.height = '';
+        iconEl.style.borderRadius = '';
+        iconEl.style.overflow = '';
+    }
+}
+if (textEl) textEl.textContent = label || raw;
     }
 
     toggle() { this.isOpen ? this.close() : this.open(); }
@@ -11198,9 +11258,19 @@ class SMSelect {
             item.tabIndex = opt.disabled ? -1 : 0;
 
             item.innerHTML =
-                `<span class="sm-select-opt-icon">${this._iconHTML(emoji)}</span>` +
-                `<span class="sm-select-opt-text">${escapeHTML(label || raw)}</span>` +
-                (opt.selected ? `<i class="fa-solid fa-check sm-select-opt-check"></i>` : '');
+    `<span class="sm-select-opt-icon">${this._iconHTML(emoji, opt)}</span>` +
+    `<span class="sm-select-opt-text">${escapeHTML(label || raw)}</span>` +
+    (opt.selected ? `<i class="fa-solid fa-check sm-select-opt-check"></i>` : '');
+
+    if (opt.dataset && opt.dataset.avatar) {
+        const optIconEl = item.querySelector('.sm-select-opt-icon');
+        if (optIconEl) {
+            optIconEl.style.width = '22px';
+            optIconEl.style.height = '22px';
+            optIconEl.style.borderRadius = '50%';
+            optIconEl.style.overflow = 'hidden';
+        }
+    }
 
             const choose = () => {
                 if (opt.disabled) return;
@@ -11299,7 +11369,11 @@ const ST_FA_ICONS = [
     'shield-halved', 'user-secret', 'yin-yang', 'book',
     'screwdriver-wrench', 'lock', 'plus', 'circle-info',
     'skull-crossbones', 'triangle-exclamation', 'circle-check',
-    'heart-pulse', 'layer-group'
+    'heart-pulse', 'layer-group',
+    // Fase 4: ícones de role + timeline + relações
+    'crown', 'user-tie', 'hat-wizard', 'user-group', 'user',
+    'skull', 'calendar-days', 'handshake', 'heart', 'droplet',
+    'people-roof', 'graduation-cap', 'khanda', 'link'
 ];
 const FA_SVG_PATH_CACHE = {};
 
@@ -11316,9 +11390,16 @@ async function preloadFASvgPaths() {
     }));
     // Se a skill tree estiver aberta, força redraw com os paths novos
     if (typeof stCurrentCharacterId !== 'undefined' && stCurrentCharacterId) {
-        const modal = document.getElementById('skilltree-modal');
-        if (modal && !modal.classList.contains('hidden')) renderSkillTreeCanvas();
+    const modal = document.getElementById('skilltree-modal');
+    if (modal && !modal.classList.contains('hidden')) renderSkillTreeCanvas();
+}
+// Fase 4: redesenha a teia de relações também
+if (typeof reteiaSimulation !== 'undefined' && reteiaSimulation) {
+    const reteiaModal = document.getElementById('reteia-modal');
+    if (reteiaModal && !reteiaModal.classList.contains('hidden')) {
+        try { reteiaDraw(); } catch(_) {}
     }
+}
 }
 
 function getFAPathData(name) { return FA_SVG_PATH_CACHE[name] || null; }
@@ -11351,6 +11432,60 @@ function getSkillFaIconClass(skill) {
 }
 
 /** Mapa emoji-do-tipo → nome FA (para o badge de tipo no SVG) */
+/* ============================================================
+   FASE 4 — Ícones por role de personagem e por tipo de relação
+   ============================================================ */
+const ROLE_FA_ICON = {
+    'protagonista':    'crown',
+    'antagonista':     'skull',
+    'co-protagonista': 'user-group',
+    'mentor':          'hat-wizard',
+    'secundario':      'user',
+    'figurante':       'user',
+    'default':         'user-tie'
+};
+
+/** Retorna o nome FA do ícone do personagem (com base no role). */
+function getCharacterFaIconName(node) {
+    if (!node || !node.typeData) return ROLE_FA_ICON['default'];
+    const raw = String(node.typeData.role || '').trim();
+    if (!raw) return ROLE_FA_ICON['default'];
+    const role = raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    // Ordem importa: "co-protagonista" antes de "protagonista"
+    const order = ['co-protagonista', 'antagonista', 'protagonista', 'mentor', 'secundario', 'figurante'];
+    for (const key of order) {
+        if (role.includes(key)) return ROLE_FA_ICON[key];
+    }
+    return ROLE_FA_ICON['default'];
+}
+
+/** Cor sólida para o role — usada no círculo e no ícone da teia. */
+function getCharacterRoleColor(role) {
+    const r = String(role || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (r.includes('co-protagonista')) return '#8b5cf6';
+    if (r.includes('protagonista'))    return '#6366f1';
+    if (r.includes('antagonista'))     return '#dc2626';
+    if (r.includes('mentor'))          return '#eab308';
+    if (r.includes('secundario'))      return '#64748b';
+    if (r.includes('figurante'))       return '#94a3b8';
+    return '#64748b';
+}
+
+/** Nome FA para os tipos de relação (Aliança, Conflito, etc.) */
+function getRelationFaIconName(typeDef) {
+    if (!typeDef) return 'link';
+    const map = {
+        alianca:  'handshake',
+        conflito: 'shield-halved',
+        segredo:  'user-secret',
+        sangue:   'droplet',
+        romance:  'heart',
+        familia:  'people-roof',
+        mentoria: 'graduation-cap',
+        traicao:  'khanda'
+    };
+    return map[typeDef.id] || 'link';
+}
 const TYPE_EMOJI_TO_FA_NAME = {
     '💪': 'dumbbell', '🔥': 'fire', '🗣️': 'comments', '🌿': 'leaf',
     '🧠': 'brain', '⚔️': 'shield-halved', '🥷': 'user-secret',
@@ -11611,7 +11746,17 @@ let stPinchState = null;            //  estado do pinch (distância, escala inic
             if (!modal) return;
             const characters = getCharacterNodes();
             const select = document.getElementById('skilltree-char-select');
-            select.innerHTML = characters.length === 0 ? '<option value="">— Nenhum personagem —</option>' : characters.map(c => { const name = c.typeData?.fullName || c.title; return `<option value="${c.id}">${escapeHTML(name)}</option>`; }).join('');
+select.innerHTML = characters.length === 0
+    ? '<option value="">— Nenhum personagem —</option>'
+    : characters.map(c => {
+        const name = c.typeData?.fullName || c.title;
+        const avatar = (c.icons && c.icons.length > 0) ? c.icons[0] : '';
+        const faName = getCharacterFaIconName(c);
+        // Fallback: prefixa o nome com o ícone FA do role via emoji (só se não tiver avatar)
+        const prefixEmoji = avatar ? '' : '👤 ';
+        const dataAvatar = avatar ? `data-avatar="${escapeHTML(avatar)}"` : '';
+        return `<option value="${c.id}" ${dataAvatar}>${prefixEmoji}${escapeHTML(name)}</option>`;
+    }).join('');
             if (characters.length === 0) stCurrentCharacterId = null;
             else {
                 const target = initialCharId && characters.find(c => c.id === initialCharId) ? initialCharId : (stCurrentCharacterId && characters.find(c => c.id === stCurrentCharacterId) ? stCurrentCharacterId : characters[0].id);
@@ -12619,7 +12764,17 @@ function cancelSkillTreeInteractions() {
             const chars = getCharacterNodes().filter(c => c.id !== stCurrentCharacterId);
             if (!chars.length) { showToast('Não há outro personagem no mapa para receber a cópia.', 'warn'); return; }
             const select = document.getElementById('st-copy-target');
-            select.innerHTML = chars.map(c => `<option value="${c.id}">${escapeHTML(c.typeData?.fullName || c.title || 'Sem nome')}</option>`).join('');
+select.innerHTML = chars.map(c => {
+    const name = c.typeData?.fullName || c.title || 'Sem nome';
+    const avatar = (c.icons && c.icons.length > 0) ? c.icons[0] : '';
+    const prefixEmoji = avatar ? '' : '👤 ';
+    const dataAvatar = avatar ? `data-avatar="${escapeHTML(avatar)}"` : '';
+    return `<option value="${c.id}" ${dataAvatar}>${prefixEmoji}${escapeHTML(name)}</option>`;
+}).join('');
+// Força re-sync do SMSelect se ele já estava inicializado
+if (typeof SM_SELECTS !== 'undefined') {
+    SM_SELECTS.forEach(s => { try { s.sync(); } catch(_) {} });
+}
             document.getElementById('st-copy-summary').textContent = selected.length === 1 ? `Habilidade: ${selected[0].name || 'sem nome'}` : `${selected.length} habilidades selecionadas`;
             document.getElementById('st-copy-branch').checked = false;
             const modal = document.getElementById('st-copy-modal');
@@ -13295,11 +13450,16 @@ card.addEventListener('mouseleave', () => {
     }, 180);
 });
         card.innerHTML = `
-            <div class="flex items-center justify-between mb-2 pb-2 border-b border-slate-100 gap-2">
-                <span class="font-bold text-sm text-cyan-700" style="font-family: ui-monospace, monospace;">${year !== null ? 'Ano ' + year : '—'}</span>
-                ${category ? `<span class="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-700">${escapeHTML(category)}</span>` : ''}
-            </div>
-            <h4 class="font-bold text-sm text-slate-800 mb-1">${escapeHTML(n.title || 'Sem título')}</h4>
+    <div class="flex items-center justify-between mb-2 pb-2 border-b border-slate-100 gap-2">
+        <span class="font-bold text-sm text-cyan-700 inline-flex items-center gap-1.5" style="font-family: ui-monospace, monospace;">
+            ${renderIcon('📅')}${year !== null ? 'Ano ' + year : '—'}
+        </span>
+        ${category ? `<span class="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-700">${escapeHTML(category)}</span>` : ''}
+    </div>
+            <h4 class="font-bold text-sm text-slate-800 mb-1 flex items-center gap-1.5">
+    <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-cyan-100 text-cyan-700 text-[9px]" title="Timeline">${renderIcon('📅')}</span>
+    <span class="flex-1 min-w-0 truncate">${escapeHTML(n.title || 'Sem título')}</span>
+</h4>
             
             ${n.content ? `<p class="text-[11.5px] text-slate-600 leading-relaxed mb-2" style="display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;">${escapeHTML(n.content)}</p>` : ''}
             <div class="flex flex-wrap gap-1 mt-2">
