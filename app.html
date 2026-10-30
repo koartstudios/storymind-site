@@ -18,8 +18,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <!-- html2canvas e d3 são carregados sob demanda (veja ensureHtml2Canvas / ensureD3) -->
     <style>
         :root {
             --canvas-bg: #f8fafc;
@@ -3846,6 +3845,36 @@ body.app-theme-dark .sm-select-btn:hover { filter: brightness(1.15); }
 
     <script>
         const CANVAS_CENTER_X = 2600;
+        /* ============================================================
+   Lazy-loaders: D3 e html2canvas só entram quando o usuário precisa
+   ============================================================ */
+let _d3Promise = null, _html2canvasPromise = null;
+function ensureD3() {
+    if (window.d3) return Promise.resolve(window.d3);
+    if (_d3Promise) return _d3Promise;
+    _d3Promise = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://d3js.org/d3.v7.min.js';
+        s.async = true;
+        s.onload = () => resolve(window.d3);
+        s.onerror = () => { _d3Promise = null; reject(new Error('Falha ao carregar D3')); };
+        document.head.appendChild(s);
+    });
+    return _d3Promise;
+}
+function ensureHtml2Canvas() {
+    if (window.html2canvas) return Promise.resolve(window.html2canvas);
+    if (_html2canvasPromise) return _html2canvasPromise;
+    _html2canvasPromise = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        s.async = true;
+        s.onload = () => resolve(window.html2canvas);
+        s.onerror = () => { _html2canvasPromise = null; reject(new Error('Falha ao carregar html2canvas')); };
+        document.head.appendChild(s);
+    });
+    return _html2canvasPromise;
+}
         const CANVAS_CENTER_Y = 2600;
 
         /* ============================================================
@@ -7394,12 +7423,15 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
             // FIX: PRESERVA O STATUS DE FAVORITO
             // Evita que o app.html apague a estrela marcada no dashboard
             // ==============================================================
-            try {
-                const db = JSON.parse(localStorage.getItem('storymind_database_v2')) || {};
-                if (db[currentStoryKey] && typeof db[currentStoryKey].isFavorite !== 'undefined') {
-                    currentStory.isFavorite = db[currentStoryKey].isFavorite;
-                }
-            } catch(e) { console.warn('Erro ao preservar favorito', e); }
+           if (typeof currentStory._favCached !== 'boolean') {
+    try {
+        const db = JSON.parse(localStorage.getItem('storymind_database_v2')) || {};
+        if (db[currentStoryKey] && typeof db[currentStoryKey].isFavorite !== 'undefined') {
+            currentStory.isFavorite = db[currentStoryKey].isFavorite;
+        }
+    } catch(e) { /* silencioso */ }
+    currentStory._favCached = true;
+}
             // ==============================================================
 
             const idx = currentStory.sheets.findIndex(s => s.id === mindMapData.id);
@@ -7470,6 +7502,7 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
             } else {
                 currentStoryKey = key;
                 currentStory = migrateStoryToSheets(deepClone(storiesDatabase[key]));
+                currentStory._favCached = false;   // força nova leitura ao trocar de história
                 const sheet = currentStory.sheets.find(s => s.id === currentStory.activeSheetId) || currentStory.sheets[0];
                 mindMapData = sheet; currentStory.activeSheetId = sheet.id;
             }
@@ -8418,7 +8451,7 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
                 const contentHTML = isEditing ? `<p class="text-[11px] opacity-80 leading-relaxed font-normal outline-none min-h-[16px]" contenteditable="true" data-edit-target="content" data-placeholder="Sem notas...">${escapeHTML(node.content || '')}</p>` : `<p class="text-[11px] opacity-80 line-clamp-3 leading-relaxed font-normal" data-edit-target="content">${highlightMatch(node.content || 'Sem notas...', isSearchHit)}</p>`;
                 const iconsArr = node.icons || [];
                 let iconsHTML = '';
-                iconsArr.forEach(url => { iconsHTML += `<img src="${escapeHTML(url)}" class="rounded shrink-0 pointer-events-none" style="width:150px;height:150px;object-fit:contain;" crossorigin="anonymous" alt="" onerror="this.style.display='none'">`; });
+                iconsArr.forEach(url => { iconsHTML += `<img src="${escapeHTML(url)}" loading="lazy" decoding="async" class="rounded shrink-0 pointer-events-none" style="width:150px;height:150px;object-fit:contain;" crossorigin="anonymous" alt="" onerror="this.style.display='none'">`; });
                 const iconsBlock = iconsHTML ? `<div class="flex flex-wrap items-center justify-center gap-2 mb-2">${iconsHTML}</div>` : '';
                 const tensionBarHTML = tColor ? `<div class="absolute top-0 left-0 right-0 rounded-t-[11px] pointer-events-none" style="height: 3px; background: ${tColor};"></div>` : '';
                 let variantBadgeHTML = '';
@@ -9072,12 +9105,17 @@ else newScale = Math.max(scale / factor, 0.05);
             updateCanvasTransform();
         }
 
-        function updateCanvasTransform() {
-            const w = document.getElementById('export-wrapper');
-            w.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
-            w.style.transformOrigin = '0 0';
-            renderMinimap();
-        }
+        let _minimapRaf = 0;
+function updateCanvasTransform() {
+    const w = document.getElementById('export-wrapper');
+    w.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    w.style.transformOrigin = '0 0';
+    if (_minimapRaf) return;
+    _minimapRaf = requestAnimationFrame(() => {
+        _minimapRaf = 0;
+        renderMinimap();
+    });
+}
 
         function fitView() {
             const visible = getVisibleNodes();
@@ -10145,7 +10183,9 @@ const typeHTML = typeDef ? `<span class="text-[10px] shrink-0" title="${escapeHT
             document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
         }
 
-        function exportPNG(mode) {
+        async function exportPNG(mode) {
+    try { await ensureHtml2Canvas(); }
+    catch (err) { showToast('Não foi possível carregar o exportador PNG.', 'error', 4000); return; }
             const loadingEl = document.getElementById('export-loading');
             loadingEl.classList.remove('hidden'); loadingEl.classList.add('flex');
             let nodesToExport, filename;
@@ -10613,7 +10653,10 @@ const typeHTML = typeDef ? `<span class="text-[10px] shrink-0" title="${escapeHT
             reteiaPendingFrom = null; reteiaEditingRelId = null;
             reteiaSelectedNodeId = null; reteiaCloseEditor();
             reteiaRenderLegend();
-            setTimeout(() => { reteiaDraw(); }, 60);
+            ensureD3().then(() => { reteiaDraw(); }).catch(err => {
+    console.warn(err);
+    showToast('Não foi possível carregar o grafo. Verifique a conexão.', 'error', 4000);
+});
         }
 
         function closeRelationWeb() {
