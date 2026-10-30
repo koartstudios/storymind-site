@@ -16,9 +16,10 @@
 <script src="assets/cloud.js"></script>
     <script>SM_AUTH.require();</script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- html2canvas e d3 são carregados sob demanda (veja ensureHtml2Canvas / ensureD3) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         :root {
             --canvas-bg: #f8fafc;
@@ -715,18 +716,6 @@ body.eyedropper-armed #tool-eyedropper {
             dominant-baseline: central;
             user-select: none;
         }
-        /* Fase 4: ajustes visuais dos ícones FA na teia */
-#reteia-modal .reteia-node .sm-reteia-role-icon path {
-    transition: opacity 0.15s ease;
-    pointer-events: none;
-}
-#reteia-modal .reteia-node.selected .sm-reteia-role-icon path,
-#reteia-modal .reteia-node.relation-source .sm-reteia-role-icon path {
-    opacity: 1;
-}
-body.app-theme-dark #reteia-modal .reteia-node circle[fill="#ffffff"] {
-    fill: #1e293b;
-}
         body.app-theme-dark #reteia-modal .bg-white { background:#1e293b !important; }
         body.app-theme-dark #reteia-modal .bg-slate-50 { background:#0f172a !important; }
         body.app-theme-dark #reteia-modal .border-slate-200 { border-color:#334155 !important; }
@@ -797,7 +786,7 @@ body.app-theme-dark #reteia-modal .reteia-node circle[fill="#ffffff"] {
         }
         #st-node-tooltip .st-tt-title { color: #0f172a; font-size: 13px; font-weight: 800; margin-bottom: 5px; }
         #st-node-tooltip .st-tt-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 7px; }
-        #st-node-tooltip .st-tt-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 10px; font-weight: 700; }
+        #st-node-tooltip .st-tt-chip { display: inline-flex; padding: 2px 7px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 10px; font-weight: 700; }
         #st-node-tooltip .st-tt-desc { white-space: pre-wrap; overflow-wrap: anywhere; color: #475569; }
         #st-node-tooltip .st-tt-hint { border-top: 1px solid #e2e8f0; padding-top: 6px; margin-top: 7px; color: #94a3b8; font-size: 10px; }
         body.app-theme-dark #st-node-tooltip { background: #1e293b; border-color: #475569; color: #e2e8f0; }
@@ -2123,7 +2112,6 @@ body.app-theme-dark .node-card .mobile-info-badge {
 /* ============================================================
    MOBILE: botão flutuante "Zoom no nó" abaixo da toolbar mobile
    ============================================================ */
-   
 #sm-mobile-zoom-selected { display: none; }
 
 @media (hover: none) and (max-width: 640px) {
@@ -2360,162 +2348,6 @@ body.app-theme-dark .node-card .mobile-info-badge {
         
         
     }
-}
-</style>
-<style>
-/* ============================================================
-   FASE 3 — Custom Select (substitui <select> visualmente)
-   O <select> nativo continua no DOM (display: none) e funcional.
-   O <button> é apenas a UI; o valor vem sempre do select real.
-   ============================================================ */
-
-/* O botão herda as classes do select original (bg, border, padding…).
-   Estas regras só ajustam o que é específico do botão. */
-.sm-select-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    text-align: left;
-    cursor: pointer;
-    appearance: none;
-    -webkit-appearance: none;
-    font-family: inherit;
-    line-height: 1.2;
-    min-width: 0;
-}
-.sm-select-btn:hover { filter: brightness(0.97); }
-.sm-select-btn:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 2px #6366f1;
-}
-.sm-select-btn .sm-select-content {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-}
-.sm-select-btn .sm-select-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    flex-shrink: 0;
-    font-size: 11px;
-    opacity: 0.75;
-}
-.sm-select-btn .sm-select-icon:empty { display: none; }
-.sm-select-btn .sm-select-text {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex: 1;
-    min-width: 0;
-}
-.sm-select-btn .sm-select-chevron {
-    font-size: 9px;
-    opacity: 0.45;
-    flex-shrink: 0;
-    transition: transform 0.15s ease;
-}
-.sm-select-btn.is-open .sm-select-chevron { transform: rotate(180deg); }
-
-/* Painel de opções (position: fixed → nunca cortado) */
-.sm-select-panel {
-    position: fixed;
-    z-index: 320;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    box-shadow: 0 18px 40px -8px rgba(15,23,42,0.22),
-                0 8px 16px -6px rgba(15,23,42,0.12);
-    padding: 4px;
-    max-height: 300px;
-    overflow-y: auto;
-    min-width: 180px;
-    max-width: min(320px, calc(100vw - 16px));
-    animation: sm-select-in 0.12s ease;
-}
-@keyframes sm-select-in {
-    from { opacity: 0; transform: translateY(-4px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-
-.sm-select-option {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 10px;
-    border-radius: 6px;
-    font-size: 12px;
-    color: #334155;
-    cursor: pointer;
-    transition: background 0.1s;
-    user-select: none;
-}
-.sm-select-option:hover:not(.is-disabled) {
-    background: #eef2ff;
-    color: #4338ca;
-}
-.sm-select-option.is-selected {
-    background: #eef2ff;
-    color: #4338ca;
-    font-weight: 600;
-}
-.sm-select-option.is-disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-.sm-select-option:focus-visible {
-    outline: none;
-    background: #eef2ff;
-    color: #4338ca;
-}
-.sm-select-option .sm-select-opt-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    flex-shrink: 0;
-    font-size: 13px;
-}
-.sm-select-option .sm-select-opt-icon:empty { display: none; }
-.sm-select-option .sm-select-opt-text {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.sm-select-option .sm-select-opt-check {
-    font-size: 10px;
-    color: #6366f1;
-    flex-shrink: 0;
-    margin-left: 4px;
-}
-
-/* Dark theme */
-body.app-theme-dark .sm-select-panel {
-    background: #1e293b;
-    border-color: #334155;
-}
-body.app-theme-dark .sm-select-option { color: #cbd5e1; }
-body.app-theme-dark .sm-select-option:hover:not(.is-disabled),
-body.app-theme-dark .sm-select-option.is-selected,
-body.app-theme-dark .sm-select-option:focus-visible {
-    background: #312e81;
-    color: #c7d2fe;
-}
-body.app-theme-dark .sm-select-btn:hover { filter: brightness(1.15); }
-
-/* Mobile: manter o tamanho de fonte legível igual ao select nativo */
-@media (hover: none) and (max-width: 640px) {
-    #inspector-sidebar .sm-select-btn,
-    #inspector-sidebar .sm-select-btn .sm-select-text {
-        font-size: 16px !important;
-    }
-    .sm-select-option { padding: 10px 12px; font-size: 14px; }
 }
 </style>
     </header>
@@ -3845,36 +3677,6 @@ body.app-theme-dark .sm-select-btn:hover { filter: brightness(1.15); }
 
     <script>
         const CANVAS_CENTER_X = 2600;
-        /* ============================================================
-   Lazy-loaders: D3 e html2canvas só entram quando o usuário precisa
-   ============================================================ */
-let _d3Promise = null, _html2canvasPromise = null;
-function ensureD3() {
-    if (window.d3) return Promise.resolve(window.d3);
-    if (_d3Promise) return _d3Promise;
-    _d3Promise = new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = 'https://d3js.org/d3.v7.min.js';
-        s.async = true;
-        s.onload = () => resolve(window.d3);
-        s.onerror = () => { _d3Promise = null; reject(new Error('Falha ao carregar D3')); };
-        document.head.appendChild(s);
-    });
-    return _d3Promise;
-}
-function ensureHtml2Canvas() {
-    if (window.html2canvas) return Promise.resolve(window.html2canvas);
-    if (_html2canvasPromise) return _html2canvasPromise;
-    _html2canvasPromise = new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-        s.async = true;
-        s.onload = () => resolve(window.html2canvas);
-        s.onerror = () => { _html2canvasPromise = null; reject(new Error('Falha ao carregar html2canvas')); };
-        document.head.appendChild(s);
-    });
-    return _html2canvasPromise;
-}
         const CANVAS_CENTER_Y = 2600;
 
         /* ============================================================
@@ -3932,9 +3734,6 @@ const SM_ICON_MAP = {
 
     // ---- Three Act ----
     '📖': 'fa-book-open',
-'🌳': 'fa-tree',
-'🏢': 'fa-building',
-'👤': 'fa-user',
     '⛰️': 'fa-mountain',
 
     // ---- Skills ----
@@ -5993,12 +5792,10 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
         }
 
         window.onload = async function() {
-    preloadFASvgPaths(); // ← NÃO await: roda em paralelo com o resto
-    await SM_CLOUD.pull();
-    loadStoriesStorage();
-    switchStory(new URLSearchParams(location.search).get('story') || 'default');
-    initSMSelects();     // ← FASE 3: transforma os <select> em dropdowns customizados
-    setupKeyboardListeners();
+            await SM_CLOUD.pull();
+            loadStoriesStorage();
+            switchStory(new URLSearchParams(location.search).get('story') || 'default');
+            setupKeyboardListeners();
             setupPointerListeners();
             setupMinimapInteractions();
             setupExportMenuListeners();
@@ -7423,15 +7220,12 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
             // FIX: PRESERVA O STATUS DE FAVORITO
             // Evita que o app.html apague a estrela marcada no dashboard
             // ==============================================================
-           if (typeof currentStory._favCached !== 'boolean') {
-    try {
-        const db = JSON.parse(localStorage.getItem('storymind_database_v2')) || {};
-        if (db[currentStoryKey] && typeof db[currentStoryKey].isFavorite !== 'undefined') {
-            currentStory.isFavorite = db[currentStoryKey].isFavorite;
-        }
-    } catch(e) { /* silencioso */ }
-    currentStory._favCached = true;
-}
+            try {
+                const db = JSON.parse(localStorage.getItem('storymind_database_v2')) || {};
+                if (db[currentStoryKey] && typeof db[currentStoryKey].isFavorite !== 'undefined') {
+                    currentStory.isFavorite = db[currentStoryKey].isFavorite;
+                }
+            } catch(e) { console.warn('Erro ao preservar favorito', e); }
             // ==============================================================
 
             const idx = currentStory.sheets.findIndex(s => s.id === mindMapData.id);
@@ -7502,7 +7296,6 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
             } else {
                 currentStoryKey = key;
                 currentStory = migrateStoryToSheets(deepClone(storiesDatabase[key]));
-                currentStory._favCached = false;   // força nova leitura ao trocar de história
                 const sheet = currentStory.sheets.find(s => s.id === currentStory.activeSheetId) || currentStory.sheets[0];
                 mindMapData = sheet; currentStory.activeSheetId = sheet.id;
             }
@@ -8451,7 +8244,7 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
                 const contentHTML = isEditing ? `<p class="text-[11px] opacity-80 leading-relaxed font-normal outline-none min-h-[16px]" contenteditable="true" data-edit-target="content" data-placeholder="Sem notas...">${escapeHTML(node.content || '')}</p>` : `<p class="text-[11px] opacity-80 line-clamp-3 leading-relaxed font-normal" data-edit-target="content">${highlightMatch(node.content || 'Sem notas...', isSearchHit)}</p>`;
                 const iconsArr = node.icons || [];
                 let iconsHTML = '';
-                iconsArr.forEach(url => { iconsHTML += `<img src="${escapeHTML(url)}" loading="lazy" decoding="async" class="rounded shrink-0 pointer-events-none" style="width:150px;height:150px;object-fit:contain;" crossorigin="anonymous" alt="" onerror="this.style.display='none'">`; });
+                iconsArr.forEach(url => { iconsHTML += `<img src="${escapeHTML(url)}" class="rounded shrink-0 pointer-events-none" style="width:150px;height:150px;object-fit:contain;" crossorigin="anonymous" alt="" onerror="this.style.display='none'">`; });
                 const iconsBlock = iconsHTML ? `<div class="flex flex-wrap items-center justify-center gap-2 mb-2">${iconsHTML}</div>` : '';
                 const tensionBarHTML = tColor ? `<div class="absolute top-0 left-0 right-0 rounded-t-[11px] pointer-events-none" style="height: 3px; background: ${tColor};"></div>` : '';
                 let variantBadgeHTML = '';
@@ -9105,17 +8898,12 @@ else newScale = Math.max(scale / factor, 0.05);
             updateCanvasTransform();
         }
 
-        let _minimapRaf = 0;
-function updateCanvasTransform() {
-    const w = document.getElementById('export-wrapper');
-    w.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
-    w.style.transformOrigin = '0 0';
-    if (_minimapRaf) return;
-    _minimapRaf = requestAnimationFrame(() => {
-        _minimapRaf = 0;
-        renderMinimap();
-    });
-}
+        function updateCanvasTransform() {
+            const w = document.getElementById('export-wrapper');
+            w.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+            w.style.transformOrigin = '0 0';
+            renderMinimap();
+        }
 
         function fitView() {
             const visible = getVisibleNodes();
@@ -10183,9 +9971,7 @@ const typeHTML = typeDef ? `<span class="text-[10px] shrink-0" title="${escapeHT
             document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
         }
 
-        async function exportPNG(mode) {
-    try { await ensureHtml2Canvas(); }
-    catch (err) { showToast('Não foi possível carregar o exportador PNG.', 'error', 4000); return; }
+        function exportPNG(mode) {
             const loadingEl = document.getElementById('export-loading');
             loadingEl.classList.remove('hidden'); loadingEl.classList.add('flex');
             let nodesToExport, filename;
@@ -10653,10 +10439,7 @@ const typeHTML = typeDef ? `<span class="text-[10px] shrink-0" title="${escapeHT
             reteiaPendingFrom = null; reteiaEditingRelId = null;
             reteiaSelectedNodeId = null; reteiaCloseEditor();
             reteiaRenderLegend();
-            ensureD3().then(() => { reteiaDraw(); }).catch(err => {
-    console.warn(err);
-    showToast('Não foi possível carregar o grafo. Verifique a conexão.', 'error', 4000);
-});
+            setTimeout(() => { reteiaDraw(); }, 60);
         }
 
         function closeRelationWeb() {
@@ -10826,51 +10609,25 @@ const typeHTML = typeDef ? `<span class="text-[10px] shrink-0" title="${escapeHT
                     return '#94a3b8';
                 })
                 .attr('stroke-width', 3);
- nodeSel.each(function(d) {
-    const g = d3.select(this);
-    const roleColor = getCharacterRoleColor(d.role);
-    const drawFallbackIcon = () => {
-        const faName = getCharacterFaIconName(d.nodeRef);
-        const faD = (typeof getFAPathData === 'function') ? getFAPathData(faName) : null;
-        if (faD) {
-            // Fundo suave na cor do role + anel de contorno
-            g.append('circle').attr('r', 42)
-                .attr('fill', roleColor).attr('opacity', 0.12);
-            g.append('circle').attr('r', 42)
-                .attr('fill', 'transparent')
-                .attr('stroke', roleColor).attr('stroke-width', 1.5)
-                .attr('stroke-dasharray', '3 3').attr('opacity', 0.6);
-            // Ícone FA centralizado
-            const iconSize = 44;
-            const scale = iconSize / 512;
-            const off = -(iconSize / 2);
-            g.append('g')
-                .attr('transform', `translate(${off}, ${off}) scale(${scale})`)
-                .append('path')
-                .attr('d', faD)
-                .attr('fill', roleColor);
-        } else {
-            // Fallback final: iniciais
-            g.append('circle').attr('r', 42).attr('fill', roleColor);
-            g.append('text').attr('class', 'reteia-initials').attr('font-size', '24').text(d.initials);
-        }
-    };
-
-    if (d.avatar) {
-        g.append('image')
-            .attr('href', d.avatar).attr('xlink:href', d.avatar)
-            .attr('x', -42).attr('y', -42).attr('width', 84).attr('height', 84)
-            .attr('preserveAspectRatio', 'xMidYMid slice')
-            .attr('clip-path', `url(#reteia-clip-${d.id.replace(/[^a-zA-Z0-9_-]/g, '_')})`)
-            .attr('class', 'reteia-avatar-clip')
-            .on('error', function() {
-                d3.select(this).remove();
-                drawFallbackIcon();
+            nodeSel.each(function(d) {
+                const g = d3.select(this);
+                if (d.avatar) {
+                    g.append('image')
+                        .attr('href', d.avatar).attr('xlink:href', d.avatar)
+                        .attr('x', -42).attr('y', -42).attr('width', 84).attr('height', 84)
+                        .attr('preserveAspectRatio', 'xMidYMid slice')
+                        .attr('clip-path', `url(#reteia-clip-${d.id.replace(/[^a-zA-Z0-9_-]/g, '_')})`)
+                        .attr('class', 'reteia-avatar-clip')
+                        .on('error', function() {
+                            d3.select(this).remove();
+                            g.append('circle').attr('r', 42).attr('fill', '#475569');
+                            g.append('text').attr('class', 'reteia-initials').attr('font-size', '24').text(d.initials);
+                        });
+                } else {
+                    g.append('circle').attr('r', 42).attr('fill', '#475569');
+                    g.append('text').attr('class', 'reteia-initials').attr('font-size', '24').text(d.initials);
+                }
             });
-    } else {
-        drawFallbackIcon();
-    }
-});
             nodeSel.append('text')
                 .attr('text-anchor', 'middle').attr('y', 62)
                 .attr('fill', '#0f172a').attr('font-size', '12').attr('font-weight', '700')
@@ -11140,424 +10897,6 @@ const typeHTML = typeDef ? `<span class="text-[10px] shrink-0" title="${escapeHT
         // ==============================================================
         // SKILL TREE
         // ==============================================================
-        /* ============================================================
-   FASE 2 — SVGs FA inline para a Skill Tree
-   Busca os `d` de cada ícone no CDN do Font Awesome e cacheia.
-   Assim renderizamos <path> nativo em <svg> (live E export).
-   ============================================================ */
-   /* ============================================================
-   FASE 3 — Custom Select
-   ============================================================ */
-class SMSelect {
-    constructor(nativeSelect) {
-        this.select = nativeSelect;
-        this.button = null;
-        this.panel = null;
-        this.isOpen = false;
-        this._onEsc = null;
-        this._onDocClick = null;
-        this._init();
-    }
-
-    _init() {
-        if (this.select.dataset.smSelectWrapped === '1') return;
-        this.select.dataset.smSelectWrapped = '1';
-
-        // Copia classes do select para o botão (mesmo visual do select original)
-        const classes = this.select.className || '';
-
-        // Cria o botão que ocupa o lugar do select
-        this.button = document.createElement('button');
-        this.button.type = 'button';
-        this.button.className = classes + ' sm-select-btn';
-        this.button.setAttribute('aria-haspopup', 'listbox');
-        this.button.setAttribute('aria-expanded', 'false');
-        this.button.innerHTML =
-            `<span class="sm-select-content">` +
-                `<span class="sm-select-icon"></span>` +
-                `<span class="sm-select-text"></span>` +
-            `</span>` +
-            `<i class="fa-solid fa-chevron-down sm-select-chevron"></i>`;
-
-        // Esconde o select nativo (mas ele continua no DOM e funcional)
-        this.select.style.display = 'none';
-        this.select.setAttribute('aria-hidden', 'true');
-        this.select.setAttribute('tabindex', '-1');
-        this.select.parentNode.insertBefore(this.button, this.select.nextSibling);
-
-        // Clique → abre/fecha
-        this.button.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.toggle();
-        });
-
-        // Mudança de valor (via <select> nativo ou evento)
-        this.select.addEventListener('change', () => this.sync());
-
-        // Opções mudaram (innerHTML, appendChild, etc.)
-        this._observer = new MutationObserver(() => this.sync());
-        this._observer.observe(this.select, {
-            childList: true, subtree: true, characterData: true
-        });
-
-        // Patch do setter de .value — para pegar `select.value = x` programático
-        try {
-            const self = this;
-            const nativeDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
-            if (nativeDesc && !Object.prototype.hasOwnProperty.call(this.select, '_smValuePatched')) {
-                Object.defineProperty(this.select, 'value', {
-                    configurable: true,
-                    enumerable: true,
-                    get: function () { return nativeDesc.get.call(this); },
-                    set: function (v) {
-                        nativeDesc.set.call(this, v);
-                        self.sync();
-                    }
-                });
-                this.select._smValuePatched = true;
-            }
-        } catch (err) {
-            // Fallback silencioso: sem patch, o sync acontece só no change/observer.
-            console.warn('SMSelect: setter patch indisponível para', this.select.id, err);
-        }
-
-        this.sync();
-    }
-
-    _extractEmojiAndLabel(text) {
-        if (!text) return { emoji: null, label: '' };
-        // Emoji no início seguido (ou não) de espaço
-        const m = text.match(/^(\p{Extended_Pictographic}(?:\uFE0F)?)\s*(.*)$/u);
-        if (m) return { emoji: m[1], label: m[2] };
-        return { emoji: null, label: text };
-    }
-
-    _iconHTML(emoji, opt) {
-    // Fase 4: se a option tem data-avatar, mostra a imagem
-    if (opt && opt.dataset && opt.dataset.avatar) {
-        return `<img src="${escapeHTML(opt.dataset.avatar)}" alt=""
-                    style="width:100%;height:100%;object-fit:cover;border-radius:50%;"
-                    onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='')">`
-             + `<i class="fa-solid fa-user" style="display:none"></i>`;
-    }
-    if (!emoji) return '';
-    const mapped = (typeof SM_ICON_MAP !== 'undefined') ? SM_ICON_MAP[emoji] : null;
-    if (mapped) return `<i class="fa-solid ${mapped}"></i>`;
-    return `<span aria-hidden="true">${escapeHTML(emoji)}</span>`;
-}
-
-    sync() {
-        if (!this.button) return;
-        const opt = this.select.options[this.select.selectedIndex];
-        const raw = opt ? opt.textContent : '';
-        const { emoji, label } = this._extractEmojiAndLabel(raw);
-
-        const iconEl = this.button.querySelector('.sm-select-icon');
-const textEl = this.button.querySelector('.sm-select-text');
-if (iconEl) {
-    iconEl.innerHTML = this._iconHTML(emoji, opt);
-    // Ajusta o tamanho do slot quando é avatar
-    if (opt && opt.dataset && opt.dataset.avatar) {
-        iconEl.style.width = '20px';
-        iconEl.style.height = '20px';
-        iconEl.style.borderRadius = '50%';
-        iconEl.style.overflow = 'hidden';
-    } else {
-        iconEl.style.width = '';
-        iconEl.style.height = '';
-        iconEl.style.borderRadius = '';
-        iconEl.style.overflow = '';
-    }
-}
-if (textEl) textEl.textContent = label || raw;
-    }
-
-    toggle() { this.isOpen ? this.close() : this.open(); }
-
-    open() {
-        // Fecha qualquer outro aberto
-        if (typeof SM_SELECTS !== 'undefined') {
-            SM_SELECTS.forEach(s => { if (s !== this && s.isOpen) s.close(); });
-        }
-        this.sync(); // garante estado atual
-
-        const rect = this.button.getBoundingClientRect();
-
-        const panel = document.createElement('div');
-        panel.className = 'sm-select-panel';
-        panel.setAttribute('role', 'listbox');
-
-        Array.from(this.select.options).forEach(opt => {
-            const raw = opt.textContent;
-            const { emoji, label } = this._extractEmojiAndLabel(raw);
-
-            const item = document.createElement('div');
-            item.className = 'sm-select-option';
-            if (opt.selected) item.classList.add('is-selected');
-            if (opt.disabled) item.classList.add('is-disabled');
-            item.setAttribute('role', 'option');
-            item.setAttribute('aria-selected', opt.selected ? 'true' : 'false');
-            item.tabIndex = opt.disabled ? -1 : 0;
-
-            item.innerHTML =
-    `<span class="sm-select-opt-icon">${this._iconHTML(emoji, opt)}</span>` +
-    `<span class="sm-select-opt-text">${escapeHTML(label || raw)}</span>` +
-    (opt.selected ? `<i class="fa-solid fa-check sm-select-opt-check"></i>` : '');
-
-    if (opt.dataset && opt.dataset.avatar) {
-        const optIconEl = item.querySelector('.sm-select-opt-icon');
-        if (optIconEl) {
-            optIconEl.style.width = '22px';
-            optIconEl.style.height = '22px';
-            optIconEl.style.borderRadius = '50%';
-            optIconEl.style.overflow = 'hidden';
-        }
-    }
-
-            const choose = () => {
-                if (opt.disabled) return;
-                this.select.value = opt.value;
-                this.select.dispatchEvent(new Event('change', { bubbles: true }));
-                this.close();
-            };
-            item.addEventListener('click', choose);
-            item.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(); }
-                else if (e.key === 'ArrowDown') { e.preventDefault(); (item.nextElementSibling || item).focus(); }
-                else if (e.key === 'ArrowUp')   { e.preventDefault(); (item.previousElementSibling || item).focus(); }
-                else if (e.key === 'Escape')    { e.preventDefault(); this.close(); this.button.focus(); }
-            });
-
-            panel.appendChild(item);
-        });
-
-        document.body.appendChild(panel);
-
-        // Posicionamento com clamp
-        const pRect = panel.getBoundingClientRect();
-        let left = rect.left;
-        let top = rect.bottom + 4;
-        if (left + pRect.width > window.innerWidth - 8) left = window.innerWidth - pRect.width - 8;
-        if (left < 8) left = 8;
-        if (top + pRect.height > window.innerHeight - 8) top = rect.top - pRect.height - 4;
-        if (top < 8) top = 8;
-        panel.style.left = left + 'px';
-        panel.style.top = top + 'px';
-
-        this.panel = panel;
-        this.isOpen = true;
-        this.button.setAttribute('aria-expanded', 'true');
-        this.button.classList.add('is-open');
-
-        // Fecha ao clicar fora
-        this._onDocClick = (e) => {
-            if (panel.contains(e.target) || this.button.contains(e.target)) return;
-            this.close();
-        };
-        setTimeout(() => document.addEventListener('click', this._onDocClick, { once: true }), 0);
-
-        // Fecha no ESC (capture para interceptar antes de outros handlers)
-        this._onEsc = (e) => {
-            if (e.key === 'Escape') { e.stopPropagation(); this.close(); }
-        };
-        document.addEventListener('keydown', this._onEsc, true);
-    }
-
-    close() {
-        if (this.panel) { this.panel.remove(); this.panel = null; }
-        if (this._onEsc) { document.removeEventListener('keydown', this._onEsc, true); this._onEsc = null; }
-        if (this._onDocClick) { document.removeEventListener('click', this._onDocClick); this._onDocClick = null; }
-        this.isOpen = false;
-        if (this.button) {
-            this.button.setAttribute('aria-expanded', 'false');
-            this.button.classList.remove('is-open');
-        }
-    }
-}
-
-const SM_SELECTS = [];
-
-const SM_SELECT_IDS = [
-    // Header desktop
-    'story-select', 'layout-select', 'theme-select',
-    // Inspector
-    'multi-type-select', 'edit-node-beat', 'multi-beat-select',
-    // Modais
-    'bible-filter-type', 'bible-filter-beat',
-    'reteia-type-select', 'sw-scene-select', 'st-copy-target',
-    // Skill tree
-    'skilltree-char-select', 'st-edit-type', 'st-edit-danger',
-    // Outros
-    'as-scope', 'sm-story-select'
-];
-
-function initSMSelects() {
-    SM_SELECT_IDS.forEach(id => {
-        const el = document.getElementById(id);
-        if (el && el.tagName === 'SELECT' && !el.dataset.smSelectWrapped) {
-            try { SM_SELECTS.push(new SMSelect(el)); }
-            catch (err) { console.warn('SMSelect init falhou em', id, err); }
-        }
-    });
-}
-
-/** Utilitário: re-sincroniza todos (raro de usar; patch do setter cobre quase tudo) */
-function refreshAllSMSelects() {
-    SM_SELECTS.forEach(s => { try { s.sync(); } catch(_) {} });
-}
-
-const ST_FA_ICONS = [
-    'star', 'dumbbell', 'fire', 'comments', 'leaf', 'brain',
-    'shield-halved', 'user-secret', 'yin-yang', 'book',
-    'screwdriver-wrench', 'lock', 'plus', 'circle-info',
-    'skull-crossbones', 'triangle-exclamation', 'circle-check',
-    'heart-pulse', 'layer-group',
-    // Fase 4: ícones de role + timeline + relações
-    'crown', 'user-tie', 'hat-wizard', 'user-group', 'user',
-    'skull', 'calendar-days', 'handshake', 'heart', 'droplet',
-    'people-roof', 'graduation-cap', 'khanda', 'link'
-];
-const FA_SVG_PATH_CACHE = {};
-
-async function preloadFASvgPaths() {
-    const base = 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/svgs/solid/';
-    await Promise.all(ST_FA_ICONS.map(async name => {
-        try {
-            const res = await fetch(`${base}${name}.svg`, { cache: 'force-cache' });
-            if (!res.ok) return;
-            const text = await res.text();
-            const m = text.match(/\sd="([^"]+)"/);
-            if (m && m[1]) FA_SVG_PATH_CACHE[name] = m[1];
-        } catch (_) { /* silencioso — cai no fallback */ }
-    }));
-    // Se a skill tree estiver aberta, força redraw com os paths novos
-    if (typeof stCurrentCharacterId !== 'undefined' && stCurrentCharacterId) {
-    const modal = document.getElementById('skilltree-modal');
-    if (modal && !modal.classList.contains('hidden')) renderSkillTreeCanvas();
-}
-// Fase 4: redesenha a teia de relações também
-if (typeof reteiaSimulation !== 'undefined' && reteiaSimulation) {
-    const reteiaModal = document.getElementById('reteia-modal');
-    if (reteiaModal && !reteiaModal.classList.contains('hidden')) {
-        try { reteiaDraw(); } catch(_) {}
-    }
-}
-}
-
-function getFAPathData(name) { return FA_SVG_PATH_CACHE[name] || null; }
-
-/** Nome FA de skill (sem prefixo) — tenta emoji custom, depois tipo */
-function getSkillFaIconName(skill) {
-    if (!skill) return 'star';
-    const raw = String(skill.emoji || '').trim();
-    // Classe FA direta?
-    if (raw.startsWith('fa-solid ')) return raw.slice(9).trim();
-    if (raw.startsWith('fa-')) return raw.slice(3);
-    // Emoji mapeado no SM_ICON_MAP (Fase 1)?
-    if (raw && typeof SM_ICON_MAP !== 'undefined' && SM_ICON_MAP[raw]) {
-        const mapped = SM_ICON_MAP[raw];
-        return mapped.startsWith('fa-') ? mapped.slice(3) : mapped;
-    }
-    // Fallback por tipo
-    const typeMap = {
-        physical: 'dumbbell', elemental: 'fire', social: 'comments',
-        natural: 'leaf', psychic: 'brain', combat: 'shield-halved',
-        stealth: 'user-secret', spiritual: 'yin-yang',
-        knowledge: 'book', crafting: 'screwdriver-wrench'
-    };
-    return typeMap[skill.type] || 'star';
-}
-
-/** Classe FA completa — para contextos HTML (inspector, tooltip) */
-function getSkillFaIconClass(skill) {
-    return `fa-solid fa-${getSkillFaIconName(skill)}`;
-}
-
-/** Mapa emoji-do-tipo → nome FA (para o badge de tipo no SVG) */
-/* ============================================================
-   FASE 4 — Ícones por role de personagem e por tipo de relação
-   ============================================================ */
-const ROLE_FA_ICON = {
-    'protagonista':    'crown',
-    'antagonista':     'skull',
-    'co-protagonista': 'user-group',
-    'mentor':          'hat-wizard',
-    'secundario':      'user',
-    'figurante':       'user',
-    'default':         'user-tie'
-};
-
-/** Retorna o nome FA do ícone do personagem (com base no role). */
-function getCharacterFaIconName(node) {
-    if (!node || !node.typeData) return ROLE_FA_ICON['default'];
-    const raw = String(node.typeData.role || '').trim();
-    if (!raw) return ROLE_FA_ICON['default'];
-    const role = raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    // Ordem importa: "co-protagonista" antes de "protagonista"
-    const order = ['co-protagonista', 'antagonista', 'protagonista', 'mentor', 'secundario', 'figurante'];
-    for (const key of order) {
-        if (role.includes(key)) return ROLE_FA_ICON[key];
-    }
-    return ROLE_FA_ICON['default'];
-}
-
-/** Cor sólida para o role — usada no círculo e no ícone da teia. */
-function getCharacterRoleColor(role) {
-    const r = String(role || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    if (r.includes('co-protagonista')) return '#8b5cf6';
-    if (r.includes('protagonista'))    return '#6366f1';
-    if (r.includes('antagonista'))     return '#dc2626';
-    if (r.includes('mentor'))          return '#eab308';
-    if (r.includes('secundario'))      return '#64748b';
-    if (r.includes('figurante'))       return '#94a3b8';
-    return '#64748b';
-}
-
-/** Nome FA para os tipos de relação (Aliança, Conflito, etc.) */
-function getRelationFaIconName(typeDef) {
-    if (!typeDef) return 'link';
-    const map = {
-        alianca:  'handshake',
-        conflito: 'shield-halved',
-        segredo:  'user-secret',
-        sangue:   'droplet',
-        romance:  'heart',
-        familia:  'people-roof',
-        mentoria: 'graduation-cap',
-        traicao:  'khanda'
-    };
-    return map[typeDef.id] || 'link';
-}
-const TYPE_EMOJI_TO_FA_NAME = {
-    '💪': 'dumbbell', '🔥': 'fire', '🗣️': 'comments', '🌿': 'leaf',
-    '🧠': 'brain', '⚔️': 'shield-halved', '🥷': 'user-secret',
-    '☯️': 'yin-yang', '📚': 'book', '🛠️': 'screwdriver-wrench'
-};
-
-/**
- * Cria um <g> nativo SVG com o path FA, centralizado em (0,0),
- * pronto para ser anexado a um nó da skill tree.
- * @param {string} faName  ex.: 'star'
- * @param {number} size    tamanho em px SVG
- * @param {string} fill    cor CSS (herda do círculo)
- * @returns {SVGGElement|null}
- */
-function buildFaIconSVGNode(faName, size, fill) {
-    const d = getFAPathData(faName);
-    if (!d) return null;
-    const scale = size / 512;
-    const offset = -(size / 2);
-    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    g.setAttribute('transform', `translate(${offset}, ${offset}) scale(${scale})`);
-    g.style.pointerEvents = 'none';
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', d);
-    path.setAttribute('fill', fill || 'currentColor');
-    g.appendChild(path);
-    return g;
-}
-
         const SKILL_TYPES = [
             { id: 'physical',  label: 'Físico',             icon: '💪', color: '#f59e0b', bg: '#fef3c7' },
             { id: 'elemental', label: 'Elemental',          icon: '🔥', color: '#f97316', bg: '#ffedd5' },
@@ -11789,17 +11128,7 @@ let stPinchState = null;            //  estado do pinch (distância, escala inic
             if (!modal) return;
             const characters = getCharacterNodes();
             const select = document.getElementById('skilltree-char-select');
-select.innerHTML = characters.length === 0
-    ? '<option value="">— Nenhum personagem —</option>'
-    : characters.map(c => {
-        const name = c.typeData?.fullName || c.title;
-        const avatar = (c.icons && c.icons.length > 0) ? c.icons[0] : '';
-        const faName = getCharacterFaIconName(c);
-        // Fallback: prefixa o nome com o ícone FA do role via emoji (só se não tiver avatar)
-        const prefixEmoji = avatar ? '' : '👤 ';
-        const dataAvatar = avatar ? `data-avatar="${escapeHTML(avatar)}"` : '';
-        return `<option value="${c.id}" ${dataAvatar}>${prefixEmoji}${escapeHTML(name)}</option>`;
-    }).join('');
+            select.innerHTML = characters.length === 0 ? '<option value="">— Nenhum personagem —</option>' : characters.map(c => { const name = c.typeData?.fullName || c.title; return `<option value="${c.id}">${escapeHTML(name)}</option>`; }).join('');
             if (characters.length === 0) stCurrentCharacterId = null;
             else {
                 const target = initialCharId && characters.find(c => c.id === initialCharId) ? initialCharId : (stCurrentCharacterId && characters.find(c => c.id === stCurrentCharacterId) ? stCurrentCharacterId : characters[0].id);
@@ -11928,19 +11257,15 @@ select.innerHTML = characters.length === 0
         }
 
         function renderSkillTreeDetailIcon() {
-    const iconBox = document.getElementById('st-detail-icon');
-    if (!iconBox) return;
-    const skills = getSkillTreeSelectedSkills();
-    if (skills.length > 1) { iconBox.innerHTML = '<i class="fa-solid fa-layer-group text-2xl text-indigo-500"></i>'; return; }
-    const skill = skills[0];
-    if (!skill) { iconBox.innerHTML = '<i class="fa-solid fa-star text-2xl text-amber-500"></i>'; return; }
-    if (skill.iconUrl && /^https?:\/\//i.test(skill.iconUrl)) {
-        iconBox.innerHTML = `<img src="${escapeHTML(skill.iconUrl)}" class="w-full h-full object-cover" crossorigin="anonymous" alt="">`;
-    } else {
-        const type = getSkillType(skill.type);
-        iconBox.innerHTML = `<i class="${getSkillFaIconClass(skill)} text-3xl" style="color:${type.color}"></i>`;
-    }
-}
+            const iconBox = document.getElementById('st-detail-icon');
+            if (!iconBox) return;
+            const skills = getSkillTreeSelectedSkills();
+            if (skills.length > 1) { iconBox.innerHTML = '<i class="fa-solid fa-layer-group text-2xl text-indigo-500"></i>'; return; }
+            const skill = skills[0];
+            if (!skill) { iconBox.innerHTML = '<i class="fa-solid fa-star text-2xl text-amber-500"></i>'; return; }
+            if (skill.iconUrl && /^https?:\/\//i.test(skill.iconUrl)) iconBox.innerHTML = `<img src="${escapeHTML(skill.iconUrl)}" class="w-full h-full object-cover" crossorigin="anonymous" alt="">`;
+            else iconBox.innerHTML = `<span style="font-size:32px">${escapeHTML(skill.emoji || '⭐')}</span>`;
+        }
 
         function skillTreePasteEmoji() {
             const skills = getSkillTreeSelectedSkills();
@@ -11977,12 +11302,6 @@ select.innerHTML = characters.length === 0
                 row.innerHTML = `<select onchange="skillTreeUpdateRequirement(${idx}, 'id', this.value)"><option value="">— Selecione —</option>${options}</select><span style="font-size:10px;color:#64748b;">rank ≥</span><input type="number" min="1" max="10" value="${req.minRank || 1}" onchange="skillTreeUpdateRequirement(${idx}, 'minRank', parseInt(this.value,10)||1)"><span class="st-req-remove" onclick="skillTreeRemoveRequirement(${idx})" title="Remover">×</span>`;
                 list.appendChild(row);
             });
-            // Converte os selects de pré-requisito recém-criados
-document.querySelectorAll('#st-req-list select').forEach(el => {
-    if (!el.dataset.smSelectWrapped) {
-        try { SM_SELECTS.push(new SMSelect(el)); } catch(_) {}
-    }
-});
         }
 
         function skillTreeAddRequirement() {
@@ -12275,26 +11594,17 @@ document.querySelectorAll('#st-req-list select').forEach(el => {
                     img.onerror = function() { this.remove(); };
                     g.appendChild(img);
                 } else {
-    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    bg.setAttribute('r', SKILL_NODE_R - 5); bg.setAttribute('fill', type.bg);
-    bg.style.pointerEvents = 'none';
-    g.appendChild(bg);
-
-    // FASE 2: ícone FA como <path> nativo (funciona no export também)
-    const faName = getSkillFaIconName(skill);
-    const iconNode = buildFaIconSVGNode(faName, (SKILL_NODE_R - 5) * 1.2, type.color);
-    if (iconNode) {
-        g.appendChild(iconNode);
-    } else {
-        // Fallback: emoji enquanto o preload não terminou
-        const emoji = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        emoji.setAttribute('y', '6'); emoji.setAttribute('text-anchor', 'middle');
-        emoji.setAttribute('font-size', '26'); emoji.setAttribute('class', 'st-label');
-        emoji.style.pointerEvents = 'none';
-        emoji.textContent = skill.emoji || '⭐';
-        g.appendChild(emoji);
-    }
-}
+                    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    bg.setAttribute('r', SKILL_NODE_R - 5); bg.setAttribute('fill', type.bg);
+                    bg.style.pointerEvents = 'none';
+                    g.appendChild(bg);
+                    const emoji = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    emoji.setAttribute('y', '6'); emoji.setAttribute('text-anchor', 'middle');
+                    emoji.setAttribute('font-size', '26'); emoji.setAttribute('class', 'st-label');
+                    emoji.style.pointerEvents = 'none';
+                    emoji.textContent = skill.emoji || '⭐';
+                    g.appendChild(emoji);
+                }
                 const tierBadge = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                 tierBadge.setAttribute('transform', `translate(${SKILL_NODE_R - 4},${-SKILL_NODE_R + 4})`);
                 tierBadge.style.pointerEvents = 'none';
@@ -12302,17 +11612,11 @@ document.querySelectorAll('#st-req-list select').forEach(el => {
                 badgeCircle.setAttribute('r', 11); badgeCircle.setAttribute('fill', type.color);
                 badgeCircle.setAttribute('stroke', 'white'); badgeCircle.setAttribute('stroke-width', '2');
                 tierBadge.appendChild(badgeCircle);
-                const typeFaName = TYPE_EMOJI_TO_FA_NAME[type.icon];
-const typeFaNode = typeFaName ? buildFaIconSVGNode(typeFaName, 12, 'white') : null;
-if (typeFaNode) {
-    tierBadge.appendChild(typeFaNode);
-} else {
-    const badgeText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    badgeText.setAttribute('text-anchor', 'middle'); badgeText.setAttribute('dominant-baseline', 'central');
-    badgeText.setAttribute('font-size', '11'); badgeText.setAttribute('fill', 'white');
-    badgeText.setAttribute('font-family', 'Inter, sans-serif'); badgeText.setAttribute('font-weight', '800');
-    badgeText.textContent = type.icon; tierBadge.appendChild(badgeText);
-}
+                const badgeText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                badgeText.setAttribute('text-anchor', 'middle'); badgeText.setAttribute('dominant-baseline', 'central');
+                badgeText.setAttribute('font-size', '11'); badgeText.setAttribute('fill', 'white');
+                badgeText.setAttribute('font-family', 'Inter, sans-serif'); badgeText.setAttribute('font-weight', '800');
+                badgeText.textContent = type.icon; tierBadge.appendChild(badgeText);
                 g.appendChild(tierBadge);
                 const rankText = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                 rankText.setAttribute('transform', `translate(0,${SKILL_NODE_R - 6})`);
@@ -12341,17 +11645,12 @@ if (typeFaNode) {
                     lockCircle.setAttribute('r', 11); lockCircle.setAttribute('fill', '#f59e0b');
                     lockCircle.setAttribute('stroke', 'white'); lockCircle.setAttribute('stroke-width', '2');
                     lockG.appendChild(lockCircle);
-                    const lockIconNode = buildFaIconSVGNode('lock', 11, 'white');
-if (lockIconNode) {
-    lockG.appendChild(lockIconNode);
-} else {
-    const lockText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    lockText.setAttribute('text-anchor', 'middle'); lockText.setAttribute('dominant-baseline', 'central');
-    lockText.setAttribute('font-size', '11'); lockText.setAttribute('fill', 'white');
-    lockText.setAttribute('font-family', 'Apple Color Emoji, Segoe UI Emoji, sans-serif');
-    lockText.textContent = '🔒';
-    lockG.appendChild(lockText);
-}
+                    const lockText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    lockText.setAttribute('text-anchor', 'middle'); lockText.setAttribute('dominant-baseline', 'central');
+                    lockText.setAttribute('font-size', '11'); lockText.setAttribute('fill', 'white');
+                    lockText.setAttribute('font-family', 'Apple Color Emoji, Segoe UI Emoji, sans-serif');
+                    lockText.textContent = '🔒';
+                    lockG.appendChild(lockText);
                     g.appendChild(lockG);
                 }
                 const nameLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -12371,16 +11670,11 @@ if (lockIconNode) {
                 addCircle.setAttribute('stroke', 'white'); addCircle.setAttribute('stroke-width', '2');
                 addCircle.setAttribute('filter', 'url(#st-shadow)');
                 addBtn.appendChild(addCircle);
-                const addPlusNode = buildFaIconSVGNode('plus', 14, 'white');
-if (addPlusNode) {
-    addBtn.appendChild(addPlusNode);
-} else {
-    const addPlus = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    addPlus.setAttribute('text-anchor', 'middle'); addPlus.setAttribute('dominant-baseline', 'central');
-    addPlus.setAttribute('font-size', '16'); addPlus.setAttribute('fill', 'white');
-    addPlus.setAttribute('font-weight', '800'); addPlus.textContent = '+';
-    addBtn.appendChild(addPlus);
-}
+                const addPlus = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                addPlus.setAttribute('text-anchor', 'middle'); addPlus.setAttribute('dominant-baseline', 'central');
+                addPlus.setAttribute('font-size', '16'); addPlus.setAttribute('fill', 'white');
+                addPlus.setAttribute('font-weight', '800'); addPlus.textContent = '+';
+                addBtn.appendChild(addPlus);
                 addBtn.setAttribute('role', 'button');
                 addBtn.addEventListener('pointerdown', (ev) => {
                     if (ev.pointerType === 'mouse' && ev.button !== 0) return;
@@ -12807,17 +12101,7 @@ function cancelSkillTreeInteractions() {
             const chars = getCharacterNodes().filter(c => c.id !== stCurrentCharacterId);
             if (!chars.length) { showToast('Não há outro personagem no mapa para receber a cópia.', 'warn'); return; }
             const select = document.getElementById('st-copy-target');
-select.innerHTML = chars.map(c => {
-    const name = c.typeData?.fullName || c.title || 'Sem nome';
-    const avatar = (c.icons && c.icons.length > 0) ? c.icons[0] : '';
-    const prefixEmoji = avatar ? '' : '👤 ';
-    const dataAvatar = avatar ? `data-avatar="${escapeHTML(avatar)}"` : '';
-    return `<option value="${c.id}" ${dataAvatar}>${prefixEmoji}${escapeHTML(name)}</option>`;
-}).join('');
-// Força re-sync do SMSelect se ele já estava inicializado
-if (typeof SM_SELECTS !== 'undefined') {
-    SM_SELECTS.forEach(s => { try { s.sync(); } catch(_) {} });
-}
+            select.innerHTML = chars.map(c => `<option value="${c.id}">${escapeHTML(c.typeData?.fullName || c.title || 'Sem nome')}</option>`).join('');
             document.getElementById('st-copy-summary').textContent = selected.length === 1 ? `Habilidade: ${selected[0].name || 'sem nome'}` : `${selected.length} habilidades selecionadas`;
             document.getElementById('st-copy-branch').checked = false;
             const modal = document.getElementById('st-copy-modal');
@@ -12898,10 +12182,10 @@ if (typeof SM_SELECTS !== 'undefined') {
             const desc = (skill.description || '').trim();
             const dangerLevel = Math.max(0, Math.min(5, Number(skill.danger) || 0));
             const dangerInfo = ST_DANGER_LEVELS[dangerLevel];
-            const dangerChip = dangerInfo ? `<span class="st-tt-chip" style="background:${dangerInfo.bg};color:${dangerInfo.fg}">${renderIcon('💀')} Periculosidade ${dangerLevel}/5 · ${dangerInfo.label}</span>` : '';
-const costsText = (skill.costs || '').trim();
-const costsHtml = costsText ? `<div class="st-tt-costs"><b>Custos:</b> ${escapeHTML(costsText)}</div>` : '';
-tooltip.innerHTML = `<div class="st-tt-title">${escapeHTML(skill.name || 'Habilidade sem nome')}</div><div class="st-tt-meta"><span class="st-tt-chip">${renderIcon(type.icon)} ${escapeHTML(type.label)}</span><span class="st-tt-chip">${renderIcon('⭐')} Rank ${Number(skill.rank) || 0}/${Number(skill.maxRank) || 1}</span>${dangerChip}</div><div class="st-tt-desc">${desc ? escapeHTML(desc) : '<span style="color:#94a3b8;font-style:italic">Sem descrição cadastrada.</span>'}</div>${costsHtml}<div class="st-tt-hint">${renderIcon('fa-circle-info')} Clique para editar · Arraste para mover · Solte sobre outra para conectar · Alt+arrastar duplica</div>`;
+            const dangerChip = dangerInfo ? `<span class="st-tt-chip" style="background:${dangerInfo.bg};color:${dangerInfo.fg}">☠️ Periculosidade ${dangerLevel}/5 · ${dangerInfo.label}</span>` : '';
+            const costsText = (skill.costs || '').trim();
+            const costsHtml = costsText ? `<div class="st-tt-costs"><b>Custos:</b> ${escapeHTML(costsText)}</div>` : '';
+            tooltip.innerHTML = `<div class="st-tt-title">${escapeHTML(skill.name || 'Habilidade sem nome')}</div><div class="st-tt-meta"><span class="st-tt-chip">${escapeHTML(type.icon)} ${escapeHTML(type.label)}</span><span class="st-tt-chip">Rank ${Number(skill.rank) || 0}/${Number(skill.maxRank) || 1}</span>${dangerChip}</div><div class="st-tt-desc">${desc ? escapeHTML(desc) : '<span style="color:#94a3b8;font-style:italic">Sem descrição cadastrada.</span>'}</div>${costsHtml}<div class="st-tt-hint">Clique para editar · Arraste para mover · Solte sobre outra para conectar · Alt+arrastar duplica</div>`;
             tooltip.classList.remove('hidden');
             stHoverSkillId = skill.id;
             positionSkillTreeTooltip(event);
@@ -13003,29 +12287,12 @@ tooltip.innerHTML = `<div class="st-tt-title">${escapeHTML(skill.name || 'Habili
                 parts.push(`<g transform="translate(${p.x},${p.y})">`);
                 parts.push(`<circle r="${SKILL_NODE_R}" fill="#ffffff" stroke="${color}" stroke-width="3" filter="url(#st-export-shadow)"/>`);
                 parts.push(`<circle r="${SKILL_NODE_R - 5}" fill="${type.bg}"/>`);
-                const _exportFaName = getSkillFaIconName(skill);
-const _exportPathD  = getFAPathData(_exportFaName);
-if (_exportPathD) {
-    const _iconSize = (SKILL_NODE_R - 5) * 1.2;
-    const _scale = _iconSize / 512;
-    const _off = -(_iconSize / 2);
-    parts.push(`<g transform="translate(${_off}, ${_off}) scale(${_scale})"><path d="${_exportPathD}" fill="${type.color}"/></g>`);
-} else {
-    parts.push(`<text x="0" y="7" text-anchor="middle" font-family="Apple Color Emoji, Segoe UI Emoji, sans-serif" font-size="25">${escape(emoji)}</text>`);
-}
+                parts.push(`<text x="0" y="7" text-anchor="middle" font-family="Apple Color Emoji, Segoe UI Emoji, sans-serif" font-size="25">${escape(emoji)}</text>`);
                 if (includeImages && skill.iconUrl && /^https?:\/\//i.test(skill.iconUrl)) {
                     const clipId = `st-export-clip-${String(skill.id).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
                     parts.push(`<image href="${escape(skill.iconUrl)}" xlink:href="${escape(skill.iconUrl)}" crossorigin="anonymous" x="${-(SKILL_NODE_R - 5)}" y="${-(SKILL_NODE_R - 5)}" width="${(SKILL_NODE_R - 5) * 2}" height="${(SKILL_NODE_R - 5) * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})"/>`);
                 }
-                const _typeFaName = TYPE_EMOJI_TO_FA_NAME[type.icon];
-const _typeFaPath = _typeFaName ? getFAPathData(_typeFaName) : null;
-if (_typeFaPath) {
-    const _ts = 12 / 512;
-    const _to = -6;
-    parts.push(`<g transform="translate(${SKILL_NODE_R - 4},${-SKILL_NODE_R + 4})"><circle r="11" fill="${type.color}" stroke="#fff" stroke-width="2"/><g transform="translate(${_to},${_to}) scale(${_ts})"><path d="${_typeFaPath}" fill="#fff"/></g></g>`);
-} else {
-    parts.push(`<g transform="translate(${SKILL_NODE_R - 4},${-SKILL_NODE_R + 4})"><circle r="11" fill="${type.color}" stroke="#fff" stroke-width="2"/><text x="0" y="4" text-anchor="middle" font-family="Apple Color Emoji, Segoe UI Emoji, sans-serif" font-size="11">${escape(type.icon)}</text></g>`);
-}
+                parts.push(`<g transform="translate(${SKILL_NODE_R - 4},${-SKILL_NODE_R + 4})"><circle r="11" fill="${type.color}" stroke="#fff" stroke-width="2"/><text x="0" y="4" text-anchor="middle" font-family="Apple Color Emoji, Segoe UI Emoji, sans-serif" font-size="11">${escape(type.icon)}</text></g>`);
                 parts.push(`<g transform="translate(0,${SKILL_NODE_R - 6})"><rect x="-20" y="-9" width="40" height="18" rx="9" fill="${color}" stroke="#fff" stroke-width="1.5"/><text x="0" y="4" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="10" font-weight="800" fill="#fff">${rank}/${maxRank}</text></g>`);
                 parts.push(`<text x="0" y="${SKILL_NODE_R + 21}" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="11" font-weight="700" fill="#0f172a" stroke="#f8fafc" stroke-width="3" paint-order="stroke">${escape(displayName)}</text>`);
                 parts.push(`<text x="0" y="${SKILL_NODE_R + 35}" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="9.5" fill="#475569" stroke="#f8fafc" stroke-width="2.5" paint-order="stroke">${escape(type.label)}</text>`);
@@ -13493,16 +12760,11 @@ card.addEventListener('mouseleave', () => {
     }, 180);
 });
         card.innerHTML = `
-    <div class="flex items-center justify-between mb-2 pb-2 border-b border-slate-100 gap-2">
-        <span class="font-bold text-sm text-cyan-700 inline-flex items-center gap-1.5" style="font-family: ui-monospace, monospace;">
-            ${renderIcon('📅')}${year !== null ? 'Ano ' + year : '—'}
-        </span>
-        ${category ? `<span class="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-700">${escapeHTML(category)}</span>` : ''}
-    </div>
-            <h4 class="font-bold text-sm text-slate-800 mb-1 flex items-center gap-1.5">
-    <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-cyan-100 text-cyan-700 text-[9px]" title="Timeline">${renderIcon('📅')}</span>
-    <span class="flex-1 min-w-0 truncate">${escapeHTML(n.title || 'Sem título')}</span>
-</h4>
+            <div class="flex items-center justify-between mb-2 pb-2 border-b border-slate-100 gap-2">
+                <span class="font-bold text-sm text-cyan-700" style="font-family: ui-monospace, monospace;">${year !== null ? 'Ano ' + year : '—'}</span>
+                ${category ? `<span class="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-700">${escapeHTML(category)}</span>` : ''}
+            </div>
+            <h4 class="font-bold text-sm text-slate-800 mb-1">${escapeHTML(n.title || 'Sem título')}</h4>
             
             ${n.content ? `<p class="text-[11.5px] text-slate-600 leading-relaxed mb-2" style="display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;">${escapeHTML(n.content)}</p>` : ''}
             <div class="flex flex-wrap gap-1 mt-2">
