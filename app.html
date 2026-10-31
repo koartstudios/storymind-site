@@ -9005,20 +9005,43 @@ const mobileInfoBadgeHTML = hasMobileInfo
                 return;
             }
             if (isMarqueeSelecting) {
-                const { canvasX, canvasY } = getCanvasPoint(event);
-                const currentX = canvasX, currentY = canvasY;
-                const x = Math.min(marqueeStartX, currentX), y = Math.min(marqueeStartY, currentY);
-                const w = Math.abs(currentX - marqueeStartX), h = Math.abs(currentY - marqueeStartY);
-                const marqueeBox = document.getElementById('marquee-box');
-                marqueeBox.style.left = `${x}px`; marqueeBox.style.top = `${y}px`;
-                marqueeBox.style.width = `${w}px`; marqueeBox.style.height = `${h}px`;
-                mindMapData.nodes.forEach(node => {
-                    if (isNodeHiddenInTimelineMode(node)) return;   // ← NOVO
-                    const nh = getNodeHeight(node.id);
-                    if (node.x < x + w && node.x + NODE_W > x && node.y < y + h && node.y + nh > y) selectedNodeIds.add(node.id);
-                });
-                scheduleRender();
-            }
+    const { canvasX, canvasY } = getCanvasPoint(event);
+    const x = Math.min(marqueeStartX, canvasX), y = Math.min(marqueeStartY, canvasY);
+    const w = Math.abs(canvasX - marqueeStartX), h = Math.abs(canvasY - marqueeStartY);
+    const marqueeBox = document.getElementById('marquee-box');
+    marqueeBox.style.left = `${x}px`; marqueeBox.style.top = `${y}px`;
+    marqueeBox.style.width = `${w}px`; marqueeBox.style.height = `${h}px`;
+
+    // Computa o novo conjunto SEM tocar no DOM
+    const nextSelection = new Set();
+    mindMapData.nodes.forEach(node => {
+        if (isNodeHiddenInTimelineMode(node)) return;
+        const nh = getNodeHeight(node.id);
+        if (node.x < x + w && node.x + NODE_W > x && node.y < y + h && node.y + nh > y) nextSelection.add(node.id);
+    });
+
+    // Diff: só aplica classes nos cards que MUDARAM de estado
+    let changed = false;
+    nextSelection.forEach(id => {
+        if (!selectedNodeIds.has(id)) {
+            const el = domCache.get(id);
+            if (el) el.classList.add('ring-4', 'ring-indigo-400', 'is-selected', 'shadow-xl');
+            changed = true;
+        }
+    });
+    selectedNodeIds.forEach(id => {
+        if (!nextSelection.has(id)) {
+            const el = domCache.get(id);
+            if (el) el.classList.remove('ring-4', 'ring-indigo-400', 'is-selected', 'shadow-xl');
+            changed = true;
+        }
+    });
+    if (changed) {
+        selectedNodeIds.clear();
+        nextSelection.forEach(id => selectedNodeIds.add(id));
+    }
+    // NÃO chama scheduleRender() — o marquee-box já foi atualizado visualmente
+}
         }
 
         function onCanvasMouseUp(event) {
@@ -9072,6 +9095,7 @@ const mobileInfoBadgeHTML = hasMobileInfo
                     if (selectedNodeIds.size > 1) openMultiInspector();
                     else if (selectedNodeIds.size === 1) openInspectorFor(Array.from(selectedNodeIds)[0]);
                 }
+                updateAlignToolbar();   // ← NOVO: sincroniza a pill com o estado final
             }
         }
 
