@@ -4591,6 +4591,7 @@ layoutPositions: {},
         let marqueeStartX = 0, marqueeStartY = 0;
         let editingNodeId = null;
         let editingField = null;
+        let pendingCloudPull = false;   // ← NOVO
         let searchQuery = '';
         let searchResults = [];
         let searchResultIndex = -1;
@@ -4667,6 +4668,7 @@ function startInlineEdit(nodeId, field) {
                     saveStoriesStorage();
                     renderApp();
                 }
+                processPendingCloudPullIfAny();   // ← NOVO
             }, 100);
             return; // Interrompe o fluxo aqui no mobile
         }
@@ -4697,6 +4699,7 @@ function startInlineEdit(nodeId, field) {
         }
         editingNodeId = null; editingField = null;
         saveStoriesStorage(); renderApp();
+        processPendingCloudPullIfAny();   // ← NOVO
     };
     target.onblur = () => finish(true);
     target.onkeydown = (e) => {
@@ -6019,11 +6022,31 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
                 cancelAllInteractions();
             });
             window.addEventListener('cloud:pull:done', () => {
+    // Se o usuário está com uma edição inline aberta, NÃO destrói o DOM.
+    // Agenda o reload para acontecer assim que a edição terminar.
+    if (editingNodeId) {
+        pendingCloudPull = true;
+        setSaveStatus('saved');   // feedback visual sem quebrar a edição
+        return;
+    }
     loadStoriesStorage();
     renderApp();
     renderSheetTabs();
     showToast('Sincronizado com a nuvem.', 'success', 2000);
 });
+
+// NOVO: processa pull pendente depois que a edição termina
+function processPendingCloudPullIfAny() {
+    if (!pendingCloudPull) return;
+    pendingCloudPull = false;
+    // Defer pequeno para não colidir com o renderApp() que está acontecendo agora
+    setTimeout(() => {
+        loadStoriesStorage();
+        renderApp();
+        renderSheetTabs();
+        showToast('Sincronizado com a nuvem.', 'success', 2000);
+    }, 150);
+}
 window.addEventListener('cloud:save:done', () => {
                 setSaveStatus('saved');
             });
