@@ -1063,4 +1063,334 @@
     }
 })();
 </script>
+<script>
+/* ============================================================
+   StoryMind Dashboard Enhancer
+   - Rename de projeto (duplo-clique, F2, ou menu "⋮")
+   - Painel de estatísticas dinâmico
+   - Toasts no lugar de alert()
+   - Empty state contextual (busca vs lista vazia)
+   - Atalhos de teclado + acessibilidade
+   ============================================================ */
+(function () {
+    'use strict';
+
+    const DB_KEY = 'storymind_database_v2';
+    const META_KEY = 'storymind_meta';
+    const LIST_ID = 'list';
+
+    // ---------- helpers ----------
+    const loadDB = () => { try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch { return {}; } };
+    const saveDB = (db) => localStorage.setItem(DB_KEY, JSON.stringify(db));
+    const loadMeta = () => { try { return JSON.parse(localStorage.getItem(META_KEY)) || {}; } catch { return {}; } };
+    const saveMeta = (m) => localStorage.setItem(META_KEY, JSON.stringify(m));
+
+    // ============================================================
+    // 1) TOASTS
+    // ============================================================
+    function ensureToastContainer() {
+        let c = document.getElementById('sm-toast-container');
+        if (!c) {
+            c = document.createElement('div');
+            c.id = 'sm-toast-container';
+            c.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:10000;display:flex;flex-direction:column;gap:8px;pointer-events:none;';
+            document.body.appendChild(c);
+        }
+        return c;
+    }
+    window.SM_TOAST = function (msg, type = 'info', ms = 2600) {
+        const c = ensureToastContainer();
+        const colors = { success: '#059669', error: '#dc2626', info: '#4f46e5', warn: '#d97706' };
+        const icons = { success: 'check', error: 'exclamation', info: 'info', warn: 'triangle-exclamation' };
+        const el = document.createElement('div');
+        el.style.cssText = `background:${colors[type] || colors.info};color:#fff;padding:11px 16px;border-radius:9px;font:500 13px/1.4 'Inter',sans-serif;box-shadow:0 10px 25px rgba(0,0,0,.25);display:flex;align-items:center;gap:8px;pointer-events:auto;animation:sm-toast-in .2s ease;max-width:340px;`;
+        el.innerHTML = `<i class="fa-solid fa-${icons[type] || 'circle-info'}"></i><span>${msg}</span>`;
+        c.appendChild(el);
+        setTimeout(() => {
+            el.style.transition = 'opacity .2s, transform .2s';
+            el.style.opacity = '0';
+            el.style.transform = 'translateX(20px)';
+            setTimeout(() => el.remove(), 220);
+        }, ms);
+    };
+
+    if (!document.getElementById('sm-toast-keyframes')) {
+        const s = document.createElement('style');
+        s.id = 'sm-toast-keyframes';
+        s.textContent = '@keyframes sm-toast-in{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:translateX(0);}}';
+        document.head.appendChild(s);
+    }
+
+    // ============================================================
+    // 2) RENAME
+    // ============================================================
+    function renameProject(key, newTitle) {
+        const trimmed = String(newTitle || '').trim();
+        if (!trimmed) return { ok: false, error: 'O nome não pode ficar vazio' };
+        if (trimmed.length > 120) return { ok: false, error: 'Nome muito longo (máx. 120)' };
+        const db = loadDB();
+        if (!db[key]) return { ok: false, error: 'Projeto não encontrado' };
+        db[key].title = trimmed;
+        saveDB(db);
+        if (window.SM_CLOUD && typeof SM_CLOUD.push === 'function') {
+            try { SM_CLOUD.push(key, db[key]); } catch (_) {}
+        }
+        const m = loadMeta();
+        m[key] = { ...(m[key] || {}), modified: Date.now() };
+        saveMeta(m);
+        window.dispatchEvent(new CustomEvent('sm:story-renamed', { detail: { key, title: trimmed } }));
+        return { ok: true };
+    }
+
+    function startRenameInline(titleEl, key) {
+        if (!titleEl || titleEl.isContentEditable) return;
+        const original = titleEl.textContent;
+        const prev = { outline: titleEl.style.outline, padding: titleEl.style.padding, background: titleEl.style.background, borderRadius: titleEl.style.borderRadius };
+        titleEl.contentEditable = 'true';
+        titleEl.style.outline = '2px solid #6366f1';
+        titleEl.style.padding = '2px 6px';
+        titleEl.style.background = '#fff';
+        titleEl.style.borderRadius = '6px';
+        titleEl.focus();
+        const range = document.createRange();
+        range.selectNodeContents(titleEl);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+
+        let done = false;
+        const finish = (save) => {
+            if (done) return;
+            done = true;
+            titleEl.contentEditable = 'false';
+            Object.assign(titleEl.style, prev);
+            const val = titleEl.textContent.trim();
+            if (save && val && val !== original) {
+                const r = renameProject(key, val);
+                if (r.ok) {
+                    window.SM_TOAST('Projeto renomeado.', 'success');
+                } else {
+                    titleEl.textContent = original;
+                    window.SM_TOAST('Erro: ' + r.error, 'error');
+                }
+            } else {
+                titleEl.textContent = original;
+            }
+        };
+        titleEl.addEventListener('blur', () => finish(true), { once: true });
+        titleEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); titleEl.blur(); }
+            else if (e.key === 'Escape') { e.preventDefault(); done = true; titleEl.textContent = original; titleEl.blur(); }
+        });
+    }
+
+    // Duplo-clique no título
+    document.addEventListener('dblclick', (e) => {
+        const titleEl = e.target.closest('.nm b');
+        if (!titleEl) return;
+        const card = titleEl.closest('[data-open]');
+        if (!card) return;
+        e.preventDefault();
+        e.stopPropagation();
+        startRenameInline(titleEl, card.dataset.open);
+    }, true);
+
+    // F2 em card focado
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'F2') return;
+        const focused = document.activeElement;
+        const card = focused && focused.closest ? focused.closest('[data-open]') : null;
+        if (!card) return;
+        e.preventDefault();
+        const titleEl = card.querySelector('.nm b');
+        if (titleEl) startRenameInline(titleEl, card.dataset.open);
+    });
+
+    // Injetar botão "Renomear" no menu do dashboard.js
+    let currentMenuKey = null;
+    document.addEventListener('pointerdown', (e) => {
+        const btn = e.target.closest('[data-menu]');
+        if (btn) currentMenuKey = btn.dataset.menu;
+    }, true);
+
+    const menuObserver = new MutationObserver((mutations) => {
+        mutations.forEach(mut => {
+            mut.addedNodes.forEach(node => {
+                if (node.nodeType !== 1 || !node.classList || !node.classList.contains('menu') || node.dataset.smEnhanced) return;
+                node.dataset.smEnhanced = '1';
+                const key = currentMenuKey;
+                if (!key) return;
+                const openBtn = node.querySelector('[data-act="open"]');
+                if (!openBtn || node.querySelector('[data-act="rename"]')) return;
+
+                const renameBtn = document.createElement('button');
+                renameBtn.dataset.act = 'rename';
+                renameBtn.dataset.k = key;
+                renameBtn.innerHTML = '<i class="fa-solid fa-pen mr-2 text-slate-400"></i>Renomear';
+                openBtn.after(renameBtn);
+
+                renameBtn.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    node.remove();
+                    const titleEl = document.querySelector(`[data-open="${CSS.escape(key)}"] .nm b`);
+                    if (titleEl) {
+                        startRenameInline(titleEl, key);
+                    } else {
+                        const novo = prompt('Novo nome:', (loadDB()[key] || {}).title || '');
+                        if (novo && novo.trim()) {
+                            const r = renameProject(key, novo);
+                            if (r.ok) { window.SM_TOAST('Renomeado.', 'success'); location.reload(); }
+                            else window.SM_TOAST('Erro: ' + r.error, 'error');
+                        }
+                    }
+                });
+            });
+        });
+    });
+    menuObserver.observe(document.body, { childList: true });
+
+    // ============================================================
+    // 3) STATS PANEL
+    // ============================================================
+    function computeStats() {
+        const db = loadDB();
+        const keys = Object.keys(db);
+        let totalNodes = 0, totalSheets = 0, favs = 0;
+        keys.forEach(k => {
+            const s = db[k];
+            if (s.isFavorite) favs++;
+            (s.sheets || []).forEach(sh => {
+                totalSheets++;
+                totalNodes += (sh.nodes || []).length;
+            });
+        });
+        return { total: keys.length, totalNodes, totalSheets, favs };
+    }
+
+    function renderStats() {
+        const wrap = document.querySelector('.wrap');
+        const hero = wrap && wrap.querySelector('.hero');
+        if (!hero) return;
+        let el = document.getElementById('sm-stats-panel');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'sm-stats-panel';
+            el.className = 'stats';
+            hero.after(el);
+        }
+        const s = computeStats();
+        el.innerHTML = `
+            <div class="stat"><div class="stat-val">${s.total}</div><div class="stat-lbl">Projetos</div></div>
+            <div class="stat"><div class="stat-val">${s.totalNodes}</div><div class="stat-lbl">Nós totais</div></div>
+            <div class="stat"><div class="stat-val">${s.totalSheets}</div><div class="stat-lbl">Abas</div></div>
+            <div class="stat"><div class="stat-val">${s.favs}</div><div class="stat-lbl">Favoritos</div></div>
+        `;
+    }
+
+    function scheduleStats() {
+        clearTimeout(window.__smStatsTimer);
+        window.__smStatsTimer = setTimeout(renderStats, 120);
+    }
+
+    window.addEventListener('sm:story-renamed', scheduleStats);
+    window.addEventListener('storage', scheduleStats);
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('[data-fav]') || e.target.closest('[data-act="del"]') || e.target.closest('[data-act="dup"]')) {
+            setTimeout(renderStats, 180);
+        }
+    });
+
+    // ============================================================
+    // 4) EMPTY STATE CONTEXTUAL
+    // ============================================================
+    function patchEmptyState() {
+        const listEl = document.getElementById(LIST_ID);
+        if (!listEl) return;
+        const p = listEl.querySelector('p.mut');
+        if (!p || !/nenhum mapa/i.test(p.textContent)) return;
+        const hasProjects = Object.keys(loadDB()).length > 0;
+        if (!hasProjects) return; // o HTML cuida do caso "sem mapas"
+        const q = (document.getElementById('q')?.value || '').trim();
+        const onlyFav = document.getElementById('favs')?.checked;
+        const msg = q ? `Nenhum resultado para "${q}"` : (onlyFav ? 'Nenhum favorito marcado' : 'Nenhum resultado');
+        const holder = document.createElement('div');
+        holder.className = 'empty';
+        holder.style.cssText = 'border:none;background:transparent;';
+        holder.innerHTML = `
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <h3>${msg}</h3>
+            <p>Tente ajustar os filtros ou buscar por outro termo.</p>
+            <button class="btn-hero" id="sm-clear-filters">
+                <i class="fa-solid fa-eraser"></i> Limpar filtros
+            </button>`;
+        p.replaceWith(holder);
+        holder.querySelector('#sm-clear-filters').onclick = () => {
+            const qi = document.getElementById('q');
+            const fv = document.getElementById('favs');
+            if (qi) { qi.value = ''; qi.dispatchEvent(new Event('input')); }
+            if (fv) { fv.checked = false; fv.dispatchEvent(new Event('input')); }
+        };
+    }
+
+    const listEl = document.getElementById(LIST_ID);
+    if (listEl) {
+        new MutationObserver(scheduleStats).observe(listEl, { childList: true, subtree: false });
+        new MutationObserver(patchEmptyState).observe(listEl, { childList: true, subtree: false });
+    }
+
+    // ============================================================
+    // 5) ATALHOS DE TECLADO + ACESSIBILIDADE
+    // ============================================================
+    document.addEventListener('keydown', (e) => {
+        const inInput = e.target.matches && e.target.matches('input, textarea, select, [contenteditable="true"]');
+        if (inInput) return;
+        if ((e.ctrlKey || e.metaKey) && e.code === 'KeyF') { e.preventDefault(); document.getElementById('q')?.focus(); }
+        if ((e.ctrlKey || e.metaKey) && e.code === 'KeyN') { e.preventDefault(); document.getElementById('new')?.click(); }
+        if ((e.ctrlKey || e.metaKey) && e.code === 'KeyA') { e.preventDefault(); document.getElementById('favs')?.click(); }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        const focused = document.activeElement;
+        const card = focused && focused.closest ? focused.closest('[data-open]') : null;
+        if (!card) return;
+        e.preventDefault();
+        const key = card.dataset.open;
+        if (key) location.href = 'app.html?story=' + encodeURIComponent(key);
+    });
+
+    // Foca os cards para permitir navegação por Tab
+    const focusObserver = new MutationObserver(() => {
+        document.querySelectorAll('[data-open]').forEach(card => {
+            if (!card.hasAttribute('tabindex')) card.setAttribute('tabindex', '0');
+            if (!card.hasAttribute('role')) card.setAttribute('role', 'button');
+            if (!card.hasAttribute('aria-label')) {
+                const title = card.querySelector('.nm b')?.textContent || 'Abrir mapa';
+                card.setAttribute('aria-label', 'Abrir ' + title);
+            }
+        });
+    });
+    if (listEl) focusObserver.observe(listEl, { childList: true, subtree: true });
+
+    // ============================================================
+    // 6) INIT
+    // ============================================================
+    const init = () => {
+        renderStats();
+        patchEmptyState();
+        document.querySelectorAll('[data-open]').forEach(card => {
+            if (!card.hasAttribute('tabindex')) card.setAttribute('tabindex', '0');
+            if (!card.hasAttribute('role')) card.setAttribute('role', 'button');
+        });
+        // Sincroniza quando o dashboard.js terminar de renderizar
+        setTimeout(() => { scheduleStats(); patchEmptyState(); }, 400);
+        setTimeout(() => { scheduleStats(); patchEmptyState(); }, 1500);
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+
+    // Expõe para o dashboard.js poder usar
+    window.SM_RENAME_PROJECT = renameProject;
+})();
+</script>
 </body></html>
