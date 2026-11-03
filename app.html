@@ -14468,6 +14468,756 @@ window.addEventListener('resize', function () {
     }
 });
 </script>
+<script>
+/* ============================================================
+   STORYMIND — COMMAND PALETTE (Ctrl+K)
+   Auto-contido. Não requer edições no setupKeyboardListeners().
+   Skill Tree é realocada para Ctrl+Shift+K via capture-phase.
+   ============================================================ */
+(function () {
+    'use strict';
+    if (window.SM_CMD_PALETTE_LOADED) return;
+    window.SM_CMD_PALETTE_LOADED = true;
 
+    // ---------- 1. CSS ----------
+    function injectCSS() {
+        if (document.getElementById('sm-cp-styles')) return;
+        const s = document.createElement('style');
+        s.id = 'sm-cp-styles';
+        s.textContent = `
+            #sm-command-palette {
+                position: fixed; inset: 0;
+                z-index: 9999;
+                display: none;
+                align-items: flex-start;
+                justify-content: center;
+                padding-top: max(8vh, 60px);
+                font-family: 'Inter', sans-serif;
+            }
+            #sm-command-palette.open { display: flex; }
+
+            .sm-cp-backdrop {
+                position: absolute; inset: 0;
+                background: rgba(15, 23, 42, 0.45);
+                -webkit-backdrop-filter: blur(6px) saturate(140%);
+                backdrop-filter: blur(6px) saturate(140%);
+                animation: sm-cp-fade .15s ease;
+            }
+            @keyframes sm-cp-fade { from { opacity: 0; } to { opacity: 1; } }
+
+            .sm-cp-panel {
+                position: relative;
+                width: min(640px, calc(100vw - 32px));
+                max-height: min(70vh, 560px);
+                background: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 16px;
+                box-shadow: 0 32px 64px -12px rgba(15,23,42,.32),
+                            0 0 0 1px rgba(15,23,42,.02) inset;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                animation: sm-cp-pop .18s cubic-bezier(.16,1,.3,1);
+            }
+            @keyframes sm-cp-pop {
+                from { opacity: 0; transform: translateY(-8px) scale(.98); }
+                to   { opacity: 1; transform: translateY(0) scale(1); }
+            }
+
+            .sm-cp-input-wrap {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 14px 18px;
+                border-bottom: 1px solid #e2e8f0;
+                flex-shrink: 0;
+            }
+            .sm-cp-input-wrap > .fa-magnifying-glass {
+                color: #94a3b8;
+                font-size: 14px;
+            }
+            #sm-cp-input {
+                flex: 1;
+                min-width: 0;
+                border: 0;
+                outline: 0;
+                background: transparent;
+                font-family: inherit;
+                font-size: 15px;
+                color: #0f172a;
+                padding: 0;
+            }
+            #sm-cp-input::placeholder { color: #94a3b8; }
+            .sm-cp-input-wrap kbd {
+                font-family: ui-monospace, monospace;
+                font-size: 10px;
+                padding: 3px 7px;
+                border-radius: 5px;
+                border: 1px solid #e2e8f0;
+                background: #f8fafc;
+                color: #64748b;
+                flex-shrink: 0;
+            }
+
+            #sm-cp-results {
+                flex: 1;
+                overflow-y: auto;
+                padding: 6px 6px 4px;
+                min-height: 80px;
+            }
+            #sm-cp-results::-webkit-scrollbar { width: 8px; }
+            #sm-cp-results::-webkit-scrollbar-thumb {
+                background: #e2e8f0;
+                border-radius: 4px;
+                border: 2px solid #fff;
+            }
+
+            .sm-cp-group-label {
+                font-size: 10px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: .06em;
+                color: #94a3b8;
+                padding: 8px 12px 4px;
+            }
+            .sm-cp-item {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 9px 12px;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: background .08s;
+                user-select: none;
+            }
+            .sm-cp-item[aria-selected="true"] {
+                background: #eef2ff;
+            }
+            .sm-cp-item[aria-disabled="true"] {
+                opacity: .38;
+                cursor: not-allowed;
+            }
+            .sm-cp-item-icon {
+                width: 26px;
+                height: 26px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+                flex-shrink: 0;
+                background: #f1f5f9;
+                border-radius: 7px;
+            }
+            .sm-cp-item[aria-selected="true"] .sm-cp-item-icon {
+                background: #e0e7ff;
+            }
+            .sm-cp-item-label {
+                flex: 1;
+                min-width: 0;
+                font-size: 13.5px;
+                font-weight: 500;
+                color: #1e293b;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .sm-cp-item-label mark {
+                background: #fde68a;
+                color: inherit;
+                padding: 0 1px;
+                border-radius: 2px;
+            }
+            .sm-cp-item-hint {
+                font-family: ui-monospace, monospace;
+                font-size: 10px;
+                color: #94a3b8;
+                padding: 2px 6px;
+                border-radius: 4px;
+                border: 1px solid #e2e8f0;
+                background: #f8fafc;
+                flex-shrink: 0;
+                white-space: nowrap;
+            }
+
+            .sm-cp-empty {
+                padding: 32px 20px;
+                text-align: center;
+                font-size: 12.5px;
+                color: #94a3b8;
+                font-style: italic;
+            }
+
+            .sm-cp-footer {
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                padding: 9px 18px;
+                border-top: 1px solid #e2e8f0;
+                background: #f8fafc;
+                font-size: 11px;
+                color: #64748b;
+                flex-shrink: 0;
+            }
+            .sm-cp-footer > span { display: inline-flex; align-items: center; gap: 5px; }
+            .sm-cp-footer kbd {
+                font-family: ui-monospace, monospace;
+                font-size: 9.5px;
+                padding: 1px 5px;
+                border-radius: 3px;
+                border: 1px solid #cbd5e1;
+                background: #fff;
+                color: #475569;
+                min-width: 16px;
+                text-align: center;
+            }
+            .sm-cp-footer .sp { flex: 1; }
+            .sm-cp-footer-count { color: #94a3b8; font-size: 10.5px; }
+
+            /* Dark theme */
+            body.app-theme-dark .sm-cp-panel {
+                background: #1e293b;
+                border-color: #334155;
+            }
+            body.app-theme-dark .sm-cp-input-wrap { border-bottom-color: #334155; }
+            body.app-theme-dark #sm-cp-input { color: #f1f5f9; }
+            body.app-theme-dark .sm-cp-input-wrap kbd {
+                background: #0f172a;
+                border-color: #334155;
+                color: #94a3b8;
+            }
+            body.app-theme-dark #sm-cp-results::-webkit-scrollbar-thumb {
+                background: #334155;
+                border-color: #1e293b;
+            }
+            body.app-theme-dark .sm-cp-group-label { color: #64748b; }
+            body.app-theme-dark .sm-cp-item[aria-selected="true"] {
+                background: #312e81;
+            }
+            body.app-theme-dark .sm-cp-item-icon {
+                background: #0f172a;
+            }
+            body.app-theme-dark .sm-cp-item[aria-selected="true"] .sm-cp-item-icon {
+                background: #4338ca;
+            }
+            body.app-theme-dark .sm-cp-item-label { color: #e2e8f0; }
+            body.app-theme-dark .sm-cp-item-hint {
+                background: #0f172a;
+                border-color: #334155;
+                color: #94a3b8;
+            }
+            body.app-theme-dark .sm-cp-footer {
+                background: #0f172a;
+                border-top-color: #334155;
+                color: #94a3b8;
+            }
+            body.app-theme-dark .sm-cp-footer kbd {
+                background: #1e293b;
+                border-color: #475569;
+                color: #cbd5e1;
+            }
+            body.app-theme-dark .sm-cp-empty { color: #64748b; }
+
+            /* Mobile */
+            @media (max-width: 640px) {
+                #sm-command-palette { padding-top: 12px; }
+                .sm-cp-panel {
+                    width: calc(100vw - 16px);
+                    max-height: calc(100dvh - 24px);
+                    border-radius: 14px;
+                }
+                .sm-cp-input-wrap { padding: 12px 14px; }
+                #sm-cp-input { font-size: 16px; }
+                .sm-cp-item { padding: 11px 10px; }
+                .sm-cp-item-label { font-size: 14px; }
+                .sm-cp-footer { display: none; }
+            }
+
+            @media (prefers-reduced-motion: reduce) {
+                .sm-cp-backdrop, .sm-cp-panel { animation: none; }
+            }
+        `;
+        document.head.appendChild(s);
+    }
+
+    // ---------- 2. Utilitários ----------
+    function normalize(s) {
+        return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    }
+    function fuzzyScore(haystack, needle) {
+        // Retorna score alto se needle é substring do haystack.
+        // Menor = melhor. -1 = sem match.
+        const h = normalize(haystack);
+        const n = normalize(needle);
+        if (!n) return 0;
+        const idx = h.indexOf(n);
+        if (idx === 0) return 1;          // prefixo exato
+        if (idx > 0) return 10 + idx;     // substring, mais longe = pior
+        // subsequência
+        let hi = 0, ni = 0, score = 100, gap = 0;
+        while (hi < h.length && ni < n.length) {
+            if (h[hi] === n[ni]) { ni++; score += gap; gap = 0; }
+            else gap++;
+            hi++;
+        }
+        return ni === n.length ? score : -1;
+    }
+    function escapeHTML(s) {
+        return String(s ?? '').replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+    function escapeRegex(s) {
+        return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    function highlightLabel(label, query) {
+        const safe = escapeHTML(label);
+        if (!query) return safe;
+        const q = normalize(query);
+        if (!q) return safe;
+        // Destaca o primeiro match por substring normalizado
+        const norm = normalize(label);
+        const idx = norm.indexOf(q);
+        if (idx < 0) return safe;
+        // Recalcula para respeitar entidades escapadas (aproximação segura)
+        const raw = label.slice(idx, idx + query.length);
+        const rawEsc = escapeHTML(raw);
+        return safe.replace(rawEsc, `<mark>${rawEsc}</mark>`);
+    }
+
+    // ---------- 3. Helper: criação de nó tipado ----------
+    function createTypedNode(type) {
+        const parentId =
+            (typeof selectedNodeIds !== 'undefined' && selectedNodeIds.size > 0
+                ? Array.from(selectedNodeIds)[0]
+                : null) ||
+            (mindMapData.nodes.find(n => !n.parentId)?.id);
+        if (!parentId) {
+            if (typeof showToast === 'function') showToast('Crie uma raiz primeiro.', 'warn');
+            return;
+        }
+        const newId = createChild(parentId);
+        if (!newId) return;
+        const node = mindMapData.nodes.find(n => n.id === newId);
+        if (!node) return;
+        node.type = type;
+        if (NODE_TYPES[type]) node.title = NODE_TYPES[type].label;
+        pushHistory();
+        saveStoriesStorage();
+        renderApp();
+        startInlineEdit(newId, 'title');
+    }
+
+    // ---------- 4. Lista de comandos ----------
+    function getStaticCommands() {
+        const hasSel = selectedNodeIds.size > 0;
+        const oneSel = selectedNodeIds.size === 1;
+        const multiSel = selectedNodeIds.size >= 2;
+        const hasClip = !!(nodeClipboard && nodeClipboard.nodes.length > 0);
+        const hasFw = !!(mindMapData.beatSheetFramework);
+        const hasTimeline = mindMapData.nodes.some(n => n.type === 'timeline');
+        const canUndo = history.index > 0;
+        const canRedo = history.index < history.stack.length - 1;
+
+        const safe = (fn) => (...args) => {
+            try { return fn.apply(null, args); }
+            catch (e) { console.error('[CmdPalette]', e); if (typeof showToast === 'function') showToast('Erro ao executar comando.', 'error'); }
+        };
+
+        return [
+            // ---- Criar ----
+            { group: 'Criar', icon: '➕', label: 'Novo nó', hint: 'N', action: safe(() => addNewNode()), enabled: true },
+            { group: 'Criar', icon: '🌿', label: 'Novo nó filho', hint: 'Tab', action: safe(() => {
+                if (!oneSel) return;
+                const id = createChild(Array.from(selectedNodeIds)[0]);
+                if (id) { selectedNodeIds.clear(); selectedNodeIds.add(id); commit(); startInlineEdit(id, 'title'); }
+            }), enabled: oneSel },
+            { group: 'Criar', icon: '↔️', label: 'Novo nó irmão', hint: 'Shift+Enter', action: safe(() => {
+                if (!oneSel) return;
+                const id = createSibling(Array.from(selectedNodeIds)[0]);
+                if (id) { selectedNodeIds.clear(); selectedNodeIds.add(id); commit(); startInlineEdit(id, 'title'); }
+            }), enabled: oneSel },
+            { group: 'Criar', icon: '🎬', label: 'Nova cena', action: safe(() => createTypedNode('scene')), enabled: hasSel },
+            { group: 'Criar', icon: '🧙', label: 'Novo personagem', action: safe(() => createTypedNode('character')), enabled: hasSel },
+            { group: 'Criar', icon: '📍', label: 'Novo cenário', action: safe(() => createTypedNode('location')), enabled: hasSel },
+            { group: 'Criar', icon: '⚡', label: 'Novo evento', action: safe(() => createTypedNode('event')), enabled: hasSel },
+            { group: 'Criar', icon: '💬', label: 'Novo diálogo', action: safe(() => createTypedNode('dialogue')), enabled: hasSel },
+            { group: 'Criar', icon: '🎭', label: 'Novo tema', action: safe(() => createTypedNode('theme')), enabled: hasSel },
+            { group: 'Criar', icon: '📅', label: 'Novo evento timeline', action: safe(() => createTypedNode('timeline')), enabled: hasSel },
+
+            // ---- Abrir ----
+            { group: 'Abrir', icon: '📚', label: 'Bíblia da História', hint: 'Ctrl+B', action: safe(() => openStoryBible()), enabled: true },
+            { group: 'Abrir', icon: '⏳', label: 'Linha do Tempo', hint: 'Ctrl+Shift+L', action: safe(() => openTimeline()), enabled: hasTimeline },
+            { group: 'Abrir', icon: '🕸️', label: 'Teia de Relações', hint: 'Ctrl+R', action: safe(() => openRelationWeb()), enabled: true },
+            { group: 'Abrir', icon: '👥', label: 'Grafo de Menções', hint: 'Ctrl+M', action: safe(() => openMentionsGraph()), enabled: true },
+            { group: 'Abrir', icon: '⭐', label: 'Árvore de Habilidades', hint: 'Ctrl+Shift+K', action: safe(() => openSkillTree()), enabled: true },
+            { group: 'Abrir', icon: '📖', label: 'Escolher estrutura narrativa', action: safe(() => openBeatSheetPicker()), enabled: true },
+            { group: 'Abrir', icon: '🔍', label: 'Busca avançada', hint: 'Ctrl+Shift+F', action: safe(() => openAdvancedSearch()), enabled: true },
+            { group: 'Abrir', icon: '✍️', label: 'Modo escrita de cena', hint: 'Ctrl+Shift+W', action: safe(() => openSceneWritingMode()), enabled: true },
+            { group: 'Abrir', icon: '⚙️', label: 'Configurações da história', action: safe(() => openStorySettings()), enabled: true },
+
+            // ---- Modos ----
+            { group: 'Modos', icon: '📊', label: 'Beat Sheet', hint: 'B', action: safe(() => onBeatSheetButtonClick()), enabled: hasFw },
+            { group: 'Modos', icon: '🎼', label: 'Modo Narrativo', hint: 'Shift+B', action: safe(() => toggleBeatSortMode()), enabled: hasFw },
+            { group: 'Modos', icon: '⏳', label: 'Modo Timeline', action: safe(() => toggleTimelineMode()), enabled: hasTimeline },
+            { group: 'Modos', icon: '🧪', label: 'Mostrar/ocultar variantes', action: safe(() => toggleShowVariants()), enabled: true },
+            { group: 'Modos', icon: '📈', label: 'Curva de tensão', hint: 'K', action: safe(() => toggleTensionStrip()), enabled: true },
+            { group: 'Modos', icon: '🗺️', label: 'Minimapa', hint: 'M', action: safe(() => toggleMinimap()), enabled: true },
+
+            // ---- Layout ----
+            { group: 'Layout', icon: '🌳', label: 'Layout árvore', action: safe(() => changeLayout('tree')), enabled: true },
+            { group: 'Layout', icon: '🎯', label: 'Layout radial', action: safe(() => changeLayout('radial')), enabled: true },
+            { group: 'Layout', icon: '🏢', label: 'Layout organograma', action: safe(() => changeLayout('org')), enabled: true },
+            { group: 'Layout', icon: '🎯', label: 'Centralizar mapa', hint: 'F', action: safe(() => fitView()), enabled: true },
+            { group: 'Layout', icon: '🔍', label: 'Zoom nos selecionados', hint: 'Z', action: safe(() => zoomToSelectedNodes()), enabled: hasSel },
+
+            // ---- Editar ----
+            { group: 'Editar', icon: '✏️', label: 'Editar nó', hint: 'F2', action: safe(() => { if (oneSel) openInspectorFor(Array.from(selectedNodeIds)[0]); }), enabled: oneSel },
+            { group: 'Editar', icon: '📝', label: 'Editar múltiplos', action: safe(() => { if (multiSel) openMultiInspector(); }), enabled: multiSel },
+            { group: 'Editar', icon: '📋', label: 'Copiar', hint: 'Ctrl+C', action: safe(() => copySelectedNodes()), enabled: hasSel },
+            { group: 'Editar', icon: '✂️', label: 'Recortar', hint: 'Ctrl+X', action: safe(() => cutSelectedNodes()), enabled: hasSel },
+            { group: 'Editar', icon: '📥', label: 'Colar', hint: 'Ctrl+V', action: safe(() => pasteClipboard()), enabled: hasClip },
+            { group: 'Editar', icon: '🗑️', label: 'Excluir', hint: 'Del', action: safe(() => deleteSelectedNodes()), enabled: hasSel },
+            { group: 'Editar', icon: '✅', label: 'Selecionar tudo', hint: 'Ctrl+A', action: safe(() => selectAllNodes()), enabled: true },
+            { group: 'Editar', icon: '🌲', label: 'Selecionar descendentes', hint: 'Shift+A', action: safe(() => selectDescendants()), enabled: hasSel },
+            { group: 'Editar', icon: '↩️', label: 'Desfazer', hint: 'Ctrl+Z', action: safe(() => undo()), enabled: canUndo },
+            { group: 'Editar', icon: '↪️', label: 'Refazer', hint: 'Ctrl+Y', action: safe(() => redo()), enabled: canRedo },
+            { group: 'Editar', icon: '👁️', label: 'Foco no ramo', hint: 'Shift+F', action: safe(() => toggleFocusMode()), enabled: oneSel },
+            { group: 'Editar', icon: '📕', label: 'Recolher tudo', action: safe(() => collapseAll()), enabled: true },
+            { group: 'Editar', icon: '📖', label: 'Expandir tudo', action: safe(() => expandAll()), enabled: true },
+
+            // ---- Exportar ----
+            { group: 'Exportar', icon: '🖼️', label: 'Exportar PNG do mapa', action: safe(() => exportPNG('all')), enabled: true },
+            { group: 'Exportar', icon: '🖼️', label: 'Exportar PNG dos selecionados', action: safe(() => exportPNG('selected')), enabled: hasSel },
+            { group: 'Exportar', icon: '🎨', label: 'Exportar SVG', action: safe(() => exportSVG()), enabled: true },
+            { group: 'Exportar', icon: '📝', label: 'Exportar Markdown', action: safe(() => exportMarkdown()), enabled: true },
+            { group: 'Exportar', icon: '💾', label: 'Salvar como JSON', hint: 'Ctrl+S', action: safe(() => exportDataWithDialog()), enabled: true },
+            { group: 'Exportar', icon: '📂', label: 'Abrir JSON', hint: 'Ctrl+O', action: safe(() => openImportDialog()), enabled: true },
+
+            // ---- Aba ----
+            { group: 'Aba', icon: '📄', label: 'Nova aba', hint: 'Shift+T', action: safe(() => addSheet()), enabled: true },
+        ];
+    }
+
+    function getDynamicNodeCommands(query) {
+        if (!query || query.length < 2) return [];
+        const q = normalize(query);
+        const matches = mindMapData.nodes
+            .filter(n => n.title && normalize(n.title).includes(q))
+            .slice(0, 6)
+            .map(n => {
+                const td = n.type ? NODE_TYPES[n.type] : null;
+                return {
+                    group: 'Ir para',
+                    icon: td ? td.icon : '📄',
+                    label: n.title,
+                    hint: td ? td.label : 'Sem tipo',
+                    action: () => {
+                        if (typeof jumpToNodeFromBible === 'function') {
+                            jumpToNodeFromBible(n.id);
+                        } else {
+                            selectedNodeIds.clear();
+                            selectedNodeIds.add(n.id);
+                            renderApp();
+                            focusNodeInView(n);
+                        }
+                    },
+                    enabled: true,
+                };
+            });
+        return matches;
+    }
+
+    function buildCommandList(query) {
+        const staticCmds = getStaticCommands();
+        const dynamicCmds = getDynamicNodeCommands(query);
+
+        // Pontua cada comando
+        const scored = staticCmds.map(cmd => {
+            const score = query
+                ? Math.min(
+                    fuzzyScore(cmd.label, query),
+                    fuzzyScore(cmd.group + ' ' + cmd.label, query) + 20,
+                    cmd.hint ? fuzzyScore(cmd.hint, query) + 200 : 999
+                )
+                : 0;
+            return { cmd, score: score < 0 ? 9999 : score };
+        }).filter(x => x.score < 9999);
+
+        scored.sort((a, b) => {
+            if (a.cmd.enabled !== b.cmd.enabled) return a.cmd.enabled ? -1 : 1;
+            return a.score - b.score;
+        });
+
+        const all = [...dynamicCmds.map(cmd => ({ cmd, score: 0 })), ...scored];
+
+        // Remove duplicatas de "Ir para" que tenham a mesma label que um comando estático
+        const seenLabels = new Set();
+        return all.filter(({ cmd }) => {
+            const key = cmd.group + '::' + cmd.label;
+            if (seenLabels.has(key)) return false;
+            seenLabels.add(key);
+            return true;
+        }).map(x => x.cmd);
+    }
+
+    // ---------- 5. Estado ----------
+    let filteredCommands = [];
+    let selectedIndex = 0;
+    let previousFocus = null;
+    let paletteEl = null;
+    let inputEl = null;
+    let resultsEl = null;
+    let currentQuery = '';
+
+    // ---------- 6. Construção do DOM ----------
+    function buildPalette() {
+        if (document.getElementById('sm-command-palette')) return;
+
+        paletteEl = document.createElement('div');
+        paletteEl.id = 'sm-command-palette';
+        paletteEl.setAttribute('role', 'dialog');
+        paletteEl.setAttribute('aria-modal', 'true');
+        paletteEl.setAttribute('aria-label', 'Paleta de comandos');
+        paletteEl.innerHTML = `
+            <div class="sm-cp-backdrop" data-sm-cp-close></div>
+            <div class="sm-cp-panel">
+                <div class="sm-cp-input-wrap">
+                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                    <input id="sm-cp-input" type="text" placeholder="Digite um comando ou nome de nó…"
+                           autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    <kbd>Esc</kbd>
+                </div>
+                <div id="sm-cp-results" role="listbox"></div>
+                <div class="sm-cp-footer">
+                    <span><kbd>↑</kbd><kbd>↓</kbd> navegar</span>
+                    <span><kbd>↵</kbd> executar</span>
+                    <span><kbd>esc</kbd> fechar</span>
+                    <span class="sp"></span>
+                    <span class="sm-cp-footer-count" id="sm-cp-count"></span>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(paletteEl);
+
+        inputEl = paletteEl.querySelector('#sm-cp-input');
+        resultsEl = paletteEl.querySelector('#sm-cp-results');
+
+        // Fecha ao clicar no backdrop
+        paletteEl.querySelector('[data-sm-cp-close]').addEventListener('click', closeCommandPalette);
+
+        // Filtro ao digitar
+        inputEl.addEventListener('input', () => {
+            currentQuery = inputEl.value;
+            filter(currentQuery);
+        });
+
+        // Navegação por teclado dentro do input
+        inputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown') { e.preventDefault(); moveSelection(1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); moveSelection(-1); }
+            else if (e.key === 'Enter') { e.preventDefault(); executeSelected(); }
+            else if (e.key === 'Tab') { e.preventDefault(); }
+            // Escape é tratado no capture-phase global
+        });
+    }
+
+    // ---------- 7. Open/close ----------
+    function isPaletteOpen() {
+        return paletteEl && paletteEl.classList.contains('open');
+    }
+
+    function openCommandPalette() {
+        if (isPaletteOpen()) return;
+        if (typeof mindMapData === 'undefined' || !mindMapData || !Array.isArray(mindMapData.nodes)) {
+            if (typeof showToast === 'function') showToast('Aguarde o mapa carregar…', 'info', 1500);
+            return;
+        }
+        buildPalette();
+        previousFocus = document.activeElement;
+        paletteEl.classList.add('open');
+        inputEl.value = '';
+        currentQuery = '';
+        filter('');
+        requestAnimationFrame(() => inputEl.focus());
+    }
+
+    function closeCommandPalette() {
+        if (!isPaletteOpen()) return;
+        paletteEl.classList.remove('open');
+        if (previousFocus && typeof previousFocus.focus === 'function') {
+            try { previousFocus.focus(); } catch (_) {}
+        }
+        previousFocus = null;
+    }
+
+    function toggleCommandPalette() {
+        if (isPaletteOpen()) closeCommandPalette();
+        else openCommandPalette();
+    }
+
+    // ---------- 8. Filtro / render ----------
+    function filter(query) {
+        filteredCommands = buildCommandList(query);
+        selectedIndex = 0;
+        renderResults();
+    }
+
+    function renderResults() {
+        const countEl = paletteEl.querySelector('#sm-cp-count');
+
+        if (filteredCommands.length === 0) {
+            resultsEl.innerHTML = `<div class="sm-cp-empty">
+                Nenhum comando encontrado${currentQuery ? ` para "${escapeHTML(currentQuery)}"` : ''}.
+            </div>`;
+            if (countEl) countEl.textContent = '0';
+            return;
+        }
+
+        if (countEl) {
+            countEl.textContent = filteredCommands.length === 1
+                ? '1 comando'
+                : `${filteredCommands.length} comandos`;
+        }
+
+        let html = '';
+        let lastGroup = null;
+        filteredCommands.forEach((cmd, i) => {
+            if (cmd.group !== lastGroup) {
+                html += `<div class="sm-cp-group-label">${escapeHTML(cmd.group)}</div>`;
+                lastGroup = cmd.group;
+            }
+            const selected = i === selectedIndex ? 'true' : 'false';
+            const disabled = cmd.enabled === false ? 'true' : 'false';
+            const hintHTML = cmd.hint ? `<span class="sm-cp-item-hint">${escapeHTML(cmd.hint)}</span>` : '';
+            html += `<div class="sm-cp-item" role="option"
+                          aria-selected="${selected}" aria-disabled="${disabled}"
+                          data-sm-cp-index="${i}"
+                          title="${escapeHTML(cmd.label)}">
+                        <div class="sm-cp-item-icon" aria-hidden="true">${cmd.icon || '•'}</div>
+                        <div class="sm-cp-item-label">${highlightLabel(cmd.label, currentQuery)}</div>
+                        ${hintHTML}
+                     </div>`;
+        });
+        resultsEl.innerHTML = html;
+
+        // Scroll do item selecionado para dentro da view
+        const selEl = resultsEl.querySelector('[aria-selected="true"]');
+        if (selEl) selEl.scrollIntoView({ block: 'nearest' });
+
+        // Clique em item
+        resultsEl.querySelectorAll('[data-sm-cp-index]').forEach(el => {
+            el.addEventListener('click', () => {
+                const idx = parseInt(el.getAttribute('data-sm-cp-index'), 10);
+                if (!isNaN(idx)) {
+                    selectedIndex = idx;
+                    executeSelected();
+                }
+            });
+            el.addEventListener('mouseenter', () => {
+                const idx = parseInt(el.getAttribute('data-sm-cp-index'), 10);
+                if (!isNaN(idx) && idx !== selectedIndex) {
+                    selectedIndex = idx;
+                    // Só atualiza aria sem re-render completo
+                    resultsEl.querySelectorAll('.sm-cp-item').forEach(x => x.setAttribute('aria-selected', 'false'));
+                    el.setAttribute('aria-selected', 'true');
+                }
+            });
+        });
+    }
+
+    // ---------- 9. Navegação / execução ----------
+    function moveSelection(delta) {
+        if (filteredCommands.length === 0) return;
+        let next = selectedIndex + delta;
+        if (next < 0) next = filteredCommands.length - 1;
+        if (next >= filteredCommands.length) next = 0;
+        // Pula desabilitados
+        let tries = 0;
+        while (filteredCommands[next] && filteredCommands[next].enabled === false && tries < filteredCommands.length) {
+            next = (next + delta + filteredCommands.length) % filteredCommands.length;
+            tries++;
+        }
+        selectedIndex = next;
+        renderResults();
+    }
+
+    function executeSelected() {
+        const cmd = filteredCommands[selectedIndex];
+        if (!cmd) return;
+        if (cmd.enabled === false) return;
+        closeCommandPalette();
+        // Defer para permitir que o foco volte antes da ação
+        setTimeout(() => {
+            try {
+                cmd.action();
+            } catch (e) {
+                console.error('[CmdPalette] execução falhou:', e);
+                if (typeof showToast === 'function') showToast('Erro ao executar comando.', 'error', 2500);
+            }
+        }, 30);
+    }
+
+    // ---------- 10. Handlers globais (capture phase) ----------
+    document.addEventListener('keydown', (e) => {
+        // --- Ctrl+K (sem shift): alterna a paleta ---
+        if ((e.ctrlKey || e.metaKey) && e.code === 'KeyK' && !e.shiftKey && !e.altKey) {
+            // Não intercepta dentro de inputs tradicionais SE a paleta estiver fechada
+            // (permite Ctrl+K fazer o que o usuário quiser em textarea/input).
+            // Mas dentro de contenteditable, queremos abrir a paleta.
+            const target = e.target;
+            const isPlainInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT';
+            const isContentEditable = target.isContentEditable || (target.closest && target.closest('[contenteditable="true"]'));
+            if (!isPaletteOpen() && isPlainInput && !isContentEditable) {
+                // Deixa passar — mas na prática, Ctrl+K em inputs não faz nada hoje,
+                // então o efeito será o mesmo do browser (sem ação). Se um dia
+                // quiser interceptar tudo, é só remover este return.
+                return;
+            }
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            toggleCommandPalette();
+            return;
+        }
+
+        // --- Ctrl+Shift+K: alterna Skill Tree (realocação) ---
+        if ((e.ctrlKey || e.metaKey) && e.code === 'KeyK' && e.shiftKey) {
+            const target = e.target;
+            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            if (typeof openSkillTree !== 'function' || typeof closeSkillTree !== 'function') return;
+            const modal = document.getElementById('skilltree-modal');
+            if (modal && modal.classList.contains('hidden')) openSkillTree();
+            else if (modal) closeSkillTree();
+            return;
+        }
+
+        // --- Escape com paleta aberta: fecha só a paleta ---
+        if (isPaletteOpen() && e.key === 'Escape') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            closeCommandPalette();
+            return;
+        }
+    }, true);
+
+    // ---------- 11. Init ----------
+    function init() {
+        injectCSS();
+        buildPalette();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init, { once: true });
+    } else {
+        init();
+    }
+
+    // Expõe para debug e para um eventual trigger mobile
+    window.SM_openCommandPalette = openCommandPalette;
+    window.SM_closeCommandPalette = closeCommandPalette;
+    window.SM_toggleCommandPalette = toggleCommandPalette;
+})();
+</script>
 </body>
 </html>
