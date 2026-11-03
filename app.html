@@ -13818,13 +13818,10 @@ function updateTimelineToggleButton() {
                 if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && !e.shiftKey) { e.preventDefault(); undo(); return; }
                 if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyY' || (e.code === 'KeyZ' && e.shiftKey))) { e.preventDefault(); redo(); return; }
                 if ((e.ctrlKey || e.metaKey) && e.code === 'KeyA' && !e.shiftKey) { e.preventDefault(); selectAllNodes(); return; }
-		if (e.code === 'KeyA' && e.shiftKey && !e.ctrlKey && !e.metaKey) { e.preventDefault(); selectDescendants(); return; }
-		if (e.code === 'KeyA' && e.shiftKey && !e.ctrlKey && !e.metaKey) { e.preventDefault(); selectDescendants(); return; }
-                if ((e.ctrlKey || e.metaKey) && e.code === 'KeyC' && !e.shiftKey) { if (selectedNodeIds.size > 0) { e.preventDefault(); copySelectedNodes(); return; } }
-                                if ((e.ctrlKey || e.metaKey) && e.code === 'KeyC' && !e.shiftKey) { if (selectedNodeIds.size > 0) { e.preventDefault(); copySelectedNodes(); return; } }
-                if ((e.ctrlKey || e.metaKey) && e.code === 'KeyX' && !e.shiftKey) { if (selectedNodeIds.size > 0) { e.preventDefault(); cutSelectedNodes(); return; } }
-                if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV' && !e.shiftKey) { if (nodeClipboard && nodeClipboard.nodes.length > 0) { e.preventDefault(); pasteClipboard(); return; } }
-                if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV' && !e.shiftKey) { if (nodeClipboard && nodeClipboard.nodes.length > 0) { e.preventDefault(); pasteClipboard(); return; } }
+if (e.code === 'KeyA' && e.shiftKey && !e.ctrlKey && !e.metaKey) { e.preventDefault(); selectDescendants(); return; }
+if ((e.ctrlKey || e.metaKey) && e.code === 'KeyC' && !e.shiftKey) { if (selectedNodeIds.size > 0) { e.preventDefault(); copySelectedNodes(); return; } }
+if ((e.ctrlKey || e.metaKey) && e.code === 'KeyX' && !e.shiftKey) { if (selectedNodeIds.size > 0) { e.preventDefault(); cutSelectedNodes(); return; } }
+if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV' && !e.shiftKey) { if (nodeClipboard && nodeClipboard.nodes.length > 0) { e.preventDefault(); pasteClipboard(); return; } }
                 if ((e.ctrlKey || e.metaKey) && e.code === 'KeyF' && !e.shiftKey) { e.preventDefault(); document.getElementById('search-input').focus(); return; }
                 if (e.code === 'Delete' || e.code === 'Backspace') { e.preventDefault(); deleteSelectedNodes(); return; }
                 if (e.code === 'Space' && activeTool !== 'pan') { setTool('pan'); return; }
