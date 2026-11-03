@@ -1393,4 +1393,509 @@
     window.SM_RENAME_PROJECT = renameProject;
 })();
 </script>
+<script>
+/* ============================================================
+   StoryMind — Grafismos HUD + SVG
+   Constelação no hero, stats com anéis, cantos nos cards,
+   padrão de fundo e separadores estilo HUD.
+   ============================================================ */
+(function () {
+    'use strict';
+
+    // ============================================================
+    // 0) CSS global do HUD
+    // ============================================================
+    function injectHudStyles() {
+        if (document.getElementById('sm-hud-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'sm-hud-styles';
+        style.textContent = `
+            /* ---- Fundo: radial + dot grid ---- */
+            body::before {
+                content: '';
+                position: fixed;
+                inset: 0;
+                z-index: 0;
+                pointer-events: none;
+                background-image:
+                    radial-gradient(circle at 15% 20%, rgba(99,102,241,0.07), transparent 45%),
+                    radial-gradient(circle at 85% 75%, rgba(168,85,247,0.06), transparent 45%),
+                    radial-gradient(rgba(129,140,248,0.09) 1px, transparent 1px);
+                background-size: 100% 100%, 100% 100%, 30px 30px;
+            }
+            .nav, .wrap { position: relative; z-index: 1; }
+
+            /* ---- Hero: HUD tick-marks embaixo ---- */
+            .hero {
+                position: relative;
+                padding-bottom: 28px !important;
+                min-height: 130px;
+            }
+            .hero::after {
+                content: '';
+                position: absolute;
+                left: 0; right: 0; bottom: -6px;
+                height: 14px;
+                background-image:
+                    repeating-linear-gradient(90deg, rgba(99,102,241,0.35) 0 1px, transparent 1px 24px),
+                    repeating-linear-gradient(90deg, rgba(99,102,241,0.55) 0 2px, transparent 2px 120px);
+                background-size: 100% 6px, 100% 12px;
+                background-position: bottom left;
+                background-repeat: repeat-x;
+                pointer-events: none;
+                opacity: 0.75;
+                -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 10%, #000 90%, transparent 100%);
+                mask-image: linear-gradient(90deg, transparent 0%, #000 10%, #000 90%, transparent 100%);
+            }
+
+            /* ---- Hero: constelação SVG ---- */
+            .hero-svg-illustration {
+                position: absolute;
+                right: 20px;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 200px;
+                height: 160px;
+                pointer-events: none;
+                z-index: 0;
+                opacity: 0.95;
+            }
+            .hero-svg-illustration svg {
+                width: 100%; height: 100%; display: block;
+            }
+            .hero > div:first-child { position: relative; z-index: 1; }
+
+            .hero-node {
+                transform-origin: center;
+                transform-box: fill-box;
+                animation: hero-node-pulse 3.6s ease-in-out infinite;
+                animation-delay: var(--delay, 0s);
+            }
+            .hero-node .node-ring {
+                animation: hero-node-ring 3.6s ease-in-out infinite;
+                animation-delay: var(--delay, 0s);
+                transform-origin: center;
+                transform-box: fill-box;
+            }
+            @keyframes hero-node-pulse {
+                0%, 100% { opacity: 1; }
+                50%      { opacity: 0.55; }
+            }
+            @keyframes hero-node-ring {
+                0%, 100% { transform: scale(1);    opacity: 0.75; }
+                50%      { transform: scale(1.22); opacity: 0.2; }
+            }
+            .hero-svg-illustration path {
+                stroke-dasharray: 220;
+                stroke-dashoffset: 220;
+                animation: hero-line-draw 2.6s cubic-bezier(.6,.05,.3,1) forwards;
+            }
+            @keyframes hero-line-draw {
+                to { stroke-dashoffset: 0; }
+            }
+            @media (max-width: 960px) {
+                .hero-svg-illustration { display: none; }
+            }
+
+            /* ---- Stats HUD com anéis ---- */
+            #sm-stats-panel {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                gap: 14px;
+                margin-bottom: 20px;
+            }
+            .stat-hud {
+                position: relative;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 16px 18px;
+                background: var(--card, #fff);
+                border: 1px solid var(--line, #e2e8f0);
+                border-radius: 16px;
+                overflow: hidden;
+                transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
+            }
+            .stat-hud::before {
+                content: '';
+                position: absolute;
+                inset: 0;
+                background: radial-gradient(circle at 0% 50%, rgba(99,102,241,0.06), transparent 65%);
+                pointer-events: none;
+            }
+            .stat-hud:hover {
+                transform: translateY(-2px);
+                border-color: #c7d2fe;
+                box-shadow: 0 14px 28px -12px rgba(99,102,241,0.35);
+            }
+            .stat-hud.is-fav::before {
+                background: radial-gradient(circle at 0% 50%, rgba(251,191,36,0.12), transparent 65%);
+            }
+            .stat-hud.is-fav:hover {
+                border-color: #fcd34d;
+                box-shadow: 0 14px 28px -12px rgba(251,191,36,0.35);
+            }
+            .stat-ring {
+                width: 60px; height: 60px;
+                flex: none;
+                position: relative;
+                z-index: 1;
+            }
+            .stat-ring .ring-track {
+                fill: none;
+                stroke: rgba(129,140,248,0.15);
+                stroke-width: 4;
+            }
+            .stat-ring .ring-fill {
+                fill: none;
+                stroke-width: 4;
+                stroke-linecap: round;
+                transform: rotate(-90deg);
+                transform-origin: 40px 40px;
+                animation: ring-draw 1.2s cubic-bezier(.6,.05,.3,1);
+            }
+            @keyframes ring-draw {
+                from { stroke-dasharray: 0 999; }
+            }
+            .stat-hud-body {
+                position: relative;
+                z-index: 1;
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                min-width: 0;
+            }
+            .stat-hud-icon {
+                font-size: 10.5px;
+                color: #94a3b8;
+                margin-bottom: 2px;
+            }
+            .stat-hud-val {
+                font-size: 1.75rem;
+                font-weight: 800;
+                letter-spacing: -0.02em;
+                color: var(--tx, #0f172a);
+                line-height: 1;
+                font-variant-numeric: tabular-nums;
+            }
+            .stat-hud-lbl {
+                font-size: 0.7rem;
+                text-transform: uppercase;
+                letter-spacing: 0.07em;
+                color: var(--mut, #64748b);
+                font-weight: 600;
+            }
+
+            /* ---- Cantos HUD nos cards ---- */
+            .row.it, .gv .card { position: relative; }
+            .row.it::before, .row.it::after,
+            .gv .card::before, .gv .card::after {
+                content: '';
+                position: absolute;
+                width: 14px; height: 14px;
+                border-color: #a5b4fc;
+                border-style: solid;
+                border-width: 0;
+                opacity: 0;
+                transition: opacity 0.2s, border-color 0.2s;
+                pointer-events: none;
+                z-index: 2;
+            }
+            .row.it::before, .gv .card::before {
+                top: 6px; left: 6px;
+                border-top-width: 1.5px;
+                border-left-width: 1.5px;
+                border-top-left-radius: 6px;
+            }
+            .row.it::after, .gv .card::after {
+                bottom: 6px; right: 6px;
+                border-bottom-width: 1.5px;
+                border-right-width: 1.5px;
+                border-bottom-right-radius: 6px;
+            }
+            .row.it:hover::before, .row.it:hover::after,
+            .gv .card:hover::before, .gv .card:hover::after {
+                opacity: 1;
+                border-color: #6366f1;
+            }
+
+            /* ---- Separador HUD ---- */
+            #sm-section-sep {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                height: 24px;
+                margin: 4px 0 14px;
+                color: #94a3b8;
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: 0.18em;
+                text-transform: uppercase;
+            }
+            #sm-section-sep::before, #sm-section-sep::after {
+                content: '';
+                flex: 1;
+                height: 1px;
+                background: linear-gradient(90deg, transparent, #cbd5e1, transparent);
+            }
+            #sm-section-sep span {
+                color: #6366f1;
+                white-space: nowrap;
+            }
+            #sm-section-sep span::before,
+            #sm-section-sep span::after {
+                content: '◆';
+                font-size: 6px;
+                margin: 0 8px;
+                vertical-align: middle;
+                opacity: 0.55;
+            }
+
+            /* ---- Mobile ---- */
+            @media (max-width: 760px) {
+                .hero::after { display: none; }
+                #sm-stats-panel {
+                    grid-template-columns: repeat(2, minmax(0,1fr));
+                    gap: 10px;
+                }
+                .stat-hud { padding: 12px 14px; gap: 10px; }
+                .stat-ring { width: 46px; height: 46px; }
+                .stat-hud-val { font-size: 1.4rem; }
+                .stat-hud-lbl { font-size: 0.65rem; }
+                .stat-hud-icon { display: none; }
+            }
+
+            @media (prefers-reduced-motion: reduce) {
+                .hero-node, .hero-node .node-ring,
+                .hero-svg-illustration path,
+                .stat-ring .ring-fill { animation: none !important; }
+                .stat-hud, .stat-ring .ring-fill { stroke-dasharray: initial; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // ============================================================
+    // 1) CONSTELAÇÃO SVG NO HERO
+    // ============================================================
+    function injectHeroSVG() {
+        const hero = document.querySelector('.hero');
+        if (!hero || hero.querySelector('.hero-svg-illustration')) return;
+
+        const svg = document.createElement('div');
+        svg.className = 'hero-svg-illustration';
+        svg.setAttribute('aria-hidden', 'true');
+        svg.innerHTML = `
+            <svg viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <radialGradient id="hv-glow" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%"  stop-color="#a5b4fc" stop-opacity="0.28"/>
+                        <stop offset="70%" stop-color="#818cf8" stop-opacity="0.05"/>
+                        <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+                    </radialGradient>
+                    <linearGradient id="hv-line" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%"  stop-color="#818cf8" stop-opacity="0.8"/>
+                        <stop offset="100%" stop-color="#a855f7" stop-opacity="0.8"/>
+                    </linearGradient>
+                    <filter id="hv-blur"><feGaussianBlur stdDeviation="3"/></filter>
+                </defs>
+
+                <circle cx="100" cy="80" r="90" fill="url(#hv-glow)" filter="url(#hv-blur)"/>
+
+                <g stroke="url(#hv-line)" stroke-width="1.2" fill="none" opacity="0.6">
+                    <path d="M 40 55 Q 70 70 92 72" />
+                    <path d="M 92 72 Q 120 55 150 62" />
+                    <path d="M 92 72 Q 110 100 128 118" />
+                    <path d="M 128 118 Q 152 122 170 100" />
+                    <path d="M 40 55 Q 55 100 68 122" />
+                    <path d="M 68 122 Q 96 130 128 118" />
+                    <path d="M 150 62 Q 160 82 170 100" />
+                </g>
+
+                <g class="hero-node" style="--delay:0s">
+                    <circle cx="40" cy="55" r="11" fill="rgba(129,140,248,0.15)" stroke="#818cf8" stroke-width="1.2" class="node-ring"/>
+                    <circle cx="40" cy="55" r="4" fill="#818cf8"/>
+                </g>
+                <g class="hero-node" style="--delay:0.5s">
+                    <circle cx="92" cy="72" r="14" fill="rgba(168,85,247,0.15)" stroke="#a855f7" stroke-width="1.2" class="node-ring"/>
+                    <circle cx="92" cy="72" r="5.5" fill="#a855f7"/>
+                </g>
+                <g class="hero-node" style="--delay:1s">
+                    <circle cx="150" cy="62" r="10" fill="rgba(99,102,241,0.15)" stroke="#6366f1" stroke-width="1.2" class="node-ring"/>
+                    <circle cx="150" cy="62" r="3.5" fill="#6366f1"/>
+                </g>
+                <g class="hero-node" style="--delay:1.5s">
+                    <circle cx="68" cy="122" r="10" fill="rgba(244,114,182,0.15)" stroke="#f472b6" stroke-width="1.2" class="node-ring"/>
+                    <circle cx="68" cy="122" r="3.5" fill="#f472b6"/>
+                </g>
+                <g class="hero-node" style="--delay:2s">
+                    <circle cx="128" cy="118" r="12" fill="rgba(34,211,238,0.15)" stroke="#22d3ee" stroke-width="1.2" class="node-ring"/>
+                    <circle cx="128" cy="118" r="4.5" fill="#22d3ee"/>
+                </g>
+                <g class="hero-node" style="--delay:2.5s">
+                    <circle cx="170" cy="100" r="9" fill="rgba(52,211,153,0.15)" stroke="#34d399" stroke-width="1.2" class="node-ring"/>
+                    <circle cx="170" cy="100" r="3" fill="#34d399"/>
+                </g>
+            </svg>
+        `;
+        hero.appendChild(svg);
+    }
+
+    // ============================================================
+    // 2) STATS COM ANÉIS HUD
+    // ============================================================
+    const RING_R = 30;
+    const CIRC = 2 * Math.PI * RING_R;
+
+    function buildRing(gradientId, ratio, colors) {
+        const dash = Math.max(0.01, Math.min(1, ratio)) * CIRC;
+        return `
+            <svg class="stat-ring" viewBox="0 0 80 80" aria-hidden="true">
+                <defs>
+                    <linearGradient id="${gradientId}" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%"  stop-color="${colors[0]}"/>
+                        <stop offset="100%" stop-color="${colors[1]}"/>
+                    </linearGradient>
+                </defs>
+                <circle class="ring-track" cx="40" cy="40" r="${RING_R}"/>
+                <circle class="ring-fill" cx="40" cy="40" r="${RING_R}"
+                        stroke="url(#${gradientId})"
+                        stroke-dasharray="${dash} ${CIRC}"
+                        stroke-dashoffset="0"/>
+            </svg>
+        `;
+    }
+
+    function renderHudStats() {
+        const wrap = document.querySelector('.wrap');
+        const hero = wrap && wrap.querySelector('.hero');
+        if (!hero) return;
+
+        let el = document.getElementById('sm-stats-panel');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'sm-stats-panel';
+            el.className = 'stats';
+            hero.after(el);
+        }
+
+        let db = {};
+        try { db = JSON.parse(localStorage.getItem('storymind_database_v2')) || {}; } catch (_) {}
+        const keys = Object.keys(db);
+        let totalNodes = 0, totalSheets = 0, favs = 0;
+        keys.forEach(k => {
+            const s = db[k];
+            if (s.isFavorite) favs++;
+            (s.sheets || []).forEach(sh => {
+                totalSheets++;
+                totalNodes += (sh.nodes || []).length;
+            });
+        });
+
+        const total = Math.max(1, keys.length);
+        const favRatio   = favs / total;
+        // Preenchimento decorativo significativo:
+        //   Projetos → sempre 1 (anel cheio: você está vendo todos)
+        //   Nós     → normaliza pela média (30 nós por projeto)
+        //   Abas    → normaliza por 3 abas por projeto
+        //   Favs    → proporção real
+        const nodesRatio = Math.min(1, totalNodes / (total * 30));
+        const sheetsRatio = Math.min(1, totalSheets / (total * 3));
+
+        el.innerHTML = `
+            <div class="stat-hud">
+                ${buildRing('sm-ring-a', 1, ['#818cf8', '#a855f7'])}
+                <div class="stat-hud-body">
+                    <div class="stat-hud-icon"><i class="fa-solid fa-folder-tree"></i></div>
+                    <div class="stat-hud-val">${keys.length}</div>
+                    <div class="stat-hud-lbl">Projetos</div>
+                </div>
+            </div>
+
+            <div class="stat-hud">
+                ${buildRing('sm-ring-b', nodesRatio, ['#22d3ee', '#6366f1'])}
+                <div class="stat-hud-body">
+                    <div class="stat-hud-icon"><i class="fa-solid fa-diagram-project"></i></div>
+                    <div class="stat-hud-val">${totalNodes}</div>
+                    <div class="stat-hud-lbl">Nós totais</div>
+                </div>
+            </div>
+
+            <div class="stat-hud">
+                ${buildRing('sm-ring-c', sheetsRatio, ['#34d399', '#22d3ee'])}
+                <div class="stat-hud-body">
+                    <div class="stat-hud-icon"><i class="fa-solid fa-layer-group"></i></div>
+                    <div class="stat-hud-val">${totalSheets}</div>
+                    <div class="stat-hud-lbl">Abas</div>
+                </div>
+            </div>
+
+            <div class="stat-hud is-fav">
+                ${buildRing('sm-ring-d', favRatio, ['#fbbf24', '#f59e0b'])}
+                <div class="stat-hud-body">
+                    <div class="stat-hud-icon"><i class="fa-solid fa-star"></i></div>
+                    <div class="stat-hud-val">${favs}</div>
+                    <div class="stat-hud-lbl">Favoritos</div>
+                </div>
+            </div>
+        `;
+    }
+
+    // ============================================================
+    // 3) SEPARADOR "BIBLIOTECA" ANTES DA TOOLBAR
+    // ============================================================
+    function injectSectionSeparator() {
+        const bar = document.querySelector('.bar');
+        if (!bar || document.getElementById('sm-section-sep')) return;
+        const sep = document.createElement('div');
+        sep.id = 'sm-section-sep';
+        sep.innerHTML = '<span>Biblioteca</span>';
+        bar.before(sep);
+    }
+
+    // ============================================================
+    // 4) INIT + OBSERVERS
+    // ============================================================
+    function init() {
+        injectHudStyles();
+        injectHeroSVG();
+        injectSectionSeparator();
+        renderHudStats();
+
+        // Re-render stats quando a lista muda (favoritar, excluir, duplicar...)
+        let statsTimer = null;
+        const listEl = document.getElementById('list');
+        if (listEl) {
+            new MutationObserver(() => {
+                clearTimeout(statsTimer);
+                statsTimer = setTimeout(renderHudStats, 160);
+            }).observe(listEl, { childList: true, subtree: false });
+        }
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('[data-fav]') ||
+                e.target.closest('[data-act="del"]') ||
+                e.target.closest('[data-act="dup"]') ||
+                e.target.closest('[data-act="rename"]')) {
+                setTimeout(renderHudStats, 280);
+            }
+        });
+        window.addEventListener('storage', () => setTimeout(renderHudStats, 120));
+        window.addEventListener('sm:story-renamed', () => setTimeout(renderHudStats, 120));
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            init();
+            // Se o enhancer anterior também criou stats, garante que HUD vence
+            setTimeout(renderHudStats, 600);
+        });
+    } else {
+        init();
+        setTimeout(renderHudStats, 600);
+    }
+
+    // Expõe para debug
+    window.SM_HUD = { refresh: renderHudStats };
+})();
+</script>
 </body></html>
