@@ -1501,6 +1501,49 @@ body.app-theme-dark #reteia-modal .reteia-node circle[fill="#ffffff"] {
     align-self: center;
     margin-left: 4px;
 }
+/* ==================== Unlinked mentions ==================== */
+.sm-bl-header.unl { color: #b45309; }
+.sm-bl-header.unl .sm-bl-count { background: #fef3c7; color: #92400e; }
+
+.sm-bl-item.unl {
+    cursor: default;
+    border-left-color: #f59e0b;
+}
+.sm-bl-item.unl:hover {
+    background: #fffbeb;
+    border-left-color: #d97706;
+}
+.sm-bl-item.unl .sm-bl-item-icon { color: #d97706; }
+
+.sm-bl-link-btn {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 5px;
+    background: #f59e0b;
+    color: #fff;
+    border: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    transition: background .12s, transform .12s;
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+}
+.sm-bl-link-btn:hover { background: #d97706; }
+.sm-bl-link-btn:active { transform: scale(.94); }
+.sm-bl-link-btn i { font-size: 9px; }
+
+/* Dark theme */
+body.app-theme-dark .sm-bl-item.unl:hover { background: #422006; }
+body.app-theme-dark .sm-bl-item.unl .sm-bl-item-icon { color: #fbbf24; }
+body.app-theme-dark .sm-bl-header.unl { color: #fbbf24; }
+body.app-theme-dark .sm-bl-header.unl .sm-bl-count { background: #78350f; color: #fde68a; }
+body.app-theme-dark .sm-bl-link-btn { background: #d97706; }
+body.app-theme-dark .sm-bl-link-btn:hover { background: #f59e0b; }
 
 /* ==================== Autocomplete [[Nome]] ==================== */
 #sm-wa {
@@ -14367,8 +14410,9 @@ function renderBacklinksPanel(node) {
 
     const incoming = getBacklinksIndex().get(node.id) || [];
     const outgoing = getOutgoingLinks(node);
+     const unlinked = getUnlinkedIndex().get(node.id) || [];
 
-    if (incoming.length === 0 && outgoing.length === 0) return;
+    if (incoming.length === 0 && outgoing.length === 0 && unlinked.length === 0) return;
 
     const panel = document.createElement('div');
     panel.id = 'sm-backlinks-panel';
@@ -14418,7 +14462,47 @@ function renderBacklinksPanel(node) {
             </div>
         `;
     }
+    // ---- UNLINKED (oportunidades) ----
+       if (unlinked.length > 0) {
+        html += `
+            <div class="sm-bl-group" style="margin-top:12px;">
+                <div class="sm-bl-header unl">
+                    <span style="display:inline-flex;align-items:center;gap:5px;">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <span>Mencionado sem link</span>
+                        <span class="sm-bl-count">${unlinked.length}</span>
+                    </span>
+                </div>
+                <div class="sm-bl-list">
+                    ${unlinked.map(u => {
+                        const src = mindMapData.nodes.find(n => n.id === u.sourceId);
+                        if (!src) return '';
+                        const td = src.type ? NODE_TYPES[src.type] : null;
+                        const icon = td ? td.icon : '📄';
+                        const snippet = u.snippet
+                            ? `<div class="sm-bl-item-snippet">${escapeHTML(u.snippet)}</div>`
+                            : '';
+                        return `<div class="sm-bl-item unl" title="Em: ${escapeHTML(src.title)}">
+                            <span class="sm-bl-item-icon">${icon}</span>
+                            <div class="sm-bl-item-body" style="cursor:pointer;"
+                                 onclick="event.stopPropagation();jumpToNodeFromBible('${src.id}')">
+                                <div class="sm-bl-item-title">${escapeHTML(src.title || 'Sem título')}</div>
+                                ${snippet}
+                            </div>
+                            <button type="button" class="sm-bl-link-btn"
+                                    onclick="event.preventDefault();event.stopPropagation();smLinkUnlinkedMention('${u.sourceId}','${node.id}',${u.rangeStart},${u.rangeEnd},'${escapeHTML(u.correctTitle).replace(/'/g, "\\'")}');"
+                                    title="Transformar em [[${escapeHTML(u.correctTitle)}]]">
+                                <i class="fa-solid fa-link"></i> Linkar
+                            </button>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
 
+    // ---- OUTGOING ----
+    if (outgoing.length > 0) {
     // ---- OUTGOING ----
     if (outgoing.length > 0) {
         html += `
@@ -14730,6 +14814,150 @@ function smWAAttach(editable) {
 
 // Fecha em mudanças de estado do app (troca de aba, undo, etc.)
 window.addEventListener('sm:before-render', smWAClose);
+
+/* ============================================================
+   UNLINKED MENTIONS — nomes soltos que merecem virar [[ ]]
+   Só detecta títulos com 3+ chars. Ignora matches dentro de [[ ]].
+   Respeita boundary de palavra (não pega "Ikari" em "Ikariss").
+   Prefere título mais longo ("Ikari Tanaka" > "Ikari").
+   ============================================================ */
+let _unlinkedCache = { key: '', index: null };
+
+const _UNL_MIN_TITLE_LEN = 3;
+
+function isWordChar(ch) {
+    if (!ch) return false;
+    // Letras (com acentos), dígitos e underscore
+    return /[A-Za-zÀ-ÖØ-öø-ÿ0-9_]/.test(ch);
+}
+
+function buildUnlinkedRegex() {
+    const titleIndex = getTitleIndex();
+    const titles = Array.from(titleIndex.keys())
+        .filter(t => t.length >= _UNL_MIN_TITLE_LEN);
+    if (titles.length === 0) return null;
+
+    // Prefere títulos mais longos: "Ikari Tanaka" antes de "Ikari"
+    titles.sort((a, b) => b.length - a.length);
+
+    const pattern = titles.map(t => escapeRegex(t)).join('|');
+    return new RegExp(`(${pattern})`, 'gi');
+}
+
+function getUnlinkedIndex() {
+    const key = `${structureVersion}:${computeContentLenSignature()}`;
+    if (_unlinkedCache.key === key && _unlinkedCache.index) return _unlinkedCache.index;
+
+    const index = new Map();
+    const re = buildUnlinkedRegex();
+    if (!re) {
+        _unlinkedCache = { key, index };
+        return index;
+    }
+
+    const titleIndex = getTitleIndex();
+    // Títulos original (não normalizados) para inserir corretamente no conteúdo
+    const titleOriginal = new Map();
+    mindMapData.nodes.forEach(n => {
+        if (!n.title) return;
+        const norm = normalizeName(n.title);
+        if (!titleOriginal.has(norm)) titleOriginal.set(norm, n.title);
+    });
+
+    mindMapData.nodes.forEach(source => {
+        if (!source.content) return;
+
+        // 1. Ranges já linkados neste content (para ignorar)
+        const linkedRanges = [];
+        const linkedRe = /\[\[([^\[\]\n]{1,100})\]\]/g;
+        let lm;
+        while ((lm = linkedRe.exec(source.content)) !== null) {
+            linkedRanges.push([lm.index, lm.index + lm[0].length]);
+        }
+        const inLinkedRange = (start, end) =>
+            linkedRanges.some(([s, e]) => start >= s && end <= e);
+
+        // 2. Busca matches de títulos
+        re.lastIndex = 0;
+        let m;
+        const seenTargets = new Set();
+
+        while ((m = re.exec(source.content)) !== null) {
+            const matched = m[0];
+            const start = m.index;
+            const end = start + matched.length;
+
+            // Ignora se está dentro de [[ ]] já linkado
+            if (inLinkedRange(start, end)) continue;
+
+            // Boundary de palavra: "Ikari" em "Ikariss" ou "xIkari" não conta
+            const before = start > 0 ? source.content[start - 1] : '';
+            const after = end < source.content.length ? source.content[end] : '';
+            if (isWordChar(before) || isWordChar(after)) continue;
+
+            const norm = normalizeName(matched);
+            const targetId = titleIndex.get(norm);
+            if (!targetId || targetId === source.id) continue;
+
+            // Um único match por (source, target) já sugere o link
+            if (seenTargets.has(targetId)) continue;
+            seenTargets.add(targetId);
+
+            if (!index.has(targetId)) index.set(targetId, []);
+            index.get(targetId).push({
+                sourceId: source.id,
+                snippet: extractSnippet(source.content, start, matched.length),
+                rangeStart: start,
+                rangeEnd: end,
+                matchedText: matched,
+                correctTitle: titleOriginal.get(norm) || matched,
+            });
+        }
+    });
+
+    _unlinkedCache = { key, index };
+    return index;
+}
+
+/* Executa a substituição: "Ikari" → "[[Ikari]]" no content do source.
+   Revalida o range antes de aplicar (content pode ter mudado). */
+function smLinkUnlinkedMention(sourceId, targetId, rangeStart, rangeEnd, correctTitle) {
+    const source = mindMapData.nodes.find(n => n.id === sourceId);
+    const target = mindMapData.nodes.find(n => n.id === targetId);
+    if (!source || !target) return;
+
+    const content = source.content || '';
+    if (rangeStart < 0 || rangeEnd > content.length || rangeStart >= rangeEnd) {
+        showToast('O texto mudou. Reabra o inspector.', 'warn', 2600);
+        return;
+    }
+
+    // Revalida que ainda é a mesma menção
+    const slice = content.slice(rangeStart, rangeEnd);
+    if (normalizeName(slice) !== normalizeName(correctTitle)) {
+        showToast('O texto mudou. Reabra o inspector.', 'warn', 2600);
+        return;
+    }
+
+    pushHistory();
+    source.content =
+        content.slice(0, rangeStart) +
+        `[[${correctTitle}]]` +
+        content.slice(rangeEnd);
+
+    // Invalida caches (estrutura + unlinked)
+    invalidateStructure();
+    _unlinkedCache.key = '';
+    domCache.invalidateHeight(source.id);
+
+    saveStoriesStorage();
+    renderApp();
+
+    // Re-renderiza o painel do nó alvo (que está aberto)
+    renderBacklinksPanel(target);
+
+    showToast(`"${correctTitle}" linkado.`, 'success', 1800);
+}
 
         function escapeHTML(str) {
             return String(str ?? '').replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
@@ -16380,6 +16608,7 @@ window.addEventListener('resize', function () {
         document.addEventListener('DOMContentLoaded', init, { once: true });
     } else {
         init();
+    }
     }
 })();
 </script>
