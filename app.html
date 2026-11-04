@@ -245,6 +245,52 @@ body.app-theme-dark #tl-tooltip::-webkit-scrollbar-thumb { background: #475569; 
             border-top: 1px dashed #e2e8f0;
             font-size: 11.5px; line-height: 1.5; white-space: pre-wrap;
         }
+        /* ==================== Wiki-links [[Nome]] ==================== */
+.sm-wiki-link {
+    color: #6366f1;
+    text-decoration: none;
+    border-bottom: 1px dotted #6366f1;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+    padding: 0 1px;
+    border-radius: 2px;
+}
+.sm-wiki-link:hover {
+    color: #4338ca;
+    background: #eef2ff;
+    border-bottom-style: solid;
+}
+.sm-wiki-broken {
+    color: #94a3b8;
+    text-decoration: line-through;
+    text-decoration-color: #cbd5e1;
+    text-decoration-thickness: 1px;
+    cursor: help;
+    border-bottom: 1px dotted #cbd5e1;
+}
+
+#node-tooltip .tt-content .sm-wiki-link {
+    font-style: normal;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+}
+
+/* Dark theme */
+body.app-theme-dark .sm-wiki-link {
+    color: #a5b4fc;
+    border-bottom-color: #a5b4fc;
+}
+body.app-theme-dark .sm-wiki-link:hover {
+    color: #c7d2fe;
+    background: #312e81;
+}
+body.app-theme-dark .sm-wiki-broken {
+    color: #64748b;
+    border-bottom-color: #475569;
+    text-decoration-color: #475569;
+}
         #node-tooltip .tt-empty {
             color: #94a3b8; font-style: italic; font-size: 11px;
         }
@@ -1346,6 +1392,242 @@ body.app-theme-dark #reteia-modal .reteia-node circle[fill="#ffffff"] {
             border: 1px solid #a5f3fc;
             border-radius: 8px;
         }
+
+        /* ==================== Backlinks panel (inspector) ==================== */
+#sm-backlinks-panel {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line, #e2e8f0);
+}
+.sm-bl-group { margin-bottom: 4px; }
+.sm-bl-group:last-child { margin-bottom: 0; }
+.sm-bl-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+    padding-left: 2px;
+}
+.sm-bl-header.inc { color: #4f46e5; }
+.sm-bl-header.out { color: #059669; }
+.sm-bl-header .sm-bl-count {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 999px;
+    flex-shrink: 0;
+}
+.sm-bl-header.inc .sm-bl-count { background: #e0e7ff; color: #4338ca; }
+.sm-bl-header.out .sm-bl-count { background: #d1fae5; color: #065f46; }
+.sm-bl-header .sm-bl-toggle {
+    font-size: 10px;
+    font-weight: 600;
+    color: #6366f1;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: none;
+    letter-spacing: 0;
+}
+.sm-bl-header .sm-bl-toggle:hover { background: #eef2ff; }
+
+.sm-bl-list { display: flex; flex-direction: column; gap: 3px; }
+.sm-bl-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.1s;
+    border-left: 2px solid transparent;
+    text-decoration: none;
+    color: inherit;
+}
+.sm-bl-item:hover {
+    background: #f1f5f9;
+    border-left-color: #6366f1;
+}
+.sm-bl-item.out:hover { border-left-color: #059669; }
+.sm-bl-item-icon {
+    font-size: 11px;
+    width: 16px;
+    flex-shrink: 0;
+    text-align: center;
+    line-height: 1.4;
+    color: #94a3b8;
+}
+.sm-bl-item-body {
+    flex: 1;
+    min-width: 0;
+}
+.sm-bl-item-title {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #1e293b;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.35;
+}
+.sm-bl-item-snippet {
+    font-size: 10.5px;
+    color: #64748b;
+    font-style: italic;
+    line-height: 1.4;
+    margin-top: 2px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.sm-bl-item-via {
+    font-size: 9px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    flex-shrink: 0;
+    align-self: center;
+    margin-left: 4px;
+}
+
+/* ==================== Autocomplete [[Nome]] ==================== */
+#sm-wa {
+    position: fixed;
+    z-index: 500;
+    min-width: 220px;
+    max-width: min(320px, calc(100vw - 16px));
+    max-height: 240px;
+    overflow-y: auto;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 16px 40px -8px rgba(15,23,42,.22),
+                0 6px 14px -6px rgba(15,23,42,.12);
+    padding: 4px;
+    font-family: 'Inter', sans-serif;
+    animation: sm-wa-in .12s ease;
+    -webkit-overflow-scrolling: touch;
+}
+@keyframes sm-wa-in {
+    from { opacity: 0; transform: translateY(-3px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+#sm-wa::-webkit-scrollbar { width: 6px; }
+#sm-wa::-webkit-scrollbar-thumb {
+    background: #cbd5e1; border-radius: 3px;
+}
+
+.sm-wa-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 12px;
+    color: #1e293b;
+    transition: background .08s;
+}
+.sm-wa-item[aria-selected="true"] {
+    background: #eef2ff;
+    color: #4338ca;
+}
+.sm-wa-item-icon {
+    width: 18px; text-align: center;
+    flex-shrink: 0; font-size: 12px;
+}
+.sm-wa-item-title {
+    flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-weight: 500;
+}
+.sm-wa-item-title mark {
+    background: #fde68a; color: inherit;
+    padding: 0 1px; border-radius: 2px;
+    font-weight: 700;
+}
+.sm-wa-item-type {
+    font-size: 9px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .04em;
+    color: #94a3b8; flex-shrink: 0;
+}
+.sm-wa-empty {
+    padding: 14px 12px; text-align: center;
+    font-size: 11.5px; font-style: italic;
+    color: #94a3b8;
+}
+.sm-wa-empty kbd {
+    font-family: ui-monospace, monospace;
+    font-size: 10px; padding: 1px 5px;
+    border-radius: 3px; border: 1px solid #e2e8f0;
+    background: #f8fafc; color: #64748b;
+}
+.sm-wa-hint {
+    padding: 5px 10px 3px;
+    font-size: 9.5px; color: #94a3b8;
+    border-top: 1px solid #f1f5f9;
+    margin-top: 2px;
+    display: flex; gap: 10px;
+    font-variant-numeric: tabular-nums;
+}
+.sm-wa-hint kbd {
+    font-family: ui-monospace, monospace;
+    font-size: 9px; padding: 0 4px;
+    border-radius: 3px; border: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+/* Dark theme */
+body.app-theme-dark #sm-wa {
+    background: #1e293b; border-color: #334155;
+    box-shadow: 0 16px 40px -8px rgba(0,0,0,.55);
+}
+body.app-theme-dark .sm-wa-item { color: #e2e8f0; }
+body.app-theme-dark .sm-wa-item[aria-selected="true"] {
+    background: #312e81; color: #c7d2fe;
+}
+body.app-theme-dark .sm-wa-item-type { color: #64748b; }
+body.app-theme-dark .sm-wa-item-title mark {
+    background: #78350f; color: #fef3c7;
+}
+body.app-theme-dark .sm-wa-empty { color: #64748b; }
+body.app-theme-dark .sm-wa-empty kbd {
+    background: #0f172a; border-color: #334155; color: #94a3b8;
+}
+body.app-theme-dark .sm-wa-hint {
+    color: #64748b; border-top-color: #334155;
+}
+body.app-theme-dark .sm-wa-hint kbd {
+    background: #0f172a; border-color: #334155;
+}
+
+/* Toggle "ver todos" — esconde itens além do limite */
+#sm-backlinks-panel:not(.expanded) .sm-bl-item.sm-bl-hidden { display: none; }
+
+/* Dark theme */
+body.app-theme-dark #sm-backlinks-panel { border-top-color: #334155; }
+body.app-theme-dark .sm-bl-item:hover { background: #334155; }
+body.app-theme-dark .sm-bl-item-title { color: #e2e8f0; }
+body.app-theme-dark .sm-bl-item-snippet { color: #94a3b8; }
+body.app-theme-dark .sm-bl-item-icon { color: #64748b; }
+body.app-theme-dark .sm-bl-item-via { background: #334155; color: #cbd5e1; }
+body.app-theme-dark .sm-bl-header.inc .sm-bl-count { background: #312e81; color: #c7d2fe; }
+body.app-theme-dark .sm-bl-header.out .sm-bl-count { background: #064e3b; color: #6ee7b7; }
+body.app-theme-dark .sm-bl-header .sm-bl-toggle:hover { background: #312e81; }
+        
         #reference-links-panel .ref-title {
             font-size: 10px;
             font-weight: 700;
@@ -4688,9 +4970,12 @@ function startInlineEdit(nodeId, field) {
         const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
     }, 100); // Aumentado para 100ms (o celular precisa disso para invocar o teclado virtual)
     
+    smWAAttach(target);   // ← NOVO
+
     let done = false;
     const finish = (save) => {
         if (done) return; done = true;
+        smWAClose();   // ← NOVO (garante popover fechado)
         if (save) {
             const val = target.innerText.trim();
             if (editingField === 'title') node.title = val || 'Sem título';
@@ -5195,7 +5480,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
                 });
                 html += `</div>`;
             }
-            if (node.content && node.content.trim()) html += `<div class="tt-content">${escapeHTML(node.content)}</div>`;
+            if (node.content && node.content.trim()) html += `<div class="tt-content">${renderContentHTML(node.content, false)}</div>`;
             html += `<div class="tt-hint" style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
                 <span><i class="fa-solid fa-hand-pointer mr-1"></i>Clique para editar · segure <b>P</b> para preview</span>
                 <button onclick="event.stopPropagation(); jumpToNodeFromBible('${node.id}')" style="pointer-events:auto; padding:2px 8px; border-radius:6px; background:#eef2ff; color:#4338ca; font-size:10px; font-weight:700; border:none; cursor:pointer;">Abrir</button>
@@ -8491,7 +8776,9 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
                 });
                 const children = childCount(node.id);
                 const titleHTML = isEditing ? `<h3 class="font-bold text-xs tracking-wide uppercase outline-none" contenteditable="true" data-edit-target="title">${escapeHTML(node.title)}</h3>` : `<h3 class="font-bold text-xs tracking-wide uppercase line-clamp-2" data-edit-target="title">${highlightMatch(node.title, isSearchHit)}</h3>`;
-                const contentHTML = isEditing ? `<p class="text-[11px] opacity-80 leading-relaxed font-normal outline-none min-h-[16px]" contenteditable="true" data-edit-target="content" data-placeholder="Sem notas...">${escapeHTML(node.content || '')}</p>` : `<p class="text-[11px] opacity-80 line-clamp-3 leading-relaxed font-normal" data-edit-target="content">${highlightMatch(node.content || 'Sem notas...', isSearchHit)}</p>`;
+                const contentHTML = isEditing
+    ? `<p class="text-[11px] opacity-80 leading-relaxed font-normal outline-none min-h-[16px]" contenteditable="true" data-edit-target="content" data-placeholder="Sem notas...">${escapeHTML(node.content || '')}</p>`
+    : `<p class="text-[11px] opacity-80 line-clamp-3 leading-relaxed font-normal" data-edit-target="content">${renderContentHTML(node.content || '', isSearchHit)}</p>`;
                 const iconsArr = node.icons || [];
                 let iconsHTML = '';
                 iconsArr.forEach(url => { iconsHTML += `<img src="${escapeHTML(url)}" class="rounded shrink-0 pointer-events-none" style="width:150px;height:150px;object-fit:contain;" crossorigin="anonymous" alt="" onerror="this.style.display='none'">`; });
@@ -9389,8 +9676,11 @@ else newScale = Math.max(scale / factor, 0.05);
                 const lbl = document.getElementById('variant-actions-label');
                 if (lbl) lbl.textContent = node.variantLabel || '—';
             } else { createVarBtn.classList.remove('hidden'); varActions.classList.add('hidden'); }
+             renderBacklinksPanel(node);   // ← NOVO
             renderApp();
         }
+        
+        
 
         function closeInspector() { document.getElementById('inspector-sidebar').classList.add('translate-x-full'); }
 
@@ -13952,9 +14242,553 @@ if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV' && !e.shiftKey) { if (nodeClip
         }
         document.addEventListener('input', e => { if (e.target && e.target.id === 'sw-draft') updateSceneWritingWordCount(); });
 
+        /* ============================================================
+   BACKLINKS — incoming + outgoing, com cache inteligente
+   Cache key: structureVersion + soma dos comprimentos de content
+   (invalidado quando estrutura muda OU quando content muda de tamanho)
+   ============================================================ */
+let _backlinksCache = { key: '', index: null };
+
+function computeContentLenSignature() {
+    let len = 0;
+    const nodes = mindMapData.nodes;
+    for (let i = 0; i < nodes.length; i++) {
+        const c = nodes[i].content;
+        len += c ? c.length : 0;
+    }
+    return len;
+}
+
+function getBacklinksIndex() {
+    const key = `${structureVersion}:${computeContentLenSignature()}`;
+    if (_backlinksCache.key === key && _backlinksCache.index) return _backlinksCache.index;
+
+    const titleIndex = getTitleIndex();
+    const index = new Map();
+
+    mindMapData.nodes.forEach(source => {
+        // 1. Links [[ ]] no content
+        if (source.content) {
+            const re = /\[\[([^\[\]\n]{1,100})\]\]/g;
+            let m;
+            while ((m = re.exec(source.content)) !== null) {
+                const targetId = titleIndex.get(normalizeName(m[1].trim()));
+                if (!targetId || targetId === source.id) continue;
+                if (!index.has(targetId)) index.set(targetId, []);
+                const list = index.get(targetId);
+                if (!list.some(e => e.sourceId === source.id)) {
+                    list.push({
+                        sourceId: source.id,
+                        snippet: extractSnippet(source.content, m.index, m[0].length),
+                        via: 'link',
+                    });
+                }
+            }
+        }
+
+        // 2. Campo characters em cenas (para personagens)
+        if (source.type === 'scene' && source.typeData?.characters) {
+            String(source.typeData.characters).split(/[,;]/).forEach(name => {
+                const clean = name.trim();
+                if (!clean) return;
+                const targetId = titleIndex.get(normalizeName(clean));
+                if (!targetId || targetId === source.id) return;
+                if (!index.has(targetId)) index.set(targetId, []);
+                const list = index.get(targetId);
+                if (!list.some(e => e.sourceId === source.id)) {
+                    list.push({
+                        sourceId: source.id,
+                        snippet: '',
+                        via: 'chars',
+                    });
+                }
+            });
+        }
+    });
+
+    _backlinksCache = { key, index };
+    return index;
+}
+
+function extractSnippet(content, matchStart, matchLength, radius = 55) {
+    const start = Math.max(0, matchStart - radius);
+    const end = Math.min(content.length, matchStart + matchLength + radius);
+    let snippet = content.slice(start, end);
+    if (start > 0) snippet = '…' + snippet;
+    if (end < content.length) snippet = snippet + '…';
+    return snippet.replace(/\s+/g, ' ').trim();
+}
+
+function getOutgoingLinks(node) {
+    const seen = new Set();
+    const out = [];
+    const titleIndex = getTitleIndex();
+
+    if (node.content) {
+        const re = /\[\[([^\[\]\n]{1,100})\]\]/g;
+        let m;
+        while ((m = re.exec(node.content)) !== null) {
+            const targetId = titleIndex.get(normalizeName(m[1].trim()));
+            if (targetId && targetId !== node.id && !seen.has(targetId)) {
+                seen.add(targetId);
+                out.push({ targetId, via: 'link' });
+            }
+        }
+    }
+
+    if (node.type === 'scene' && node.typeData?.characters) {
+        String(node.typeData.characters).split(/[,;]/).forEach(name => {
+            const clean = name.trim();
+            if (!clean) return;
+            const targetId = titleIndex.get(normalizeName(clean));
+            if (targetId && targetId !== node.id && !seen.has(targetId)) {
+                seen.add(targetId);
+                out.push({ targetId, via: 'chars' });
+            }
+        });
+    }
+
+    return out;
+}
+/* ============================================================
+   BACKLINKS PANEL — injetado no inspector sob demanda
+   ============================================================ */
+const MAX_VISIBLE_BACKLINKS = 6;
+
+function renderBacklinksPanel(node) {
+    // Remove instância anterior
+    const old = document.getElementById('sm-backlinks-panel');
+    if (old) old.remove();
+
+    if (!node) return;
+
+    const container = document.getElementById('single-node-fields');
+    if (!container) return;
+
+    const incoming = getBacklinksIndex().get(node.id) || [];
+    const outgoing = getOutgoingLinks(node);
+
+    if (incoming.length === 0 && outgoing.length === 0) return;
+
+    const panel = document.createElement('div');
+    panel.id = 'sm-backlinks-panel';
+
+    let html = '';
+
+    // ---- INCOMING ----
+    if (incoming.length > 0) {
+        const hiddenClass = (i) => i >= MAX_VISIBLE_BACKLINKS ? ' sm-bl-hidden' : '';
+        html += `
+            <div class="sm-bl-group">
+                <div class="sm-bl-header inc">
+                    <span style="display:inline-flex;align-items:center;gap:5px;">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        <span>Referenciado por</span>
+                        <span class="sm-bl-count">${incoming.length}</span>
+                    </span>
+                    ${incoming.length > MAX_VISIBLE_BACKLINKS
+                        ? `<button type="button" class="sm-bl-toggle" onclick="document.getElementById('sm-backlinks-panel').classList.toggle('expanded'); this.textContent = document.getElementById('sm-backlinks-panel').classList.contains('expanded') ? 'ver menos' : 'ver todos (${incoming.length})';">ver todos (${incoming.length})</button>`
+                        : ''}
+                </div>
+                <div class="sm-bl-list">
+                    ${incoming.map((b, i) => {
+                        const src = mindMapData.nodes.find(n => n.id === b.sourceId);
+                        if (!src) return '';
+                        const td = src.type ? NODE_TYPES[src.type] : null;
+                        const icon = td ? td.icon : '📄';
+                        const snippetHTML = b.snippet
+                            ? `<div class="sm-bl-item-snippet">${escapeHTML(b.snippet)}</div>`
+                            : '';
+                        const viaHTML = b.via === 'chars'
+                            ? `<span class="sm-bl-item-via">cena</span>`
+                            : '';
+                        return `<a class="sm-bl-item${hiddenClass(i)}"
+                                   href="#"
+                                   onclick="event.preventDefault();event.stopPropagation();jumpToNodeFromBible('${src.id}');return false;"
+                                   title="Ir para: ${escapeHTML(src.title)}">
+                            <span class="sm-bl-item-icon">${icon}</span>
+                            <div class="sm-bl-item-body">
+                                <div class="sm-bl-item-title">${escapeHTML(src.title || 'Sem título')}</div>
+                                ${snippetHTML}
+                            </div>
+                            ${viaHTML}
+                        </a>`;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // ---- OUTGOING ----
+    if (outgoing.length > 0) {
+        html += `
+            <div class="sm-bl-group" style="margin-top:12px;">
+                <div class="sm-bl-header out">
+                    <span style="display:inline-flex;align-items:center;gap:5px;">
+                        <i class="fa-solid fa-arrow-right"></i>
+                        <span>Referencia</span>
+                        <span class="sm-bl-count">${outgoing.length}</span>
+                    </span>
+                </div>
+                <div class="sm-bl-list">
+                    ${outgoing.map(o => {
+                        const tgt = mindMapData.nodes.find(n => n.id === o.targetId);
+                        if (!tgt) return '';
+                        const td = tgt.type ? NODE_TYPES[tgt.type] : null;
+                        const icon = td ? td.icon : '📄';
+                        const viaHTML = o.via === 'chars'
+                            ? `<span class="sm-bl-item-via">cena</span>`
+                            : '';
+                        return `<a class="sm-bl-item out"
+                                   href="#"
+                                   onclick="event.preventDefault();event.stopPropagation();jumpToNodeFromBible('${tgt.id}');return false;"
+                                   title="Ir para: ${escapeHTML(tgt.title)}">
+                            <span class="sm-bl-item-icon">${icon}</span>
+                            <div class="sm-bl-item-body">
+                                <div class="sm-bl-item-title">${escapeHTML(tgt.title || 'Sem título')}</div>
+                            </div>
+                            ${viaHTML}
+                        </a>`;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    panel.innerHTML = html;
+    container.appendChild(panel);
+}
+/* ============================================================
+   AUTOCOMPLETE [[Nome]] no contenteditable do card
+   - Só ativa no content (não no título)
+   - Desabilitado em touch (mobile)
+   - Fecha sozinho em blur, Escape, e quando o popover some
+   ============================================================ */
+const _smWA = {
+    open: false,
+    editable: null,
+    panel: null,
+    items: [],
+    selected: 0,
+    filter: '',
+    bracketPos: 0,       // posição de "[[", contada a partir do fim do texto antes do caret
+    panelHovered: false,
+    openTimer: null,
+};
+
+function isTouchOnly() {
+    return window.matchMedia('(hover: none)').matches;
+}
+
+function smWAGetCaretContext(editable) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return null;
+    const range = sel.getRangeAt(0);
+    if (!editable.contains(range.startContainer)) return null;
+
+    // Texto do início do contenteditable até o cursor
+    const pre = range.cloneRange();
+    pre.selectNodeContents(editable);
+    pre.setEnd(range.startContainer, range.startOffset);
+    const textBefore = pre.toString();
+
+    // Última ocorrência de "[[" sem "]]" depois (regex ancorado no fim)
+    const m = textBefore.match(/\[\[([^\[\]\n]*)$/);
+    if (!m) return null;
+
+    const filter = m[1];
+    const bracketIdx = textBefore.length - filter.length - 2;
+    const bracketsAgo = 2 + filter.length; // chars a recuar do caret até "[["
+
+    // Rect do caret (com fallback para o rect do editable)
+    let rect = range.getBoundingClientRect();
+    if (!rect || (rect.width === 0 && rect.height === 0)) {
+        rect = editable.getBoundingClientRect();
+    }
+    // Se o caret está fora da viewport, não abrir
+    if (rect.top < -10 || rect.top > window.innerHeight - 10) return null;
+
+    return { textBefore, filter, bracketIdx, bracketsAgo, rect };
+}
+
+function smWAFindCandidates(filter) {
+    const q = normalizeName(filter);
+    const seen = new Set();
+    const out = [];
+    mindMapData.nodes.forEach(n => {
+        if (seen.has(n.id)) return;
+        if (!n.title) return;
+        const t = normalizeName(n.title);
+        if (q && !t.includes(q)) return;
+        seen.add(n.id);
+        out.push(n);
+    });
+    // Ordena: prefixo > substring, depois alfabético
+    out.sort((a, b) => {
+        const ta = normalizeName(a.title), tb = normalizeName(b.title);
+        const pa = q ? (ta.startsWith(q) ? 0 : 1) : 0;
+        const pb = q ? (tb.startsWith(q) ? 0 : 1) : 0;
+        if (pa !== pb) return pa - pb;
+        return (a.title || '').localeCompare(b.title || '', 'pt-BR');
+    });
+    return out.slice(0, 8);
+}
+
+function smWAHighlight(text, query) {
+    const safe = escapeHTML(text);
+    if (!query) return safe;
+    const norm = normalizeName(text);
+    const idx = norm.indexOf(normalizeName(query));
+    if (idx < 0) return safe;
+    const raw = text.slice(idx, idx + query.length);
+    return safe.replace(escapeHTML(raw), `<mark>${escapeHTML(raw)}</mark>`);
+}
+
+function smWAOpen(items, rect) {
+    if (isTouchOnly()) return;
+
+    if (!_smWA.panel) {
+        _smWA.panel = document.createElement('div');
+        _smWA.panel.id = 'sm-wa';
+        _smWA.panel.setAttribute('role', 'listbox');
+        _smWA.panel.setAttribute('aria-label', 'Sugestões de nós');
+        document.body.appendChild(_smWA.panel);
+
+        _smWA.panel.addEventListener('mousedown', (e) => e.preventDefault());
+        _smWA.panel.addEventListener('mouseenter', () => { _smWA.panelHovered = true; });
+        _smWA.panel.addEventListener('mouseleave', () => { _smWA.panelHovered = false; });
+        _smWA.panel.addEventListener('click', (e) => {
+            const it = e.target.closest('[data-smwa-idx]');
+            if (!it) return;
+            const idx = parseInt(it.getAttribute('data-smwa-idx'), 10);
+            if (!isNaN(idx)) { _smWA.selected = idx; smWAChoose(); }
+        });
+    }
+
+    _smWA.items = items;
+    _smWA.selected = 0;
+    _smWA.open = true;
+
+    _smWA.panel.innerHTML = items.length === 0
+        ? `<div class="sm-wa-empty">
+              Nenhum nó correspondente.<br>
+              Feche os colchetes com <kbd>]]</kbd> para aceitar o texto.
+           </div>`
+        : items.map((n, i) => {
+            const td = n.type ? NODE_TYPES[n.type] : null;
+            const icon = td ? td.icon : '📄';
+            const typeLabel = td ? td.label : '';
+            return `<div class="sm-wa-item" role="option" data-smwa-idx="${i}"
+                        aria-selected="${i === 0 ? 'true' : 'false'}"
+                        title="${escapeHTML(n.title)}">
+                <span class="sm-wa-item-icon">${icon}</span>
+                <span class="sm-wa-item-title">${smWAHighlight(n.title, _smWA.filter)}</span>
+                ${typeLabel ? `<span class="sm-wa-item-type">${escapeHTML(typeLabel)}</span>` : ''}
+            </div>`;
+        }).join('') + `<div class="sm-wa-hint">
+            <span><kbd>↑↓</kbd> navegar</span>
+            <span><kbd>↵</kbd> escolher</span>
+            <span><kbd>esc</kbd> sair</span>
+        </div>`;
+
+    // Posicionamento com clamp
+    _smWA.panel.style.left = '0px';
+    _smWA.panel.style.top = '0px';
+    const panelRect = _smWA.panel.getBoundingClientRect();
+    let left = rect.left;
+    let top = rect.bottom + 4;
+    if (left + panelRect.width > window.innerWidth - 8) left = window.innerWidth - panelRect.width - 8;
+    if (left < 8) left = 8;
+    if (top + panelRect.height > window.innerHeight - 8) top = rect.top - panelRect.height - 4;
+    if (top < 8) top = 8;
+    _smWA.panel.style.left = left + 'px';
+    _smWA.panel.style.top = top + 'px';
+
+    smWARenderSelection();
+}
+
+function smWARenderSelection() {
+    if (!_smWA.panel) return;
+    _smWA.panel.querySelectorAll('.sm-wa-item').forEach((el, i) => {
+        el.setAttribute('aria-selected', i === _smWA.selected ? 'true' : 'false');
+    });
+    const sel = _smWA.panel.querySelector('.sm-wa-item[aria-selected="true"]');
+    if (sel) sel.scrollIntoView({ block: 'nearest' });
+}
+
+function smWAClose() {
+    if (_smWA.openTimer) { clearTimeout(_smWA.openTimer); _smWA.openTimer = null; }
+    if (_smWA.panel) { _smWA.panel.remove(); _smWA.panel = null; }
+    _smWA.open = false;
+    _smWA.items = [];
+    _smWA.selected = 0;
+    _smWA.filter = '';
+    _smWA.panelHovered = false;
+}
+
+function smWAMove(delta) {
+    if (_smWA.items.length === 0) return;
+    let next = _smWA.selected + delta;
+    if (next < 0) next = _smWA.items.length - 1;
+    if (next >= _smWA.items.length) next = 0;
+    _smWA.selected = next;
+    smWARenderSelection();
+}
+
+function smWAChoose() {
+    if (!_smWA.open || _smWA.items.length === 0) return;
+    const target = _smWA.items[_smWA.selected];
+    if (!target) return;
+
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) { smWAClose(); return; }
+
+    // Seleciona de "[[parcial" até o caret, e substitui por "[[Nome Completo]]"
+    try {
+        for (let i = 0; i < _smWA.bracketsAgo; i++) {
+            sel.modify('extend', 'backward', 'character');
+        }
+        // execCommand é deprecated mas é o único que preserva undo em contenteditable
+        const ok = document.execCommand('insertText', false, `[[${target.title}]]`);
+        if (!ok) {
+            // Fallback: substituir via Range
+            const r = sel.getRangeAt(0);
+            r.deleteContents();
+            r.insertNode(document.createTextNode(`[[${target.title}]]`));
+            sel.collapseToEnd();
+        }
+    } catch (e) {
+        console.warn('[smWA] falha ao inserir:', e);
+    }
+
+    smWAClose();
+}
+
+function smWAUpdate() {
+    const ed = _smWA.editable;
+    if (!ed) return;
+
+    const ctx = smWAGetCaretContext(ed);
+    if (!ctx) { smWAClose(); return; }
+
+    _smWA.filter = ctx.filter;
+    _smWA.bracketsAgo = ctx.bracketsAgo;
+
+    // Evita reabrir durante os primeiros ms quando filter está vazio
+    // (o usuário pode digitar "[[" por acidente e apagar)
+    if (ctx.filter.length === 0) {
+        if (_smWA.openTimer) clearTimeout(_smWA.openTimer);
+        _smWA.openTimer = setTimeout(() => {
+            _smWA.openTimer = null;
+            const ctx2 = smWAGetCaretContext(ed);
+            if (ctx2 && ctx2.filter.length === 0) {
+                smWAOpen(smWAFindCandidates(''), ctx2.rect);
+            }
+        }, 300);
+        return;
+    }
+
+    if (_smWA.openTimer) { clearTimeout(_smWA.openTimer); _smWA.openTimer = null; }
+    smWAOpen(smWAFindCandidates(ctx.filter), ctx.rect);
+}
+
+function smWAAttach(editable) {
+    if (editable.getAttribute('data-edit-target') !== 'content') return;
+    if (editable.__smWAAttached) return;
+    editable.__smWAAttached = true;
+
+    const onInput = () => {
+        _smWA.editable = editable;
+        smWAUpdate();
+    };
+    const onFocusOut = (e) => {
+        if (e.target !== editable) return;
+        // Pequeno delay para permitir clique na opção
+        setTimeout(() => {
+            if (!_smWA.panelHovered) smWAClose();
+        }, 150);
+    };
+    const onKeyDown = (e) => {
+        if (!_smWA.open) return;
+        if (e.target !== editable) return;
+        if (e.key === 'ArrowDown') { e.preventDefault(); e.stopImmediatePropagation(); smWAMove(1); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); e.stopImmediatePropagation(); smWAMove(-1); }
+        else if (e.key === 'Enter' || e.key === 'Tab') {
+            if (_smWA.items.length > 0) {
+                e.preventDefault(); e.stopImmediatePropagation(); smWAChoose();
+            }
+        }
+        else if (e.key === 'Escape') {
+            e.preventDefault(); e.stopImmediatePropagation(); smWAClose();
+        }
+    };
+
+    editable.addEventListener('input', onInput);
+    editable.addEventListener('focusout', onFocusOut);
+    editable.addEventListener('keydown', onKeyDown, true); // capture, para rodar antes do handler do setupInlineEdit
+}
+
+// Fecha em mudanças de estado do app (troca de aba, undo, etc.)
+window.addEventListener('sm:before-render', smWAClose);
+
         function escapeHTML(str) {
             return String(str ?? '').replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
         }
+        /* ============================================================
+   WIKI-LINKS [[Nome]]
+   Índice cacheado por structureVersion — zero custo por render.
+   ============================================================ */
+let _titleIndexCache = { version: -1, map: new Map() };
+
+function getTitleIndex() {
+    if (_titleIndexCache.version === structureVersion) return _titleIndexCache.map;
+    const map = new Map();
+    const add = (key, id) => {
+        if (!key || !id) return;
+        if (!map.has(key)) map.set(key, id); // primeiro título ganha em caso de duplicata
+    };
+    mindMapData.nodes.forEach(n => {
+        const title = n.title || '';
+        add(normalizeName(title), n.id);
+        // Também indexa o fullName do personagem, se existir
+        if (n.type === 'character' && n.typeData?.fullName) {
+            add(normalizeName(n.typeData.fullName), n.id);
+        }
+    });
+    _titleIndexCache = { version: structureVersion, map };
+    return map;
+}
+
+function renderContentHTML(content, isSearchHit) {
+    if (content == null || content === '') return 'Sem notas...';
+
+    // 1. Escapa HTML (segurança)
+    let html = escapeHTML(content);
+
+    // 2. Substitui [[Nome]] por placeholders (para não colidir com o highlight)
+    const titleIndex = getTitleIndex();
+    const placeholders = [];
+    html = html.replace(/\[\[([^\[\]\n]{1,100})\]\]/g, (match, rawTitle) => {
+        const cleanTitle = rawTitle.trim();
+        const targetId = titleIndex.get(normalizeName(cleanTitle));
+        const tag = targetId
+            ? `<a class="sm-wiki-link" href="#" title="Ir para: ${cleanTitle}" onclick="event.preventDefault();event.stopPropagation();jumpToNodeFromBible('${targetId}');return false;">${cleanTitle}</a>`
+            : `<span class="sm-wiki-broken" title="Nó não encontrado: ${cleanTitle}">${cleanTitle}</span>`;
+        placeholders.push(tag);
+        return `\uE000${placeholders.length - 1}\uE000`;
+    });
+
+    // 3. Highlight da busca por cima do texto que sobrou
+    if (searchQuery && isSearchHit) {
+        const re = new RegExp(`(${escapeRegex(searchQuery)})`, 'gi');
+        html = html.replace(re, '<span class="search-hit">$1</span>');
+    }
+
+    // 4. Restaura os placeholders (fora do highlight)
+    html = html.replace(/\uE000(\d+)\uE000/g, (_, i) => placeholders[+i] || '');
+
+    return html;
+}
     </script>
 
 <script>
