@@ -4429,7 +4429,7 @@ function renderIcon(iconOrClass, extraClass = '') {
 
         function onBigFiveChange(key, value) {
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node) return;
             if (!node.typeData) node.typeData = {};
             if (!node.typeData.bigFive) node.typeData.bigFive = {};
@@ -4455,7 +4455,7 @@ function renderIcon(iconOrClass, extraClass = '') {
 
         function resetBigFive() {
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node) return;
             if (!node.typeData) node.typeData = {};
             node.typeData.bigFive = {};
@@ -4569,7 +4569,7 @@ function renderIcon(iconOrClass, extraClass = '') {
 
         function addReferenceLink() {
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node) return;
             if (!node.typeData) node.typeData = {};
             if (!Array.isArray(node.typeData.referenceLinks)) node.typeData.referenceLinks = [];
@@ -4588,7 +4588,7 @@ function renderIcon(iconOrClass, extraClass = '') {
 
         function updateReferenceLink(idx, key, value) {
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node || !node.typeData || !Array.isArray(node.typeData.referenceLinks)) return;
             const link = node.typeData.referenceLinks[idx];
             if (!link) return;
@@ -4601,7 +4601,7 @@ function renderIcon(iconOrClass, extraClass = '') {
 
         function removeReferenceLink(idx) {
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node || !node.typeData || !Array.isArray(node.typeData.referenceLinks)) return;
             pushHistory();
             node.typeData.referenceLinks.splice(idx, 1);
@@ -4613,7 +4613,7 @@ function renderIcon(iconOrClass, extraClass = '') {
 
         function openReferenceLink(idx) {
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node || !node.typeData || !Array.isArray(node.typeData.referenceLinks)) return;
             const link = node.typeData.referenceLinks[idx];
             if (!link || !link.url || !isSafeExternalUrl(link.url)) {
@@ -4641,7 +4641,7 @@ function renderIcon(iconOrClass, extraClass = '') {
             const wrapper = document.getElementById('scene-diagnostic-wrapper');
             if (!wrapper) return;
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node || node.type !== 'scene') { wrapper.innerHTML = ''; return; }
             const diag = getSceneDiagnostic(node);
             if (diag) {
@@ -4720,7 +4720,11 @@ function renderIcon(iconOrClass, extraClass = '') {
         let structureVersion = 0;
         let hierarchyCacheVersion = -1;
         let hierarchyCache = null;
-        function invalidateStructure() { structureVersion++; hierarchyCacheVersion = -1; }
+        function invalidateStructure() {
+    structureVersion++;
+    hierarchyCacheVersion = -1;
+    rebuildNodeIndex();  // ← NOVO
+}
         function getHierarchyIndex() {
             if (hierarchyCacheVersion === structureVersion && hierarchyCache) return hierarchyCache;
             const childrenByParent = new Map();
@@ -4859,6 +4863,31 @@ layoutPositions: {},
         let currentStory = null;
         let mindMapData = null;
 
+        // ============================================================
+// NODE INDEX — lookup O(1) em vez de O(n) por busca
+// ============================================================
+const nodeIndex = new Map();
+
+function rebuildNodeIndex() {
+    nodeIndex.clear();
+    if (!mindMapData || !Array.isArray(mindMapData.nodes)) return;
+    for (let i = 0; i < mindMapData.nodes.length; i++) {
+        const n = mindMapData.nodes[i];
+        if (n && n.id) nodeIndex.set(n.id, n);
+    }
+}
+
+function getNode(id) {
+    if (!id) return null;
+    const hit = nodeIndex.get(id);
+    if (hit) return hit;
+    // Índice pode estar desatualizado (push sem rebuild) — busca linear e re-cacheia.
+    if (!mindMapData || !Array.isArray(mindMapData.nodes)) return null;
+    const found = mindMapData.nodes.find(n => n && n.id === id);
+    if (found) nodeIndex.set(id, found);
+    return found || null;
+}
+
         let activeTool = 'select';
         let scale = 1, panX = 0, panY = 0;
         let isPanning = false, panStartX = 0, panStartY = 0;
@@ -4930,7 +4959,7 @@ let eyedropperCopyWithIcons = true;
 function startInlineEdit(nodeId, field) {
     // NOVO: No mobile, usamos prompt para garantir a abertura do teclado e a digitação
     if (window.DEVICE && window.DEVICE.isMobile && field === 'title') {
-        const node = mindMapData.nodes.find(n => n.id === nodeId);
+        const node = getNode(nodeId);
         if (node) {
             // 1. Centraliza o nó na tela primeiro
             const container = document.getElementById('canvas-container');
@@ -5009,8 +5038,8 @@ function startInlineEdit(nodeId, field) {
         function openRelationshipEditor(rel) {
             selectedRelationshipId = rel.id;
             const editor = document.getElementById('rel-editor');
-            const fromNode = mindMapData.nodes.find(n => n.id === rel.from);
-            const toNode   = mindMapData.nodes.find(n => n.id === rel.to);
+            const fromNode = getNode(rel.from);
+            const toNode   = getNode(rel.to);
             const labelInput = document.getElementById('rel-label-input');
             if (labelInput) labelInput.value = rel.label || '';
             const fromName = document.getElementById('rel-from-name');
@@ -5074,8 +5103,8 @@ function startInlineEdit(nodeId, field) {
         }
 
         function drawRelationship(rel, svgContainer, handlesContainer, dimmed) {
-            const fromNode = mindMapData.nodes.find(n => n.id === rel.from);
-            const toNode   = mindMapData.nodes.find(n => n.id === rel.to);
+            const fromNode = getNode(rel.from);
+            const toNode   = getNode(rel.to);
             if (!fromNode || !toNode) return;
             const auto = computeAutoControls(rel);
             let c1x, c1y, c2x, c2y;
@@ -5489,7 +5518,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
         }
 
         function showNodeTooltipFromCard(nodeId) {
-            const node = mindMapData.nodes.find(n => n.id === nodeId);
+            const node = getNode(nodeId);
             if (!node) return;
             const html = buildTooltipHTML(node);
             if (!html) return;
@@ -5609,7 +5638,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
         function gotoSearchResult(dir) {
             if (searchResults.length === 0) return;
             searchResultIndex = (searchResultIndex + dir + searchResults.length) % searchResults.length;
-            const node = mindMapData.nodes.find(n => n.id === searchResults[searchResultIndex]);
+            const node = getNode(searchResults[searchResultIndex]);
             if (node) { selectedNodeIds.clear(); selectedNodeIds.add(node.id); focusNodeInView(node); updateSearchNav(); renderApp(); }
         }
 
@@ -5641,7 +5670,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
             const container = document.getElementById('node-type-picker');
             if (!container) return;
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             const activeType = node ? node.type : null;
             container.innerHTML = '';
             const opts = [{ id: '', icon: '✖', label: 'Sem', color: null }, ...Object.values(NODE_TYPES).map(t => ({ id: t.id, icon: t.icon, label: t.label, color: t.color }))];
@@ -5664,7 +5693,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
 
         function onNodeTypeChange(typeId) {
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node) return;
             if (!typeId) node.type = null;
             else if (NODE_TYPES[typeId]) node.type = typeId;
@@ -5676,7 +5705,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
 
         function onNodePovChange(value) {
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node) return;
             node.pov = value || '';
             domCache.invalidateHeight(node.id);
@@ -5731,7 +5760,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
             const container = document.getElementById('type-fields-container');
             if (!container) return;
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             container.innerHTML = '';
             if (!node || !node.type) { container.classList.add('hidden'); return; }
             const fields = TYPE_FIELDS[node.type];
@@ -5772,7 +5801,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
 
         function onTypeFieldChange(key, value) {
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node) return;
             if (!node.typeData) node.typeData = {};
             node.typeData[key] = value;
@@ -5803,7 +5832,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
 
         function openVariantModal() {
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node) return;
             if (node.isVariant) { showToast("Este nó já é uma variante. Escolha um nó canônico.", "warn"); return; }
             variantModalAnchorId = id;
@@ -5832,7 +5861,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
         }
 
         function createVariant(anchorId, label) {
-            const anchor = mindMapData.nodes.find(n => n.id === anchorId);
+            const anchor = getNode(anchorId);
             if (!anchor) return;
             pushHistory();
             const newId = generateNodeId();
@@ -5846,6 +5875,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
                 type: null, pov: anchor.pov || "", typeData: {}, isVariant: true, variantOf: anchorId, variantLabel: label
             };
             mindMapData.nodes.push(variantNode);
+            rebuildNodeIndex();  
             selectedNodeIds.clear(); selectedNodeIds.add(newId);
             saveStoriesStorage(); renderApp();
             showToast(`Variante "${label}" criada.`, "success");
@@ -5854,9 +5884,9 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
 
         function promoteCurrentVariant() {
             const id = document.getElementById('edit-node-id').value;
-            const variantNode = mindMapData.nodes.find(n => n.id === id);
+            const variantNode = getNode(id);
             if (!variantNode || !variantNode.isVariant || !variantNode.variantOf) return;
-            const anchor = mindMapData.nodes.find(n => n.id === variantNode.variantOf);
+            const anchor = getNode(variantNode.variantOf);
             if (!anchor) return;
             const defaultLabel = `Versão anterior`;
             const anchorLabel = prompt(`Promover "${variantNode.variantLabel || variantNode.title}" a canônico?\n\nComo rotular a versão anterior?`, defaultLabel);
@@ -5887,7 +5917,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
 
         function removeVariantFlag() {
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node || !node.isVariant) return;
             if (!confirm(`Remover o status de variante de "${node.title}"?`)) return;
             pushHistory();
@@ -5990,7 +6020,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
             const variantRootCache = new Map();
             function getVarRoot(id) {
                 if (variantRootCache.has(id)) return variantRootCache.get(id);
-                const node = mindMapData.nodes.find(n => n.id === id);
+                const node = getNode(id);
                 if (!node) return null;
                 let result;
                 if (node.isVariant) result = node;
@@ -6085,7 +6115,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
         }
 
         function jumpToNodeFromBible(nodeId) {
-            const node = mindMapData.nodes.find(n => n.id === nodeId);
+            const node = getNode(nodeId);
             if (!node) return;
             closeStoryBible(); hideNodeTooltip();
             selectedNodeIds.clear(); selectedNodeIds.add(nodeId);
@@ -6101,7 +6131,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
             const variantRootCache = new Map();
             function getVarRoot(id) {
                 if (variantRootCache.has(id)) return variantRootCache.get(id);
-                const node = mindMapData.nodes.find(n => n.id === id);
+                const node = getNode(id);
                 if (!node) return null;
                 let result;
                 if (node.isVariant) result = node;
@@ -7180,7 +7210,7 @@ window.addEventListener('cloud:save:done', () => {
 
         function onBeatSelectChange(beatId) {
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node) return;
             pushHistory();
             node.beatId = beatId || null;
@@ -7300,7 +7330,7 @@ window.addEventListener('cloud:save:done', () => {
             orderedIds.forEach(id => { idMap[id] = generateNodeId(); });
             const newNodes = [];
             orderedIds.forEach(id => {
-                const orig = mindMapData.nodes.find(n => n.id === id);
+                const orig = getNode(id);
                 if (!orig) return;
                 const copy = deepClone(orig);
                 copy.id = idMap[id];
@@ -7310,6 +7340,7 @@ window.addEventListener('cloud:save:done', () => {
             const newRels = (mindMapData.relationships || []).filter(r => idMap[r.from] && idMap[r.to]).map(r => ({ ...deepClone(r), id: 'rel-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), from: idMap[r.from], to: idMap[r.to] }));
             mindMapData.nodes.push(...newNodes);
             mindMapData.relationships = (mindMapData.relationships || []).concat(newRels);
+            rebuildNodeIndex(); 
             return orderedIds.map(id => idMap[id]);
         }
 
@@ -7420,7 +7451,7 @@ window.addEventListener('cloud:save:done', () => {
         function getFocusSet() {
             if (!focusModeNodeId) return null;
             if (focusVersion === structureVersion && focusNodeId === focusModeNodeId && focusSet) return focusSet;
-            const node = mindMapData.nodes.find(n => n.id === focusModeNodeId);
+            const node = getNode(focusModeNodeId);
             if (!node) return null;
             const set = new Set([node.id]);
             const { childrenByParent } = getHierarchyIndex();
@@ -7446,7 +7477,7 @@ window.addEventListener('cloud:save:done', () => {
             if (focusModeNodeId) { exitFocusMode(); return; }
             if (selectedNodeIds.size !== 1) { showToast("Selecione um nó para focar.", "warn"); return; }
             const id = Array.from(selectedNodeIds)[0];
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node) return;
             focusModeNodeId = id;
             updateFocusPill(); renderApp(); fitView();
@@ -7461,7 +7492,7 @@ window.addEventListener('cloud:save:done', () => {
             const pill = document.getElementById('focus-pill');
             if (!pill) return;
             if (focusModeNodeId) {
-                const node = mindMapData.nodes.find(n => n.id === focusModeNodeId);
+                const node = getNode(focusModeNodeId);
                 document.getElementById('focus-pill-title').textContent = node ? node.title.substring(0, 40) : '—';
                 pill.classList.remove('hidden'); pill.classList.add('flex');
                 const btn = document.getElementById('btn-focus');
@@ -7739,6 +7770,7 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
                 storiesDatabase = { default: makeDefaultStoryData() };
                 saveStoriesStorage();
             }
+             rebuildNodeIndex();  // ← NOVO
             populateStorySelectDropdown();
         }
 
@@ -7848,6 +7880,7 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
             restoreHistoryForSheet(mindMapData.id);
             if (history.stack.length === 0) pushHistory();
 
+            rebuildNodeIndex();  // ← NOVO
             saveStoriesStorage(); renderApp(); renderSheetTabs();
              populateStorySelectDropdown();   // ← garanta que esta linha está aqui
             requestAnimationFrame(() => requestAnimationFrame(fitView));
@@ -8001,6 +8034,7 @@ if (!Array.isArray(s.radialGroups)) s.radialGroups = [];
             restoreHistoryForSheet(sheetId);
             if (history.stack.length === 0) pushHistory();
 
+            rebuildNodeIndex();  // ← NOVO
             saveStoriesStorage(); renderApp(); renderSheetTabs();
             requestAnimationFrame(() => requestAnimationFrame(fitView));
         }
@@ -8313,7 +8347,7 @@ if (Array.isArray(clone.radialGroups)) {
             if (selectionArr.length === 1 && !idMap[selectionArr[0]]) anchorParentId = selectionArr[0];
             let offsetX = 0, offsetY = 0;
             if (anchorParentId) {
-                const anchor = mindMapData.nodes.find(n => n.id === anchorParentId);
+                const anchor = getNode(anchorParentId);
                 if (anchor) {
                     let minX = Infinity, minY = Infinity;
                     clipboard.nodes.forEach(n => { minX = Math.min(minX, n.x); minY = Math.min(minY, n.y); });
@@ -8345,6 +8379,7 @@ if (Array.isArray(clone.radialGroups)) {
             }));
             mindMapData.nodes.push(...newNodes);
             mindMapData.relationships = (mindMapData.relationships || []).concat(newRels);
+            rebuildNodeIndex();
             selectedNodeIds.clear();
             newNodes.forEach(n => selectedNodeIds.add(n.id));
             if (mindMapData.beatSortMode) { mindMapData.beatSortLastArrangement = null; applyBeatSortLayout(); }
@@ -8362,7 +8397,7 @@ if (Array.isArray(clone.radialGroups)) {
         function extractCurrentNodeToNewSheet() {
             cancelAllInteractions(); hideNodeTooltip();
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node) return;
             const sub = new Set([node.id]);
             let changed = true;
@@ -8506,11 +8541,11 @@ function handleEyedropperClick(sourceNodeId) {
         return;
     }
 
-    const sourceNode = mindMapData.nodes.find(n => n.id === sourceNodeId);
+    const sourceNode = getNode(sourceNodeId);
     if (!sourceNode) return;
 
     const targets = [...eyedropperTargetIds]
-        .map(id => mindMapData.nodes.find(n => n.id === id))
+        .map(id => getNode(id))
         .filter(Boolean);
 
     if (targets.length === 0) {
@@ -9000,7 +9035,7 @@ const mobileInfoBadgeHTML = hasMobileInfo
 
         function onTensionSliderInput(value) {
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node) return;
             const val = parseInt(value, 10);
             node.tension = val;
@@ -9039,8 +9074,8 @@ const mobileInfoBadgeHTML = hasMobileInfo
         }
 
         function computeAutoControls(rel) {
-            const fromNode = mindMapData.nodes.find(n => n.id === rel.from);
-            const toNode = mindMapData.nodes.find(n => n.id === rel.to);
+            const fromNode = getNode(rel.from);
+            const toNode = getNode(rel.to);
             if (!fromNode || !toNode) return { x1:0, y1:0, x2:0, y2:0, c1x:0, c1y:0, c2x:0, c2y:0 };
             const fromEl = getNodeEl(rel.from), toEl = getNodeEl(rel.to);
             const fromH = fromEl ? fromEl.offsetHeight : NODE_H_FALLBACK;
@@ -9146,7 +9181,7 @@ const mobileInfoBadgeHTML = hasMobileInfo
             };
             let changed = false;
             for (const id of ids) {
-                const node = mindMapData.nodes.find(n => n.id === id);
+                const node = getNode(id);
                 if (!node) continue;
                 const myH = heights[id];
                 if (!collides(node.x, node.y, NODE_W, myH, id)) { placed.add(id); continue; }
@@ -9341,7 +9376,7 @@ const mobileInfoBadgeHTML = hasMobileInfo
                                        if (mindMapData.beatSheetMode) {
                         pushHistory();
                         ids.forEach(id => {
-                            const node = mindMapData.nodes.find(n => n.id === id);
+                            const node = getNode(id);
                             if (!node) return;
                             const el = getNodeEl(node.id);
                             const h = el ? el.offsetHeight : NODE_H_FALLBACK;
@@ -9359,10 +9394,10 @@ const mobileInfoBadgeHTML = hasMobileInfo
                         pushHistory(); saveStoriesStorage(); renderApp();
                     } else {
                         if (dropTargetId && dropTargetId !== draggedNodeId && !isDescendant(draggedNodeId, dropTargetId)) {
-                            const dragged = mindMapData.nodes.find(n => n.id === draggedNodeId);
+                            const dragged = getNode(draggedNodeId);
                             if (dragged) {
                                 dragged.parentId = dropTargetId;
-                                const target = mindMapData.nodes.find(n => n.id === dropTargetId);
+                                const target = getNode(dropTargetId);
                                 if (target) { dragged.x = target.x + 320; dragged.y = target.y; }
                                 invalidateStructure(); saveStoriesStorage();
                             }
@@ -9388,13 +9423,13 @@ const mobileInfoBadgeHTML = hasMobileInfo
 
         function isDescendant(ancestorId, maybeDescendantId) {
             if (!maybeDescendantId) return false;
-            let cur = mindMapData.nodes.find(n => n.id === maybeDescendantId);
+            let cur = getNode(maybeDescendantId);
             const visited = new Set();
             while (cur?.parentId) {
                 if (visited.has(cur.id)) return false;
                 visited.add(cur.id);
                 if (cur.parentId === ancestorId) return true;
-                cur = mindMapData.nodes.find(n => n.id === cur.parentId);
+                cur = getNode(cur.parentId);
             }
             return false;
         }
@@ -9407,7 +9442,7 @@ const mobileInfoBadgeHTML = hasMobileInfo
             initialDragPositions.clear();
             const { canvasX, canvasY } = getCanvasPoint(event);
             selectedNodeIds.forEach(id => {
-                const node = mindMapData.nodes.find(n => n.id === id);
+                const node = getNode(id);
                 if (node) initialDragPositions.set(id, { offsetX: canvasX - node.x, offsetY: canvasY - node.y });
             });
         }
@@ -9416,14 +9451,14 @@ const mobileInfoBadgeHTML = hasMobileInfo
             const { canvasX, canvasY } = getCanvasPoint(event);
             const deltas = new Map();
             initialDragPositions.forEach((offsets, id) => {
-                const node = mindMapData.nodes.find(n => n.id === id);
+                const node = getNode(id);
                 if (node) {
                     const newX = Math.max(0, Math.min(19700, canvasX - offsets.offsetX));
 const newY = Math.max(0, Math.min(19700, canvasY - offsets.offsetY));
                     deltas.set(id, { dx: newX - node.x, dy: newY - node.y, newX, newY });
                 }
             });
-            deltas.forEach((delta, id) => { const node = mindMapData.nodes.find(n => n.id === id); if (node) { node.x = delta.newX; node.y = delta.newY; } });
+            deltas.forEach((delta, id) => { const node = getNode(id); if (node) { node.x = delta.newX; node.y = delta.newY; } });
             (mindMapData.relationships || []).forEach(rel => {
                 const fromDelta = deltas.get(rel.from), toDelta = deltas.get(rel.to);
                 if (fromDelta && typeof rel.c1x === 'number' && typeof rel.c1y === 'number') { rel.c1x += fromDelta.dx; rel.c1y += fromDelta.dy; }
@@ -9510,7 +9545,7 @@ else newScale = Math.max(scale / factor, 0.05);
     if (!mindMapData) return;
     const ids = Array.from(selectedNodeIds);
     if (ids.length === 0) { showToast('Selecione pelo menos um nó.', 'warn', 1800); return; }
-    const nodes = ids.map(id => mindMapData.nodes.find(n => n.id === id)).filter(Boolean);
+    const nodes = ids.map(id => getNode(id)).filter(Boolean);
     if (nodes.length === 0) return;
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -9543,8 +9578,8 @@ else newScale = Math.max(scale / factor, 0.05);
 
         function isTimelineModeSkipRelationship(rel) {
     if (!mindMapData || !mindMapData.timelineMode) return false;
-    const from = mindMapData.nodes.find(n => n.id === rel.from);
-    const to   = mindMapData.nodes.find(n => n.id === rel.to);
+    const from = getNode(rel.from);
+    const to   = getNode(rel.to);
     return isNodeHiddenInTimelineMode(from) || isNodeHiddenInTimelineMode(to);
 }
         function findFreePosition(preferredX, preferredY, excludeId = null) {
@@ -9571,7 +9606,7 @@ else newScale = Math.max(scale / factor, 0.05);
         }
 
         function addChildToNode(parentId) {
-            const parentNode = mindMapData.nodes.find(n => n.id === parentId);
+            const parentNode = getNode(parentId);
             if (!parentNode) return;
             const newId = generateNodeId();
             const preferredX = parentNode.x + 320;
@@ -9584,7 +9619,7 @@ else newScale = Math.max(scale / factor, 0.05);
         }
 
         function createChild(parentId) {
-            const parent = mindMapData.nodes.find(n => n.id === parentId);
+            const parent = getNode(parentId);
             if (!parent) return null;
             const newId = generateNodeId();
             const pos = findFreePosition(parent.x + 320, parent.y);
@@ -9593,7 +9628,7 @@ else newScale = Math.max(scale / factor, 0.05);
         }
 
         function createSibling(nodeId) {
-            const node = mindMapData.nodes.find(n => n.id === nodeId);
+            const node = getNode(nodeId);
             if (!node) return null;
             if (!node.parentId) return createChild(nodeId);
             const newId = generateNodeId();
@@ -9605,7 +9640,7 @@ else newScale = Math.max(scale / factor, 0.05);
         function addNewNode() {
             const newId = generateNodeId();
             const parentTarget = selectedNodeIds.size === 1 ? Array.from(selectedNodeIds)[0] : (mindMapData.nodes.length > 0 ? mindMapData.nodes[0].id : null);
-            const parentNode = mindMapData.nodes.find(n => n.id === parentTarget);
+            const parentNode = getNode(parentTarget);
             const preferredX = parentNode ? parentNode.x + 320 : CANVAS_CENTER_X;
             const preferredY = parentNode ? parentNode.y + 120 : CANVAS_CENTER_Y;
             const pos = findFreePosition(preferredX, preferredY);
@@ -9618,7 +9653,7 @@ else newScale = Math.max(scale / factor, 0.05);
         function selectNode(nodeId) { selectedNodeIds.clear(); selectedNodeIds.add(nodeId); openInspectorFor(nodeId); }
 
         function openInspectorFor(nodeId) {
-            const node = mindMapData.nodes.find(n => n.id === nodeId);
+            const node = getNode(nodeId);
             if (!node) return;
             hideNodeTooltip();
             document.getElementById('edit-node-id').value = node.id;
@@ -9686,10 +9721,10 @@ else newScale = Math.max(scale / factor, 0.05);
 
         function saveCurrentNodeChanges() {
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node) return;
             const newParent = document.getElementById('edit-node-parent').value || null;
-            if (newParent && !mindMapData.nodes.find(n => n.id === newParent)) return;
+            if (newParent && !getNode(newParent)) return;
             if (newParent && isDescendant(node.id, newParent)) return;
             node.title = document.getElementById('edit-node-title').value;
             node.content = document.getElementById('edit-node-content').value;
@@ -9700,14 +9735,14 @@ else newScale = Math.max(scale / factor, 0.05);
 
         function setNodeColor(color) {
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node) return;
             pushHistory(); node.color = color; saveStoriesStorage(); renderApp();
         }
 
         function addIconFromUrl() {
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node) return;
             const input = document.getElementById('icon-url-input');
             const url = input.value.trim();
@@ -9723,7 +9758,7 @@ else newScale = Math.max(scale / factor, 0.05);
 
         function removeIconFromNode(idx) {
             const id = document.getElementById('edit-node-id').value;
-            const node = mindMapData.nodes.find(n => n.id === id);
+            const node = getNode(id);
             if (!node) return;
             pushHistory();
             node.icons.splice(idx, 1);
@@ -9774,7 +9809,7 @@ else newScale = Math.max(scale / factor, 0.05);
         }
 
         function toggleCollapse(nodeId) {
-            const node = mindMapData.nodes.find(n => n.id === nodeId);
+            const node = getNode(nodeId);
             if (!node) return;
             pushHistory();
             node.collapsed = !node.collapsed;
@@ -9926,7 +9961,7 @@ else newScale = Math.max(scale / factor, 0.05);
 
     // 3. Posiciona cada nó centralizado verticalmente no seu slot
     function place(nodeId, x, slotTop) {
-        const node = mindMapData.nodes.find(n => n.id === nodeId);
+        const node = getNode(nodeId);
         if (!node) return;
         const myH = heights[nodeId];
         const mySlotH = subtreeH.get(nodeId);
@@ -9991,7 +10026,7 @@ else newScale = Math.max(scale / factor, 0.05);
     roots.forEach(r => measureSubtree(r.id));
 
     function place(nodeId, leftX, y) {
-        const node = mindMapData.nodes.find(n => n.id === nodeId);
+        const node = getNode(nodeId);
         if (!node) return;
         const mySlotW = subtreeW.get(nodeId);
 
@@ -10174,7 +10209,7 @@ else newScale = Math.max(scale / factor, 0.05);
 
         function alignSelectedNodes(direction) {
             if (selectedNodeIds.size < 2) return;
-            const nodes = Array.from(selectedNodeIds).map(id => mindMapData.nodes.find(n => n.id === id)).filter(Boolean);
+            const nodes = Array.from(selectedNodeIds).map(id => getNode(id)).filter(Boolean);
             if (nodes.length < 2) return;
             const isDistribute = direction === 'distribute-h' || direction === 'distribute-v';
             if (isDistribute && nodes.length < 3) return;
@@ -10803,8 +10838,8 @@ const typeHTML = typeDef ? `<span class="text-[10px] shrink-0" title="${escapeHT
             if ((mindMapData.relationships || []).length) {
                 md += '\n## Relações\n\n';
                 mindMapData.relationships.forEach(r => {
-                    const from = mindMapData.nodes.find(n => n.id === r.from);
-                    const to = mindMapData.nodes.find(n => n.id === r.to);
+                    const from = getNode(r.from);
+                    const to = getNode(r.to);
                     if (from && to) md += `- **${from.title}** → *${r.label || '(sem rótulo)'}* → **${to.title}**\n`;
                 });
             }
@@ -11309,8 +11344,8 @@ const typeHTML = typeDef ? `<span class="text-[10px] shrink-0" title="${escapeHT
 
         function reteiaOpenEditorForNewRelation(fromId, toId) {
             reteiaEditingRelId = null;
-            const fromNode = mindMapData.nodes.find(n => n.id === fromId);
-            const toNode = mindMapData.nodes.find(n => n.id === toId);
+            const fromNode = getNode(fromId);
+            const toNode = getNode(toId);
             if (!fromNode || !toNode) return;
             document.getElementById('reteia-editor-title').textContent = 'Nova Relação';
             document.getElementById('reteia-editor-from').textContent = fromNode.typeData?.fullName || fromNode.title;
@@ -11333,8 +11368,8 @@ const typeHTML = typeDef ? `<span class="text-[10px] shrink-0" title="${escapeHT
             const rel = (mindMapData.relations || []).find(r => r.id === relId);
             if (!rel) return;
             reteiaEditingRelId = rel.id;
-            const fromNode = mindMapData.nodes.find(n => n.id === rel.from);
-            const toNode = mindMapData.nodes.find(n => n.id === rel.to);
+            const fromNode = getNode(rel.from);
+            const toNode = getNode(rel.to);
             document.getElementById('reteia-editor-title').textContent = 'Editar Relação';
             document.getElementById('reteia-editor-from').textContent = fromNode ? (fromNode.typeData?.fullName || fromNode.title) : '—';
             document.getElementById('reteia-editor-to').textContent = toNode ? (toNode.typeData?.fullName || toNode.title) : '—';
@@ -14131,13 +14166,13 @@ if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV' && !e.shiftKey) { if (nodeClip
                 if (e.code === 'KeyE' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
                     if (selectedNodeIds.size === 1) {
                         const id = Array.from(selectedNodeIds)[0];
-                        const node = mindMapData.nodes.find(n => n.id === id);
+                        const node = getNode(id);
                         if (node && !node.isVariant) { e.preventDefault(); openVariantModal(); return; }
                     }
                     return;
                 }
                 const selected = Array.from(selectedNodeIds)[0];
-                const node = selected ? mindMapData.nodes.find(n => n.id === selected) : null;
+                const node = selected ? getNode(selected) : null;
                 if (node) {
                     if (e.key === 'Tab') { e.preventDefault(); const newId = createChild(node.id); if (newId) { selectedNodeIds.clear(); selectedNodeIds.add(newId); commit(); startInlineEdit(newId, 'title'); } return; }
                     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); const newId = createSibling(node.id); if (newId) { selectedNodeIds.clear(); selectedNodeIds.add(newId); commit(); startInlineEdit(newId, 'title'); } return; }
@@ -14152,7 +14187,7 @@ if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV' && !e.shiftKey) { if (nodeClip
                     }
                     if (e.key === 'ArrowLeft') {
                         e.preventDefault();
-                        if (node.parentId) { const p = mindMapData.nodes.find(n => n.id === node.parentId); selectedNodeIds.clear(); selectedNodeIds.add(node.parentId); renderApp(); if (p) focusNodeInView(p); }
+                        if (node.parentId) { const p = getNode(node.parentId); selectedNodeIds.clear(); selectedNodeIds.add(node.parentId); renderApp(); if (p) focusNodeInView(p); }
                         return;
                     }
                     if (e.key === 'ArrowRight') {
@@ -14392,7 +14427,7 @@ function renderBacklinksPanel(node) {
                 </div>
                 <div class="sm-bl-list">
                     ${incoming.map((b, i) => {
-                        const src = mindMapData.nodes.find(n => n.id === b.sourceId);
+                        const src = getNode(b.sourceId);
                         if (!src) return '';
                         const td = src.type ? NODE_TYPES[src.type] : null;
                         const icon = td ? td.icon : '📄';
@@ -14432,7 +14467,7 @@ function renderBacklinksPanel(node) {
                 </div>
                 <div class="sm-bl-list">
                     ${outgoing.map(o => {
-                        const tgt = mindMapData.nodes.find(n => n.id === o.targetId);
+                        const tgt = getNode(o.targetId);
                         if (!tgt) return '';
                         const td = tgt.type ? NODE_TYPES[tgt.type] : null;
                         const icon = td ? td.icon : '📄';
@@ -15233,7 +15268,7 @@ function openMobileNodeInfo(nodeId) {
         if (typeof showNodeTooltipFromCard === 'function') showNodeTooltipFromCard(nodeId);
         return;
     }
-    const node = mindMapData.nodes.find(n => n.id === nodeId);
+    const node = getNode(nodeId);
     if (!node) return;
 
     const html = buildTooltipHTML(node);
@@ -15631,7 +15666,7 @@ window.addEventListener('resize', function () {
         }
         const newId = createChild(parentId);
         if (!newId) return;
-        const node = mindMapData.nodes.find(n => n.id === newId);
+        const node = getNode(newId);
         if (!node) return;
         node.type = type;
         if (NODE_TYPES[type]) node.title = NODE_TYPES[type].label;
