@@ -8845,7 +8845,7 @@ const mobileInfoBadgeHTML = hasMobileInfo
                 if (!isEditing) {
                     el.onpointerdown = (e) => {
   			if (eyedropperArmed) return;
-                        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.closest('button')) return;
+                        if (e.target.closest('input, textarea, button, a, .sm-wiki-link, .sm-wiki-broken, [contenteditable="true"]')) return;
                         if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
                         e.stopPropagation();
                         activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -14771,9 +14771,9 @@ function renderContentHTML(content, isSearchHit) {
     html = html.replace(/\[\[([^\[\]\n]{1,100})\]\]/g, (match, rawTitle) => {
         const cleanTitle = rawTitle.trim();
         const targetId = titleIndex.get(normalizeName(cleanTitle));
-        const tag = targetId
-            ? `<a class="sm-wiki-link" href="#" title="Ir para: ${cleanTitle}" onclick="event.preventDefault();event.stopPropagation();jumpToNodeFromBible('${targetId}');return false;">${cleanTitle}</a>`
-            : `<span class="sm-wiki-broken" title="Nó não encontrado: ${cleanTitle}">${cleanTitle}</span>`;
+       const tag = targetId
+    ? `<a class="sm-wiki-link" href="#" onclick="event.preventDefault();event.stopPropagation();jumpToNodeFromBible('${targetId}');return false;" onpointerdown="event.stopPropagation()" title="Ir para: ${cleanTitle}">${cleanTitle}</a>`
+    : `<span class="sm-wiki-broken" title="Nó não encontrado: ${cleanTitle}">${cleanTitle}</span>`;
         placeholders.push(tag);
         return `\uE000${placeholders.length - 1}\uE000`;
     });
