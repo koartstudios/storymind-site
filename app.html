@@ -15219,5 +15219,335 @@ window.addEventListener('resize', function () {
     window.SM_toggleCommandPalette = toggleCommandPalette;
 })();
 </script>
+<script>
+/* ============================================================
+   STORYMIND — FAB DA COMMAND PALETTE (dentro do canvas)
+   - position: absolute dentro de #canvas-container
+   - Segue a curva de tensão automaticamente (desktop)
+   - No mobile, reposiciona via CSS porque a curva é fixed
+   - Esconde quando qualquer modal/menu abre
+   - Sobe quando o minimap está visível
+   ============================================================ */
+(function () {
+    'use strict';
+    if (window.SM_CMD_PALETTE_FAB_LOADED) return;
+    window.SM_CMD_PALETTE_FAB_LOADED = true;
+
+    // ---------- 1. CSS ----------
+    function injectCSS() {
+        if (document.getElementById('sm-cp-fab-styles')) return;
+        const s = document.createElement('style');
+        s.id = 'sm-cp-fab-styles';
+        s.textContent = `
+            /* ---- FAB: dentro do canvas, absoluto, círculo pequeno ---- */
+            #sm-cp-fab {
+                position: absolute;
+                bottom: 16px;
+                right: 16px;
+                z-index: 45;
+                width: 44px;
+                height: 44px;
+                padding: 0;
+                border: 0;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #6366f1, #8b5cf6);
+                color: #fff;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow:
+                    0 8px 20px -6px rgba(99,102,241,.55),
+                    0 2px 6px -1px rgba(99,102,241,.35),
+                    0 0 0 1px rgba(255,255,255,.14) inset;
+                transition:
+                    transform .18s cubic-bezier(.16,1,.3,1),
+                    box-shadow .18s,
+                    opacity .22s,
+                    bottom .25s cubic-bezier(.16,1,.3,1);
+                -webkit-tap-highlight-color: transparent;
+                touch-action: manipulation;
+                user-select: none;
+                overflow: visible;
+            }
+            #sm-cp-fab svg {
+                width: 20px;
+                height: 20px;
+                display: block;
+                pointer-events: none;
+            }
+            #sm-cp-fab:hover {
+                transform: translateY(-2px) scale(1.04);
+                box-shadow:
+                    0 14px 28px -8px rgba(99,102,241,.7),
+                    0 4px 10px -2px rgba(99,102,241,.4),
+                    0 0 0 1px rgba(255,255,255,.2) inset;
+            }
+            #sm-cp-fab:active {
+                transform: translateY(0) scale(.95);
+            }
+            #sm-cp-fab:focus-visible {
+                outline: 2px solid #fff;
+                outline-offset: 3px;
+            }
+            #sm-cp-fab.is-hidden {
+                opacity: 0;
+                pointer-events: none;
+                transform: translateY(20px) scale(.85);
+            }
+
+            /* Mini-tooltip "Ctrl K" no desktop */
+            #sm-cp-fab::after {
+                content: 'Ctrl K';
+                position: absolute;
+                right: calc(100% + 8px);
+                top: 50%;
+                transform: translateY(-50%);
+                padding: 4px 8px;
+                background: rgba(15, 23, 42, 0.92);
+                color: #fff;
+                font-family: ui-monospace, monospace;
+                font-size: 10px;
+                font-weight: 600;
+                letter-spacing: .02em;
+                border-radius: 5px;
+                white-space: nowrap;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity .15s;
+            }
+            #sm-cp-fab:hover::after,
+            #sm-cp-fab:focus-visible::after {
+                opacity: 1;
+            }
+            #sm-cp-fab.is-hidden::after { opacity: 0 !important; }
+
+            /* Conflito com minimap: sobe para não cobrir */
+            #sm-cp-fab.minimap-visible {
+                bottom: 192px;
+            }
+
+            /* Dark theme */
+            body.app-theme-dark #sm-cp-fab {
+                background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            }
+            body.app-theme-dark #sm-cp-fab::after {
+                background: rgba(2, 6, 23, 0.95);
+            }
+
+            /* ---- Mobile: reposiciona por causa da curva fixed ---- */
+            @media (hover: none) and (max-width: 640px) {
+                #sm-cp-fab {
+                    width: 48px;
+                    height: 48px;
+                    right: 12px;
+                    /* Acima da curva fixa (7px gap + 64px altura + 12px folga = 83px) */
+                    bottom: 83px;
+                }
+                #sm-cp-fab svg {
+                    width: 22px;
+                    height: 22px;
+                }
+                /* Curva recolhida (display:none) → FAB desce */
+                #sm-cp-fab.strip-collapsed-mobile {
+                    bottom: 16px;
+                }
+                /* No mobile o minimap é escondido, então ignora */
+                #sm-cp-fab.minimap-visible {
+                    bottom: 83px;
+                }
+                #sm-cp-fab::after { display: none; }
+            }
+
+            /* ---- Toasts: recuados para não colidir com o FAB ---- */
+            #toast-container {
+                right: 84px !important;
+            }
+            @media (hover: none) and (max-width: 640px) {
+                #toast-container {
+                    right: 12px !important;
+                    left: 12px !important;
+                }
+            }
+
+            @media (prefers-reduced-motion: reduce) {
+                #sm-cp-fab { transition: opacity .15s !important; }
+                #sm-cp-fab:hover { transform: none; }
+                #sm-cp-fab:hover svg { animation: none; }
+            }
+        `;
+        document.head.appendChild(s);
+    }
+
+    // ---------- 2. SVG inline (Lucide sparkles) ----------
+    const FAB_SVG = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+         fill="none" stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="2" y="5" width="20" height="14" rx="2.5"/>
+        <path d="M6 9h.01"/>
+        <path d="M10 9h.01"/>
+        <path d="M14 9h.01"/>
+        <path d="M18 9h.01"/>
+        <path d="M7 12.5h.01"/>
+        <path d="M11 12.5h.01"/>
+        <path d="M15 12.5h.01"/>
+        <path d="M7 16h10"/>
+    </svg>
+`;
+
+    // ---------- 3. Construção do FAB ----------
+    function buildFAB() {
+        if (document.getElementById('sm-cp-fab')) return document.getElementById('sm-cp-fab');
+
+        const canvas = document.getElementById('canvas-container');
+        if (!canvas) {
+            // Fallback: se o canvas ainda não existe, tenta de novo em breve
+            setTimeout(buildFAB, 200);
+            return null;
+        }
+
+        const btn = document.createElement('button');
+        btn.id = 'sm-cp-fab';
+        btn.type = 'button';
+        btn.setAttribute('aria-label', 'Abrir paleta de comandos');
+        btn.setAttribute('title', 'Paleta de comandos (Ctrl+K)');
+        btn.innerHTML = FAB_SVG;
+
+        // Evita disparar handlers do canvas (pan / marquee / atalhos)
+        btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+        btn.addEventListener('mousedown', (e) => e.stopPropagation());
+        btn.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
+
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof window.SM_openCommandPalette === 'function') {
+                window.SM_openCommandPalette();
+            } else {
+                console.warn('[CmdPalette FAB] SM_openCommandPalette não disponível.');
+            }
+        });
+
+        canvas.appendChild(btn);
+        return btn;
+    }
+
+    // ---------- 4. Detecção de modal aberto ----------
+    function isAnyModalOpen() {
+        const modalIds = [
+            'story-modal', 'beat-picker-modal', 'variant-modal',
+            'bible-modal', 'mentions-modal', 'reteia-modal',
+            'skilltree-modal', 'timeline-modal', 'scene-writing-modal',
+            'st-copy-modal'
+        ];
+        for (let i = 0; i < modalIds.length; i++) {
+            const el = document.getElementById(modalIds[i]);
+            if (el && !el.classList.contains('hidden')) return true;
+        }
+
+        const openPanelIds = [
+            'advanced-search-panel', 'sm-header-menu-panel',
+            'sm-mobile-tools', 'sm-mobile-export-menu',
+            'mobile-sheets-menu'
+        ];
+        for (let i = 0; i < openPanelIds.length; i++) {
+            const el = document.getElementById(openPanelIds[i]);
+            if (el && el.classList.contains('open')) return true;
+        }
+
+        if (document.getElementById('move-to-sheet-menu')) return true;
+
+        const relEditor = document.getElementById('rel-editor');
+        if (relEditor && !relEditor.classList.contains('hidden')) return true;
+
+        const tt = document.getElementById('node-tooltip');
+        if (tt && tt.classList.contains('mobile-info-open')) return true;
+        const stTt = document.getElementById('st-node-tooltip');
+        if (stTt && !stTt.classList.contains('hidden')) return true;
+
+        const palette = document.getElementById('sm-command-palette');
+        if (palette && palette.classList.contains('open')) return true;
+
+        return false;
+    }
+
+    // ---------- 5. Sync de estado ----------
+    let fabEl = null;
+    let rafId = 0;
+
+    function syncFab() {
+        if (!fabEl) return;
+
+        // a) Esconder quando modal está aberto
+        fabEl.classList.toggle('is-hidden', isAnyModalOpen());
+
+        // b) Mobile: seguir estado da curva de tensão
+        const isMobile = window.matchMedia('(hover: none) and (max-width: 640px)').matches;
+        if (isMobile) {
+            const strip = document.getElementById('tension-strip');
+            const collapsed = strip && strip.classList.contains('collapsed');
+            fabEl.classList.toggle('strip-collapsed-mobile', !!collapsed);
+        } else {
+            fabEl.classList.remove('strip-collapsed-mobile');
+        }
+
+        // c) Desktop/tablet: subir se o minimap está visível
+        if (!isMobile) {
+            const minimap = document.getElementById('minimap');
+            const minimapVisible = minimap && !minimap.classList.contains('hidden-minimap');
+            fabEl.classList.toggle('minimap-visible', !!minimapVisible);
+        } else {
+            fabEl.classList.remove('minimap-visible');
+        }
+    }
+
+    function scheduleSync() {
+        if (rafId) return;
+        rafId = requestAnimationFrame(() => {
+            rafId = 0;
+            syncFab();
+        });
+    }
+
+    // ---------- 6. Init ----------
+    function init() {
+        injectCSS();
+        fabEl = buildFAB();
+        if (!fabEl) return;
+
+        // Observa mudanças que afetam o FAB:
+        //  - classes em qualquer nó (modal abrir/fechar, tema, curva, minimap)
+        //  - adições/remoções (menus dinâmicos, palette)
+        new MutationObserver(scheduleSync).observe(document.body, {
+            attributes: true,
+            attributeFilter: ['class'],
+            childList: true,
+            subtree: true,
+        });
+
+        window.addEventListener('resize', scheduleSync, { passive: true });
+
+        // Se o canvas for recriado (ex.: troca de aba no futuro), reanexa
+        const canvas = document.getElementById('canvas-container');
+        if (canvas) {
+            new MutationObserver(() => {
+                if (!document.getElementById('sm-cp-fab') && canvas.isConnected) {
+                    fabEl = buildFAB();
+                    syncFab();
+                }
+            }).observe(canvas, { childList: true });
+        }
+
+        syncFab();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init, { once: true });
+    } else {
+        init();
+    }
+})();
+</script>
 </body>
 </html>
