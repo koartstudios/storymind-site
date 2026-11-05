@@ -1,5 +1,5 @@
 /* ============================================================
-   STORYMIND — CONTEXT MENU (Botão Direito) - FASE 1
+   STORYMIND — CONTEXT MENU (Botão Direito) - FASE 1 e 2
    ============================================================ */
 (function () {
     'use strict';
@@ -18,7 +18,7 @@
         const s = document.createElement('style');
         s.id = 'sm-cm-styles';
         s.textContent = `
-            .sm-cm-menu {
+            .sm-cm-menu, .sm-cm-submenu {
                 position: fixed;
                 z-index: 9999;
                 min-width: 220px;
@@ -105,16 +105,11 @@
                 min-width: 180px;
                 max-height: 320px;
                 overflow-y: auto;
-                background: #ffffff;
-                border: 1px solid #e2e8f0;
-                border-radius: 10px;
-                box-shadow: 0 10px 30px -5px rgba(15,23,42,.25);
-                padding: 6px;
-                font-family: 'Inter', sans-serif;
-                font-size: 12px;
                 animation: sm-cm-pop .12s ease;
             }
             .sm-cm-submenu .sm-cm-item { padding: 6px 10px; }
+
+            /* Dark Theme */
             body.app-theme-dark .sm-cm-menu,
             body.app-theme-dark .sm-cm-submenu {
                 background: #1e293b; border-color: #334155; color: #e2e8f0;
@@ -125,13 +120,11 @@
             body.app-theme-dark .sm-cm-hint { background: #0f172a; border-color: #334155; color: #94a3b8; }
             body.app-theme-dark .sm-cm-divider { background: #334155; }
             body.app-theme-dark .sm-cm-header { border-bottom-color: #334155; }
+            
             @media (hover: none) and (max-width: 640px) {
-                .sm-cm-menu {
+                .sm-cm-menu, .sm-cm-submenu {
                     left: 10px !important; right: 10px !important; bottom: 10px !important; top: auto !important;
                     width: auto !important; transform: none !important; animation: sm-cm-slide-up .2s ease;
-                }
-                .sm-cm-submenu {
-                    left: 10px !important; right: 10px !important; bottom: 10px !important; top: auto !important; width: auto !important;
                 }
                 @keyframes sm-cm-slide-up {
                     from { transform: translateY(100%); } to { transform: translateY(0); }
@@ -142,7 +135,7 @@
     }
 
     // ============================================================
-    // 2. UTILITÁRIOS E AÇÕES
+    // 2. UTILITÁRIOS GERAIS
     // ============================================================
     function closeMenu() {
         if (menuEl) { menuEl.remove(); menuEl = null; }
@@ -160,7 +153,52 @@
 
     function onKeyDown(e) { if (e.key === 'Escape') closeMenu(); }
 
-    const actions = {
+    function createItem(icon, label, hint, actionFn, isDanger = false, disabled = false, hasArrow = false) {
+        const item = document.createElement('div');
+        item.className = `sm-cm-item ${isDanger ? 'sm-cm-danger' : ''} ${disabled ? 'sm-cm-disabled' : ''}`;
+        let hintHTML = hint ? `<span class="sm-cm-hint">${hint}</span>` : '';
+        let arrowHTML = hasArrow ? `<i class="fa-solid fa-chevron-right" style="font-size:10px;margin-left:4px;opacity:0.5;"></i>` : '';
+        
+        item.innerHTML = `<div class="sm-cm-icon">${window.renderIcon(icon)}</div><div class="sm-cm-label">${label}</div>${hintHTML}${arrowHTML}`;
+        
+        if (!disabled && typeof actionFn === 'function') {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                actionFn();
+                closeMenu();
+            });
+        }
+        return item;
+    }
+
+    function createDivider() {
+        const d = document.createElement('div'); d.className = 'sm-cm-divider'; return d;
+    }
+
+    function positionMenu(el, clientX, clientY) {
+        const rect = el.getBoundingClientRect();
+        let left = clientX, top = clientY;
+        if (left + rect.width > window.innerWidth - 8) left = window.innerWidth - rect.width - 8;
+        if (top + rect.height > window.innerHeight - 8) top = window.innerHeight - rect.height - 8;
+        if (left < 8) left = 8;
+        if (top < 8) top = 8;
+        el.style.left = left + 'px';
+        el.style.top = top + 'px';
+    }
+
+    function setupAutoClose() {
+        setTimeout(() => {
+            document.addEventListener('click', onDocClick);
+            document.addEventListener('keydown', onKeyDown);
+            window.addEventListener('resize', closeMenu);
+            window.addEventListener('blur', closeMenu);
+        }, 10);
+    }
+
+    // ============================================================
+    // 3. AÇÕES DO NÓ
+    // ============================================================
+    const nodeActions = {
         'edit-title': (id) => { if (window.startInlineEdit) window.startInlineEdit(id, 'title'); },
         'add-child': (id) => { if (window.addChildToNode) window.addChildToNode(id); },
         'add-sibling': (id) => {
@@ -215,9 +253,9 @@
     };
 
     // ============================================================
-    // 3. CONSTRUÇÃO DO MENU
+    // 4. MENU DE UM NÓ (FASE 1)
     // ============================================================
-    function buildMenu(node, clientX, clientY) {
+    function buildNodeMenu(node, clientX, clientY) {
         closeMenu();
         activeNodeId = node.id;
         injectCSS();
@@ -232,97 +270,155 @@
         header.innerHTML = `<span>${typeIcon}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${window.escapeHTML(node.title)}</span>`;
         menuEl.appendChild(header);
 
-        const createItem = (icon, label, hint, actionId, payload, isDanger = false, disabled = false) => {
-            const item = document.createElement('div');
-            item.className = `sm-cm-item ${isDanger ? 'sm-cm-danger' : ''} ${disabled ? 'sm-cm-disabled' : ''}`;
-            let hintHTML = hint ? `<span class="sm-cm-hint">${hint}</span>` : '';
-            let arrowHTML = actionId === 'change-type' ? `<i class="fa-solid fa-chevron-right" style="font-size:10px;margin-left:4px;opacity:0.5;"></i>` : '';
-            item.innerHTML = `<div class="sm-cm-icon">${window.renderIcon(icon)}</div><div class="sm-cm-label">${label}</div>${hintHTML}${arrowHTML}`;
-
-            if (actionId === 'change-type') {
-                item.addEventListener('mouseenter', () => { const rect = item.getBoundingClientRect(); buildSubmenu(node, rect.right, rect.top); });
-                item.addEventListener('click', (e) => { e.stopPropagation(); const rect = item.getBoundingClientRect(); buildSubmenu(node, rect.left, rect.bottom); });
-            } else if (!disabled) {
-                item.addEventListener('click', (e) => { e.stopPropagation(); if (actionId && actions[actionId]) actions[actionId](node.id, payload); closeMenu(); });
-            }
-            return item;
-        };
-
-        const createDivider = () => { const d = document.createElement('div'); d.className = 'sm-cm-divider'; return d; };
-
-        menuEl.appendChild(createItem('✏️', 'Editar título', 'F2', 'edit-title'));
-        menuEl.appendChild(createItem('📝', 'Abrir Inspector', '', 'open-inspector', null, false, true));
+        menuEl.appendChild(createItem('✏️', 'Editar título', 'F2', () => nodeActions['edit-title'](node.id)));
+        menuEl.appendChild(createItem('📝', 'Abrir Inspector', '', null, false, true)); // Desabilitado na Fase 1
         menuEl.appendChild(createDivider());
-        menuEl.appendChild(createItem('🌿', 'Adicionar filho', 'Tab', 'add-child'));
-        menuEl.appendChild(createItem('↔️', 'Adicionar irmão', 'Enter', 'add-sibling'));
-        menuEl.appendChild(createItem('🧪', 'Criar variante', 'E', 'create-variant'));
-        menuEl.appendChild(createItem('📋', 'Duplicar', 'Ctrl+D', 'duplicate'));
+        
+        menuEl.appendChild(createItem('🌿', 'Adicionar filho', 'Tab', () => nodeActions['add-child'](node.id)));
+        menuEl.appendChild(createItem('↔️', 'Adicionar irmão', 'Enter', () => nodeActions['add-sibling'](node.id)));
+        menuEl.appendChild(createItem('🧪', 'Criar variante', 'E', () => nodeActions['create-variant'](node.id)));
+        menuEl.appendChild(createItem('📋', 'Duplicar', 'Ctrl+D', () => nodeActions['duplicate'](node.id)));
         menuEl.appendChild(createDivider());
-        menuEl.appendChild(createItem('🎨', 'Mudar tipo', '', 'change-type'));
+        
+        // Mudar tipo (com submenu)
+        const typeItem = createItem('🎨', 'Mudar tipo', '', null, false, false, true);
+        typeItem.addEventListener('mouseenter', () => { const rect = typeItem.getBoundingClientRect(); buildTypeSubmenu(node, rect.right, rect.top); });
+        typeItem.addEventListener('click', (e) => { e.stopPropagation(); const rect = typeItem.getBoundingClientRect(); buildTypeSubmenu(node, rect.left, rect.bottom); });
+        menuEl.appendChild(typeItem);
+        
         menuEl.appendChild(createDivider());
-        menuEl.appendChild(createItem('📄', 'Copiar', 'Ctrl+C', 'copy'));
-        menuEl.appendChild(createItem('🗑️', 'Excluir', 'Del', 'delete', null, true));
+        menuEl.appendChild(createItem('📄', 'Copiar', 'Ctrl+C', () => nodeActions['copy'](node.id)));
+        menuEl.appendChild(createItem('🗑️', 'Excluir', 'Del', () => nodeActions['delete'](node.id), true));
 
         document.body.appendChild(menuEl);
-
-        const rect = menuEl.getBoundingClientRect();
-        let left = clientX; let top = clientY;
-        if (left + rect.width > window.innerWidth - 8) left = window.innerWidth - rect.width - 8;
-        if (top + rect.height > window.innerHeight - 8) top = window.innerHeight - rect.height - 8;
-        if (left < 8) left = 8;
-        if (top < 8) top = 8;
-        menuEl.style.left = left + 'px'; menuEl.style.top = top + 'px';
-
-        setTimeout(() => {
-            document.addEventListener('click', onDocClick);
-            document.addEventListener('keydown', onKeyDown);
-            window.addEventListener('resize', closeMenu);
-            window.addEventListener('blur', closeMenu);
-        }, 10);
+        positionMenu(menuEl, clientX, clientY);
+        setupAutoClose();
     }
 
     // ============================================================
-    // 4. CONSTRUÇÃO DO SUBMENU
+    // 5. SUBMENU DE TIPO (FASE 1)
     // ============================================================
-    function buildSubmenu(node, x, y) {
+    function buildTypeSubmenu(node, x, y) {
         if (submenuEl) submenuEl.remove();
         submenuEl = document.createElement('div');
         submenuEl.className = 'sm-cm-submenu';
 
-        const clearOpt = document.createElement('div');
-        clearOpt.className = 'sm-cm-item';
-        clearOpt.innerHTML = `<div class="sm-cm-icon">✖</div><div class="sm-cm-label">Sem tipo (limpar)</div>`;
-        clearOpt.onclick = (e) => { e.stopPropagation(); actions['change-type'](node.id, '__clear'); closeMenu(); };
-        submenuEl.appendChild(clearOpt);
-
-        const divider = document.createElement('div'); divider.className = 'sm-cm-divider'; submenuEl.appendChild(divider);
+        submenuEl.appendChild(createItem('✖', 'Sem tipo (limpar)', '', () => nodeActions['change-type'](node.id, '__clear')));
+        submenuEl.appendChild(createDivider());
 
         const types = window.NODE_TYPES || {};
         Object.values(types).forEach(t => {
-            const opt = document.createElement('div');
             const isSelected = node.type === t.id;
-            opt.className = `sm-cm-item ${isSelected ? 'sm-cm-disabled' : ''}`;
-            opt.innerHTML = `<div class="sm-cm-icon" style="color:${t.color}">${window.renderIcon(t.icon)}</div><div class="sm-cm-label">${window.escapeHTML(t.label)}</div>`;
-            if (!isSelected) opt.onclick = (e) => { e.stopPropagation(); actions['change-type'](node.id, t.id); closeMenu(); };
-            submenuEl.appendChild(opt);
+            submenuEl.appendChild(createItem(t.icon, window.escapeHTML(t.label), '', () => nodeActions['change-type'](node.id, t.id), false, isSelected));
         });
 
         document.body.appendChild(submenuEl);
-
-        const rect = submenuEl.getBoundingClientRect();
-        let left = x; let top = y;
-        if (left + rect.width > window.innerWidth - 8) left = x - rect.width - 10;
-        if (top + rect.height > window.innerHeight - 8) top = window.innerHeight - rect.height - 8;
-        if (left < 8) left = 8;
-        if (top < 8) top = 8;
-        submenuEl.style.left = left + 'px'; submenuEl.style.top = top + 'px';
+        positionMenu(submenuEl, x, y);
     }
 
     // ============================================================
-    // 5. GATILHO
+    // 6. MENU DO CANVAS VAZIO (FASE 2)
+    // ============================================================
+    function buildCanvasMenu(clientX, clientY) {
+        closeMenu();
+        injectCSS();
+
+        menuEl = document.createElement('div');
+        menuEl.className = 'sm-cm-menu';
+
+        const header = document.createElement('div');
+        header.className = 'sm-cm-header';
+        header.innerHTML = `<span>🗺️</span><span>Área do Mapa</span>`;
+        menuEl.appendChild(header);
+
+        menuEl.appendChild(createItem('➕', 'Novo nó raiz', 'N', () => { if (window.addNewNode) window.addNewNode(); }));
+        
+        const hasClipboard = window.nodeClipboard && window.nodeClipboard.nodes && window.nodeClipboard.nodes.length > 0;
+        menuEl.appendChild(createItem('📥', 'Colar', 'Ctrl+V', () => { if (window.pasteClipboard) window.pasteClipboard(); }, false, !hasClipboard));
+        
+        menuEl.appendChild(createDivider());
+
+        // Layout (com submenu)
+        const layoutItem = createItem('🗺️', 'Alterar Layout', '', null, false, false, true);
+        layoutItem.addEventListener('mouseenter', () => { const rect = layoutItem.getBoundingClientRect(); buildLayoutSubmenu(rect.right, rect.top); });
+        layoutItem.addEventListener('click', (e) => { e.stopPropagation(); const rect = layoutItem.getBoundingClientRect(); buildLayoutSubmenu(rect.left, rect.bottom); });
+        menuEl.appendChild(layoutItem);
+
+        menuEl.appendChild(createItem('🧭', 'Organizar automaticamente', '', () => { if (window.autoLayoutNodes) window.autoLayoutNodes(); }));
+        menuEl.appendChild(createItem('🎯', 'Centralizar mapa', 'F', () => { if (window.fitView) window.fitView(); }));
+
+        menuEl.appendChild(createDivider());
+
+        menuEl.appendChild(createItem('📄', 'Nova Aba', 'Shift+T', () => { if (window.addSheet) window.addSheet(); }));
+
+        // Tema (com submenu)
+        const themeItem = createItem('🌓', 'Tema Visual', '', null, false, false, true);
+        themeItem.addEventListener('mouseenter', () => { const rect = themeItem.getBoundingClientRect(); buildThemeSubmenu(rect.right, rect.top); });
+        themeItem.addEventListener('click', (e) => { e.stopPropagation(); const rect = themeItem.getBoundingClientRect(); buildThemeSubmenu(rect.left, rect.bottom); });
+        menuEl.appendChild(themeItem);
+
+        menuEl.appendChild(createDivider());
+
+        menuEl.appendChild(createItem('🔍', 'Busca avançada', 'Ctrl+Shift+F', () => { if (window.openAdvancedSearch) window.openAdvancedSearch(); }));
+
+        document.body.appendChild(menuEl);
+        positionMenu(menuEl, clientX, clientY);
+        setupAutoClose();
+    }
+
+    // ============================================================
+    // 7. SUBMENUS DO CANVAS VAZIO
+    // ============================================================
+    function buildLayoutSubmenu(x, y) {
+        if (submenuEl) submenuEl.remove();
+        submenuEl = document.createElement('div');
+        submenuEl.className = 'sm-cm-submenu';
+
+        const layouts = [
+            { id: 'tree', label: '🌳 Árvore' },
+            { id: 'radial', label: '🎯 Radial' },
+            { id: 'org', label: '🏢 Organograma' }
+        ];
+        
+        const current = window.mindMapData ? window.mindMapData.layout : 'tree';
+
+        layouts.forEach(l => {
+            const isSelected = current === l.id;
+            submenuEl.appendChild(createItem('', l.label, '', () => { if (window.changeLayout) window.changeLayout(l.id); }, false, isSelected));
+        });
+
+        document.body.appendChild(submenuEl);
+        positionMenu(submenuEl, x, y);
+    }
+
+    function buildThemeSubmenu(x, y) {
+        if (submenuEl) submenuEl.remove();
+        submenuEl = document.createElement('div');
+        submenuEl.className = 'sm-cm-submenu';
+
+        const themes = [
+            { id: 'default', label: '☀️ Claro' },
+            { id: 'dark', label: '🌙 Escuro' },
+            { id: 'paper', label: '📜 Papel' }
+        ];
+        
+        const current = window.mindMapData ? window.mindMapData.theme : 'default';
+
+        themes.forEach(t => {
+            const isSelected = current === t.id;
+            submenuEl.appendChild(createItem('', t.label, '', () => { if (window.changeTheme) window.changeTheme(t.id); }, false, isSelected));
+        });
+
+        document.body.appendChild(submenuEl);
+        positionMenu(submenuEl, x, y);
+    }
+
+    // ============================================================
+    // 8. GATILHO GLOBAL
     // ============================================================
     document.addEventListener('contextmenu', (e) => {
         const card = e.target.closest('[data-node-id]');
+        
         if (card && window.getNode) {
             e.preventDefault();
             const nodeId = card.getAttribute('data-node-id');
@@ -333,7 +429,14 @@
                     window.selectedNodeIds.add(nodeId);
                     if (window.renderApp) window.renderApp();
                 }
-                buildMenu(node, e.clientX, e.clientY);
+                buildNodeMenu(node, e.clientX, e.clientY);
+            }
+        } else {
+            // Verifica se o clique foi dentro do canvas, mas não em um nó
+            const canvas = document.getElementById('canvas-container');
+            if (canvas && canvas.contains(e.target)) {
+                e.preventDefault();
+                buildCanvasMenu(e.clientX, e.clientY);
             }
         }
     });
