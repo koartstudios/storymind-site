@@ -15705,13 +15705,13 @@ window.addEventListener('resize', function () {
                 const id = createSibling(Array.from(selectedNodeIds)[0]);
                 if (id) { selectedNodeIds.clear(); selectedNodeIds.add(id); commit(); startInlineEdit(id, 'title'); }
             }), enabled: oneSel },
-            { group: 'Criar', icon: '🎬', label: 'Nova cena', action: safe(() => createTypedNode('scene')), enabled: hasSel },
-            { group: 'Criar', icon: '🧙', label: 'Novo personagem', action: safe(() => createTypedNode('character')), enabled: hasSel },
-            { group: 'Criar', icon: '📍', label: 'Novo cenário', action: safe(() => createTypedNode('location')), enabled: hasSel },
-            { group: 'Criar', icon: '⚡', label: 'Novo evento', action: safe(() => createTypedNode('event')), enabled: hasSel },
-            { group: 'Criar', icon: '💬', label: 'Novo diálogo', action: safe(() => createTypedNode('dialogue')), enabled: hasSel },
-            { group: 'Criar', icon: '🎭', label: 'Novo tema', action: safe(() => createTypedNode('theme')), enabled: hasSel },
-            { group: 'Criar', icon: '📅', label: 'Novo evento timeline', action: safe(() => createTypedNode('timeline')), enabled: hasSel },
+            { group: 'Criar', icon: '🎬', label: 'Nova cena', hint: 'Alt+C', action: safe(() => createTypedNode('scene')), enabled: hasSel },
+            { group: 'Criar', icon: '🧙', label: 'Novo personagem', hint: 'Alt+P', action: safe(() => createTypedNode('character')), enabled: hasSel },
+            { group: 'Criar', icon: '📍', label: 'Novo cenário', hint: 'Alt+L', action: safe(() => createTypedNode('location')), enabled: hasSel },
+            { group: 'Criar', icon: '⚡', label: 'Novo evento', hint: 'Alt+E', action: safe(() => createTypedNode('event')), enabled: hasSel },
+            { group: 'Criar', icon: '💬', label: 'Novo diálogo', hint: 'Alt+D', action: safe(() => createTypedNode('dialogue')), enabled: hasSel },
+            { group: 'Criar', icon: '🎭', label: 'Novo tema', hint: 'Alt+T', action: safe(() => createTypedNode('theme')), enabled: hasSel },
+            { group: 'Criar', icon: '📅', label: 'Novo evento timeline', hint: 'Alt+I', action: safe(() => createTypedNode('timeline')), enabled: hasSel },
 
             // ---- Abrir ----
             { group: 'Abrir', icon: '📚', label: 'Bíblia da História', hint: 'Ctrl+B', action: safe(() => openStoryBible()), enabled: true },
@@ -16028,6 +16028,33 @@ window.addEventListener('resize', function () {
 
     // ---------- 10. Handlers globais (capture phase) ----------
     document.addEventListener('keydown', (e) => {
+        // --- Alt + Letras: Criação rápida de nós especiais ---
+        if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+            const target = e.target;
+            const isPlainInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable;
+            
+            // Se o usuário estiver digitando em um campo de texto, não ativa o atalho
+            if (!isPlainInput) {
+                let nodeType = null;
+                switch (e.code) {
+                    case 'KeyC': nodeType = 'scene'; break;
+                    case 'KeyP': nodeType = 'character'; break;
+                    case 'KeyL': nodeType = 'location'; break;
+                    case 'KeyE': nodeType = 'event'; break;
+                    case 'KeyD': nodeType = 'dialogue'; break;
+                    case 'KeyT': nodeType = 'theme'; break;
+                    case 'KeyI': nodeType = 'timeline'; break;
+                }
+
+                if (nodeType) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    createTypedNode(nodeType);
+                    return;
+                }
+            }
+        }
+
         // --- Ctrl+K (sem shift): alterna a paleta ---
         if ((e.ctrlKey || e.metaKey) && e.code === 'KeyK' && !e.shiftKey && !e.altKey) {
             // Não intercepta dentro de inputs tradicionais SE a paleta estiver fechada
