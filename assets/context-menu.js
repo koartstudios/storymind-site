@@ -1,6 +1,5 @@
 /* ============================================================
    STORYMIND — CONTEXT MENU (Botão Direito) - FASE 1
-   Focado no contexto de um único nó.
    ============================================================ */
 (function () {
     'use strict';
@@ -100,8 +99,6 @@
                 margin-bottom: 4px;
                 pointer-events: none;
             }
-
-            /* Submenu (Mudar Tipo) */
             .sm-cm-submenu {
                 position: fixed;
                 z-index: 10000;
@@ -117,53 +114,27 @@
                 font-size: 12px;
                 animation: sm-cm-pop .12s ease;
             }
-            .sm-cm-submenu .sm-cm-item {
-                padding: 6px 10px;
-            }
-
-            /* Dark Theme */
+            .sm-cm-submenu .sm-cm-item { padding: 6px 10px; }
             body.app-theme-dark .sm-cm-menu,
             body.app-theme-dark .sm-cm-submenu {
-                background: #1e293b;
-                border-color: #334155;
-                color: #e2e8f0;
+                background: #1e293b; border-color: #334155; color: #e2e8f0;
             }
-            body.app-theme-dark .sm-cm-item:hover {
-                background: #312e81;
-                color: #c7d2fe;
-            }
-            body.app-theme-dark .sm-cm-item.sm-cm-danger:hover {
-                background: #7f1d1d;
-                color: #fecaca;
-            }
+            body.app-theme-dark .sm-cm-item:hover { background: #312e81; color: #c7d2fe; }
+            body.app-theme-dark .sm-cm-item.sm-cm-danger:hover { background: #7f1d1d; color: #fecaca; }
             body.app-theme-dark .sm-cm-icon { color: #94a3b8; }
-            body.app-theme-dark .sm-cm-hint {
-                background: #0f172a; border-color: #334155; color: #94a3b8;
-            }
+            body.app-theme-dark .sm-cm-hint { background: #0f172a; border-color: #334155; color: #94a3b8; }
             body.app-theme-dark .sm-cm-divider { background: #334155; }
             body.app-theme-dark .sm-cm-header { border-bottom-color: #334155; }
-            
-            /* Mobile bottom-sheet para context menu */
             @media (hover: none) and (max-width: 640px) {
                 .sm-cm-menu {
-                    left: 10px !important;
-                    right: 10px !important;
-                    bottom: 10px !important;
-                    top: auto !important;
-                    width: auto !important;
-                    transform: none !important;
-                    animation: sm-cm-slide-up .2s ease;
+                    left: 10px !important; right: 10px !important; bottom: 10px !important; top: auto !important;
+                    width: auto !important; transform: none !important; animation: sm-cm-slide-up .2s ease;
                 }
                 .sm-cm-submenu {
-                    left: 10px !important;
-                    right: 10px !important;
-                    bottom: 10px !important;
-                    top: auto !important;
-                    width: auto !important;
+                    left: 10px !important; right: 10px !important; bottom: 10px !important; top: auto !important; width: auto !important;
                 }
                 @keyframes sm-cm-slide-up {
-                    from { transform: translateY(100%); }
-                    to { transform: translateY(0); }
+                    from { transform: translateY(100%); } to { transform: translateY(0); }
                 }
             }
         `;
@@ -184,80 +155,61 @@
     }
 
     function onDocClick(e) {
-        if (menuEl && !menuEl.contains(e.target) && (!submenuEl || !submenuEl.contains(e.target))) {
-            closeMenu();
-        }
+        if (menuEl && !menuEl.contains(e.target) && (!submenuEl || !submenuEl.contains(e.target))) closeMenu();
     }
 
-    function onKeyDown(e) {
-        if (e.key === 'Escape') closeMenu();
-    }
+    function onKeyDown(e) { if (e.key === 'Escape') closeMenu(); }
 
-    // Ações baseadas nas funções globais do app.html
     const actions = {
-        'edit-title': (id) => {
-            if (window.startInlineEdit) window.startInlineEdit(id, 'title');
-        },
-        'add-child': (id) => {
-            if (window.addChildToNode) window.addChildToNode(id);
-        },
+        'edit-title': (id) => { if (window.startInlineEdit) window.startInlineEdit(id, 'title'); },
+        'add-child': (id) => { if (window.addChildToNode) window.addChildToNode(id); },
         'add-sibling': (id) => {
             if (window.createSibling) {
                 const newId = window.createSibling(id);
                 if (newId) {
-                    window.selectedNodeIds.clear();
-                    window.selectedNodeIds.add(newId);
-                    window.commit();
-                    window.startInlineEdit(newId, 'title');
+                    if (window.selectedNodeIds) { window.selectedNodeIds.clear(); window.selectedNodeIds.add(newId); }
+                    if (window.commit) window.commit();
+                    if (window.startInlineEdit) window.startInlineEdit(newId, 'title');
                 }
             }
         },
         'create-variant': (id) => {
-            // Abre o inspector invisível para setar o ID e abre o modal
-            window.selectedNodeIds.clear();
-            window.selectedNodeIds.add(id);
+            if (window.selectedNodeIds) { window.selectedNodeIds.clear(); window.selectedNodeIds.add(id); }
             if (window.openInspectorFor) window.openInspectorFor(id);
             if (window.openVariantModal) window.openVariantModal();
         },
         'duplicate': (id) => {
-            window.selectedNodeIds.clear();
-            window.selectedNodeIds.add(id);
+            if (window.selectedNodeIds) { window.selectedNodeIds.clear(); window.selectedNodeIds.add(id); }
             if (window.pushHistory && window.duplicateSelectedNodesInPlace) {
                 window.pushHistory();
                 const newIds = window.duplicateSelectedNodesInPlace();
-                window.selectedNodeIds.clear();
-                newIds.forEach(nid => window.selectedNodeIds.add(nid));
-                window.invalidateStructure();
-                window.saveStoriesStorage();
-                window.renderApp();
+                if (window.selectedNodeIds) { window.selectedNodeIds.clear(); newIds.forEach(nid => window.selectedNodeIds.add(nid)); }
+                if (window.invalidateStructure) window.invalidateStructure();
+                if (window.saveStoriesStorage) window.saveStoriesStorage();
+                if (window.renderApp) window.renderApp();
             }
         },
         'copy': (id) => {
-            window.selectedNodeIds.clear();
-            window.selectedNodeIds.add(id);
+            if (window.selectedNodeIds) { window.selectedNodeIds.clear(); window.selectedNodeIds.add(id); }
             if (window.copySelectedNodes) window.copySelectedNodes();
             if (window.showToast) window.showToast('Nó copiado.', 'success', 1500);
         },
         'delete': (id) => {
-            window.selectedNodeIds.clear();
-            window.selectedNodeIds.add(id);
+            if (window.selectedNodeIds) { window.selectedNodeIds.clear(); window.selectedNodeIds.add(id); }
             if (window.deleteSelectedNodes) window.deleteSelectedNodes();
         },
         'change-type': (id, type) => {
-            const node = window.getNode(id);
+            const node = window.getNode ? window.getNode(id) : null;
             if (!node) return;
-            if (type === '__clear') node.type = null;
-            else node.type = type;
-            
+            if (type === '__clear') node.type = null; else node.type = type;
             if (!node.typeData) node.typeData = {};
-            window.domCache.invalidateHeight(node.id);
-            window.pushHistory();
-            window.saveStoriesStorage();
-            window.renderApp();
-            // Se o inspector estiver aberto, atualiza
-            if (document.getElementById('edit-node-id').value === id) {
-                window.renderTypePicker();
-                window.renderTypeFields();
+            if (window.domCache) window.domCache.invalidateHeight(node.id);
+            if (window.pushHistory) window.pushHistory();
+            if (window.saveStoriesStorage) window.saveStoriesStorage();
+            if (window.renderApp) window.renderApp();
+            if (document.getElementById('edit-node-id') && document.getElementById('edit-node-id').value === id) {
+                if (window.renderTypePicker) window.renderTypePicker();
+                if (window.renderTypeFields) window.renderTypeFields();
             }
         }
     };
@@ -268,98 +220,59 @@
     function buildMenu(node, clientX, clientY) {
         closeMenu();
         activeNodeId = node.id;
-        
         injectCSS();
 
-        // Cria container principal
         menuEl = document.createElement('div');
         menuEl.className = 'sm-cm-menu';
 
-        // Cabeçalho (Contexto visual)
         const header = document.createElement('div');
         header.className = 'sm-cm-header';
-        const typeIcon = node.type && window.NODE_TYPES[node.type] ? window.renderIcon(window.NODE_TYPES[node.type].icon) : '📄';
+        const types = window.NODE_TYPES || {};
+        const typeIcon = node.type && types[node.type] ? window.renderIcon(types[node.type].icon) : '📄';
         header.innerHTML = `<span>${typeIcon}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${window.escapeHTML(node.title)}</span>`;
         menuEl.appendChild(header);
 
-        // Helper para criar itens
         const createItem = (icon, label, hint, actionId, payload, isDanger = false, disabled = false) => {
             const item = document.createElement('div');
             item.className = `sm-cm-item ${isDanger ? 'sm-cm-danger' : ''} ${disabled ? 'sm-cm-disabled' : ''}`;
-            
             let hintHTML = hint ? `<span class="sm-cm-hint">${hint}</span>` : '';
             let arrowHTML = actionId === 'change-type' ? `<i class="fa-solid fa-chevron-right" style="font-size:10px;margin-left:4px;opacity:0.5;"></i>` : '';
-            
-            item.innerHTML = `
-                <div class="sm-cm-icon">${window.renderIcon(icon)}</div>
-                <div class="sm-cm-label">${label}</div>
-                ${hintHTML}
-                ${arrowHTML}
-            `;
+            item.innerHTML = `<div class="sm-cm-icon">${window.renderIcon(icon)}</div><div class="sm-cm-label">${label}</div>${hintHTML}${arrowHTML}`;
 
             if (actionId === 'change-type') {
-                // Lógica de Submenu no Hover
-                item.addEventListener('mouseenter', () => {
-                    const rect = item.getBoundingClientRect();
-                    buildSubmenu(node, rect.right, rect.top);
-                });
-                // No mobile (click), também abre o submenu
-                item.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const rect = item.getBoundingClientRect();
-                    buildSubmenu(node, rect.left, rect.bottom);
-                });
+                item.addEventListener('mouseenter', () => { const rect = item.getBoundingClientRect(); buildSubmenu(node, rect.right, rect.top); });
+                item.addEventListener('click', (e) => { e.stopPropagation(); const rect = item.getBoundingClientRect(); buildSubmenu(node, rect.left, rect.bottom); });
             } else if (!disabled) {
-                item.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (actionId && actions[actionId]) {
-                        actions[actionId](node.id, payload);
-                    }
-                    closeMenu();
-                });
+                item.addEventListener('click', (e) => { e.stopPropagation(); if (actionId && actions[actionId]) actions[actionId](node.id, payload); closeMenu(); });
             }
-
             return item;
         };
 
-        const createDivider = () => {
-            const d = document.createElement('div');
-            d.className = 'sm-cm-divider';
-            return d;
-        };
+        const createDivider = () => { const d = document.createElement('div'); d.className = 'sm-cm-divider'; return d; };
 
-        // Monta os itens da Fase 1
         menuEl.appendChild(createItem('✏️', 'Editar título', 'F2', 'edit-title'));
-        menuEl.appendChild(createItem('📝', 'Abrir Inspector', '', 'open-inspector', null, false, true)); // TODO Fase 2: habilitar
+        menuEl.appendChild(createItem('📝', 'Abrir Inspector', '', 'open-inspector', null, false, true));
         menuEl.appendChild(createDivider());
-        
         menuEl.appendChild(createItem('🌿', 'Adicionar filho', 'Tab', 'add-child'));
         menuEl.appendChild(createItem('↔️', 'Adicionar irmão', 'Enter', 'add-sibling'));
         menuEl.appendChild(createItem('🧪', 'Criar variante', 'E', 'create-variant'));
         menuEl.appendChild(createItem('📋', 'Duplicar', 'Ctrl+D', 'duplicate'));
         menuEl.appendChild(createDivider());
-        
         menuEl.appendChild(createItem('🎨', 'Mudar tipo', '', 'change-type'));
         menuEl.appendChild(createDivider());
-        
         menuEl.appendChild(createItem('📄', 'Copiar', 'Ctrl+C', 'copy'));
         menuEl.appendChild(createItem('🗑️', 'Excluir', 'Del', 'delete', null, true));
 
         document.body.appendChild(menuEl);
 
-        // Posicionamento com clamp para não estourar a tela
         const rect = menuEl.getBoundingClientRect();
-        let left = clientX;
-        let top = clientY;
+        let left = clientX; let top = clientY;
         if (left + rect.width > window.innerWidth - 8) left = window.innerWidth - rect.width - 8;
         if (top + rect.height > window.innerHeight - 8) top = window.innerHeight - rect.height - 8;
         if (left < 8) left = 8;
         if (top < 8) top = 8;
-        
-        menuEl.style.left = left + 'px';
-        menuEl.style.top = top + 'px';
+        menuEl.style.left = left + 'px'; menuEl.style.top = top + 'px';
 
-        // Listeners para fechar
         setTimeout(() => {
             document.addEventListener('click', onDocClick);
             document.addEventListener('keydown', onKeyDown);
@@ -369,81 +282,59 @@
     }
 
     // ============================================================
-    // 4. CONSTRUÇÃO DO SUBMENU (Mudar Tipo)
+    // 4. CONSTRUÇÃO DO SUBMENU
     // ============================================================
     function buildSubmenu(node, x, y) {
         if (submenuEl) submenuEl.remove();
-        
         submenuEl = document.createElement('div');
         submenuEl.className = 'sm-cm-submenu';
 
-        // Opção "Sem tipo"
         const clearOpt = document.createElement('div');
         clearOpt.className = 'sm-cm-item';
         clearOpt.innerHTML = `<div class="sm-cm-icon">✖</div><div class="sm-cm-label">Sem tipo (limpar)</div>`;
         clearOpt.onclick = (e) => { e.stopPropagation(); actions['change-type'](node.id, '__clear'); closeMenu(); };
         submenuEl.appendChild(clearOpt);
 
-        const divider = document.createElement('div');
-        divider.className = 'sm-cm-divider';
-        submenuEl.appendChild(divider);
+        const divider = document.createElement('div'); divider.className = 'sm-cm-divider'; submenuEl.appendChild(divider);
 
-        // Lista os tipos do app
-        if (window.NODE_TYPES) {
-            Object.values(window.NODE_TYPES).forEach(t => {
-                const opt = document.createElement('div');
-                const isSelected = node.type === t.id;
-                opt.className = `sm-cm-item ${isSelected ? 'sm-cm-disabled' : ''}`;
-                opt.innerHTML = `<div class="sm-cm-icon" style="color:${t.color}">${window.renderIcon(t.icon)}</div><div class="sm-cm-label">${window.escapeHTML(t.label)}</div>`;
-                if (!isSelected) {
-                    opt.onclick = (e) => { e.stopPropagation(); actions['change-type'](node.id, t.id); closeMenu(); };
-                }
-                submenuEl.appendChild(opt);
-            });
-        }
+        const types = window.NODE_TYPES || {};
+        Object.values(types).forEach(t => {
+            const opt = document.createElement('div');
+            const isSelected = node.type === t.id;
+            opt.className = `sm-cm-item ${isSelected ? 'sm-cm-disabled' : ''}`;
+            opt.innerHTML = `<div class="sm-cm-icon" style="color:${t.color}">${window.renderIcon(t.icon)}</div><div class="sm-cm-label">${window.escapeHTML(t.label)}</div>`;
+            if (!isSelected) opt.onclick = (e) => { e.stopPropagation(); actions['change-type'](node.id, t.id); closeMenu(); };
+            submenuEl.appendChild(opt);
+        });
 
         document.body.appendChild(submenuEl);
 
-        // Posicionamento e Clamp
         const rect = submenuEl.getBoundingClientRect();
-        let left = x;
-        let top = y;
-        if (left + rect.width > window.innerWidth - 8) left = x - rect.width - 10; // abre para a esquerda
+        let left = x; let top = y;
+        if (left + rect.width > window.innerWidth - 8) left = x - rect.width - 10;
         if (top + rect.height > window.innerHeight - 8) top = window.innerHeight - rect.height - 8;
         if (left < 8) left = 8;
         if (top < 8) top = 8;
-        
-        submenuEl.style.left = left + 'px';
-        submenuEl.style.top = top + 'px';
+        submenuEl.style.left = left + 'px'; submenuEl.style.top = top + 'px';
     }
 
     // ============================================================
-    // 5. GATILHO (Right Click / Long Press)
+    // 5. GATILHO
     // ============================================================
     document.addEventListener('contextmenu', (e) => {
-        // Apenas se clicar dentro de um nó
         const card = e.target.closest('[data-node-id]');
-        
         if (card && window.getNode) {
-            e.preventDefault(); // Impede o menu nativo do navegador
-            
+            e.preventDefault();
             const nodeId = card.getAttribute('data-node-id');
             const node = window.getNode(nodeId);
-            
             if (node) {
-                // Se o nó clicado não estiver selecionado, seleciona ele
-                if (!window.selectedNodeIds.has(nodeId)) {
+                if (window.selectedNodeIds && !window.selectedNodeIds.has(nodeId)) {
                     window.selectedNodeIds.clear();
                     window.selectedNodeIds.add(nodeId);
-                    window.renderApp();
+                    if (window.renderApp) window.renderApp();
                 }
-                
                 buildMenu(node, e.clientX, e.clientY);
             }
-        } else {
-            // Se clicar fora de um nó, permite o menu padrão do navegador
-            // (Fase 2 adicionará o menu para o canvas vazio)
         }
     });
-
 })();
