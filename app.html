@@ -6318,7 +6318,10 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
             }
             container.innerHTML = html;
         }
-
+        // EXPOR VARIÁVEIS PARA O ARQUIVO EXTERNO
+        window.NODE_TYPES = NODE_TYPES;
+        window.selectedNodeIds = selectedNodeIds;
+        window.domCache = domCache;
         window.onload = async function() {
     preloadFASvgPaths(); // ← NÃO await: roda em paralelo com o resto
     await SM_CLOUD.pull();
