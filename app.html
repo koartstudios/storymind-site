@@ -6322,6 +6322,13 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
         window.NODE_TYPES = NODE_TYPES;
         window.selectedNodeIds = selectedNodeIds;
         window.domCache = domCache;
+                // EXPOR VARIÁVEIS PARA O CONTEXT MENU (FASE 2)
+        window.mindMapData = mindMapData;
+        
+        Object.defineProperty(window, 'nodeClipboard', {
+            get: () => nodeClipboard,
+            set: (val) => { nodeClipboard = val; }
+        });
         window.onload = async function() {
     preloadFASvgPaths(); // ← NÃO await: roda em paralelo com o resto
     await SM_CLOUD.pull();
