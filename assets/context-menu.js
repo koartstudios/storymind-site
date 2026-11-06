@@ -418,12 +418,22 @@
     // ============================================================
     document.addEventListener('contextmenu', (e) => {
         const card = e.target.closest('[data-node-id]');
-        
+
         if (card && window.getNode) {
             e.preventDefault();
             const nodeId = card.getAttribute('data-node-id');
             const node = window.getNode(nodeId);
             if (node) {
+                // ── NOVO: se o nó clicado faz parte de uma seleção múltipla,
+                //          abre o menu de lote. Senão, segue o fluxo single.
+                if (window.selectedNodeIds &&
+                    window.selectedNodeIds.size >= 2 &&
+                    window.selectedNodeIds.has(nodeId)) {
+                    buildMultiNodeMenu(e.clientX, e.clientY);
+                    return;
+                }
+
+                // Comportamento original (single)
                 if (window.selectedNodeIds && !window.selectedNodeIds.has(nodeId)) {
                     window.selectedNodeIds.clear();
                     window.selectedNodeIds.add(nodeId);
@@ -432,7 +442,6 @@
                 buildNodeMenu(node, e.clientX, e.clientY);
             }
         } else {
-            // Verifica se o clique foi dentro do canvas, mas não em um nó
             const canvas = document.getElementById('canvas-container');
             if (canvas && canvas.contains(e.target)) {
                 e.preventDefault();
@@ -440,4 +449,229 @@
             }
         }
     });
+        // ============================================================
+    // 9. FASE 3 — MENU EM MÚLTIPLOS NÓS
+    // ============================================================
+
+    function getSelectedNodes() {
+        if (!window.selectedNodeIds || window.selectedNodeIds.size < 2) return [];
+        const arr = [];
+        window.selectedNodeIds.forEach(id => {
+            const n = window.getNode(id);
+            if (n) arr.push(n);
+        });
+        return arr;
+    }
+
+    // ---- Aplicações em lote (não existem como API pública) ----
+    const MULTI_COLORS = [
+        { id: 'purple',  hex: '#a855f7', label: 'Roxo' },
+        { id: 'orange',  hex: '#f59e0b', label: 'Laranja' },
+        { id: 'white',   hex: '#ffffff', label: 'Branco' },
+        { id: 'blue',    hex: '#3b82f6', label: 'Azul' },
+        { id: 'emerald', hex: '#10b981', label: 'Verde' },
+        { id: 'rose',    hex: '#f43f5e', label: 'Vermelho' }
+    ];
+
+    function tensionColorForMenu(v) {
+        if (v === 0) return '#cbd5e1';
+        if (v <= 3) return '#10b981';
+        if (v <= 6) return '#fbbf24';
+        if (v <= 8) return '#f97316';
+        return '#ef4444';
+    }
+
+    function applyFieldToSelected(field, value, label) {
+        const nodes = getSelectedNodes();
+        if (!nodes.length) return;
+        window.pushHistory();
+        nodes.forEach(n => {
+            if (field === 'type') {
+                if (value === '__clear') n.type = null;
+                else {
+                    n.type = value;
+                    if (!n.typeData) n.typeData = {};
+                }
+                if (window.domCache?.invalidateHeight) window.domCache.invalidateHeight(n.id);
+            } else {
+                n[field] = value;
+            }
+        });
+        window.saveStoriesStorage();
+        window.renderApp();
+        window.showToast?.(`${label} aplicado a ${nodes.length} nó(s).`, 'success', 1500);
+    }
+
+    // ---- Submenus ----
+    function buildAlignSubmenu(x, y) {
+        if (submenuEl) submenuEl.remove();
+        submenuEl = document.createElement('div');
+        submenuEl.className = 'sm-cm-submenu';
+
+        const canDistribute = getSelectedNodes().length >= 3;
+
+        submenuEl.appendChild(createItem('⬅', 'Esquerda',    'Ctrl+Shift+←', () => window.alignSelectedNodes('left')));
+        submenuEl.appendChild(createItem('↔', 'Centro H',    'Ctrl+Shift+C', () => window.alignSelectedNodes('center-h')));
+        submenuEl.appendChild(createItem('➡', 'Direita',     'Ctrl+Shift+→', () => window.alignSelectedNodes('right')));
+        submenuEl.appendChild(createDivider());
+        submenuEl.appendChild(createItem('⬆', 'Topo',        'Ctrl+Shift+↑', () => window.alignSelectedNodes('top')));
+        submenuEl.appendChild(createItem('↕', 'Centro V',    'Ctrl+Shift+M', () => window.alignSelectedNodes('center-v')));
+        submenuEl.appendChild(createItem('⬇', 'Base',        'Ctrl+Shift+↓', () => window.alignSelectedNodes('bottom')));
+        submenuEl.appendChild(createDivider());
+        submenuEl.appendChild(createItem('⋯', 'Distribuir H', 'Ctrl+Shift+H', () => window.alignSelectedNodes('distribute-h'), false, !canDistribute));
+        submenuEl.appendChild(createItem('⋮', 'Distribuir V', 'Ctrl+Shift+V', () => window.alignSelectedNodes('distribute-v'), false, !canDistribute));
+
+        document.body.appendChild(submenuEl);
+        positionMenu(submenuEl, x, y);
+    }
+
+    function buildMultiColorSubmenu(x, y) {
+        if (submenuEl) submenuEl.remove();
+        submenuEl = document.createElement('div');
+        submenuEl.className = 'sm-cm-submenu';
+
+        MULTI_COLORS.forEach(c => {
+            const item = createItem('', c.label, '', () => applyFieldToSelected('color', c.id, 'Cor'));
+            const iconBox = item.querySelector('.sm-cm-icon');
+            if (iconBox) {
+                const border = c.id === 'white' ? 'border:1px solid #cbd5e1;' : '';
+                iconBox.innerHTML = `<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${c.hex};${border}box-shadow:0 0 0 1px rgba(0,0,0,0.06);"></span>`;
+            }
+            submenuEl.appendChild(item);
+        });
+
+        document.body.appendChild(submenuEl);
+        positionMenu(submenuEl, x, y);
+    }
+
+    function buildMultiTensionSubmenu(x, y) {
+        if (submenuEl) submenuEl.remove();
+        submenuEl = document.createElement('div');
+        submenuEl.className = 'sm-cm-submenu';
+
+        for (let i = 0; i <= 10; i++) {
+            const color = tensionColorForMenu(i);
+            const label = i === 0 ? 'Sem tensão' : `Tensão ${i}`;
+            const item = createItem('', label, '', () => applyFieldToSelected('tension', i, `Tensão ${i}`));
+            const iconBox = item.querySelector('.sm-cm-icon');
+            if (iconBox) {
+                iconBox.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};"></span>`;
+            }
+            submenuEl.appendChild(item);
+        }
+
+        document.body.appendChild(submenuEl);
+        positionMenu(submenuEl, x, y);
+    }
+
+    function buildMultiTypeSubmenu(x, y) {
+        if (submenuEl) submenuEl.remove();
+        submenuEl = document.createElement('div');
+        submenuEl.className = 'sm-cm-submenu';
+
+        submenuEl.appendChild(createItem('✖', 'Sem tipo (limpar)', '', () => applyFieldToSelected('type', '__clear', 'Tipo')));
+        submenuEl.appendChild(createDivider());
+
+        const types = window.NODE_TYPES || {};
+        Object.values(types).forEach(t => {
+            submenuEl.appendChild(createItem(t.icon, window.escapeHTML?.(t.label) ?? t.label, '',
+                () => applyFieldToSelected('type', t.id, `Tipo "${t.label}"`)));
+        });
+
+        document.body.appendChild(submenuEl);
+        positionMenu(submenuEl, x, y);
+    }
+
+    // ---- Menu principal multi-nó ----
+    function buildMultiNodeMenu(clientX, clientY) {
+        closeMenu();
+        injectCSS();
+
+        const nodes = getSelectedNodes();
+        if (nodes.length < 2) return;
+
+        menuEl = document.createElement('div');
+        menuEl.className = 'sm-cm-menu';
+
+        // Header contextual
+        const header = document.createElement('div');
+        header.className = 'sm-cm-header';
+        header.innerHTML = `<span>📚</span><span>${nodes.length} nós selecionados</span>`;
+        menuEl.appendChild(header);
+
+        // Editar em lote
+        menuEl.appendChild(createItem('📝', `Editar ${nodes.length} nós em lote`, '',
+            () => window.openMultiInspector?.()));
+        menuEl.appendChild(createDivider());
+
+        // Alinhar
+        const alignItem = createItem('📐', 'Alinhar', '', null, false, false, true);
+        alignItem.addEventListener('mouseenter', () => {
+            const r = alignItem.getBoundingClientRect();
+            buildAlignSubmenu(r.right, r.top);
+        });
+        alignItem.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const r = alignItem.getBoundingClientRect();
+            buildAlignSubmenu(r.left, r.bottom);
+        });
+        menuEl.appendChild(alignItem);
+
+        // Cor
+        const colorItem = createItem('🎨', 'Aplicar cor', '', null, false, false, true);
+        colorItem.addEventListener('mouseenter', () => {
+            const r = colorItem.getBoundingClientRect();
+            buildMultiColorSubmenu(r.right, r.top);
+        });
+        colorItem.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const r = colorItem.getBoundingClientRect();
+            buildMultiColorSubmenu(r.left, r.bottom);
+        });
+        menuEl.appendChild(colorItem);
+
+        // Tensão
+        const tensionItem = createItem('🔥', 'Aplicar tensão', '', null, false, false, true);
+        tensionItem.addEventListener('mouseenter', () => {
+            const r = tensionItem.getBoundingClientRect();
+            buildMultiTensionSubmenu(r.right, r.top);
+        });
+        tensionItem.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const r = tensionItem.getBoundingClientRect();
+            buildMultiTensionSubmenu(r.left, r.bottom);
+        });
+        menuEl.appendChild(tensionItem);
+
+        // Tipo
+        const typeItem = createItem('🎭', 'Aplicar tipo', '', null, false, false, true);
+        typeItem.addEventListener('mouseenter', () => {
+            const r = typeItem.getBoundingClientRect();
+            buildMultiTypeSubmenu(r.right, r.top);
+        });
+        typeItem.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const r = typeItem.getBoundingClientRect();
+            buildMultiTypeSubmenu(r.left, r.bottom);
+        });
+        menuEl.appendChild(typeItem);
+
+        menuEl.appendChild(createDivider());
+
+        // Copiar / Recortar
+        menuEl.appendChild(createItem('📄', 'Copiar todos', 'Ctrl+C',
+            () => window.copySelectedNodes?.()));
+        menuEl.appendChild(createItem('✂️', 'Recortar todos', 'Ctrl+X',
+            () => window.cutSelectedNodes?.()));
+
+        menuEl.appendChild(createDivider());
+
+        // Excluir todos
+        menuEl.appendChild(createItem('🗑️', `Excluir todos (${nodes.length})`, 'Del',
+            () => window.deleteSelectedNodes?.(), true));
+
+        document.body.appendChild(menuEl);
+        positionMenu(menuEl, clientX, clientY);
+        setupAutoClose();
+    }
 })();
