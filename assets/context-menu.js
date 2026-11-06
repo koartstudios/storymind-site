@@ -1,1017 +1,583 @@
-/* ============================================================
-   STORYMIND — CONTEXT MENU (Botão Direito) - FASE 1 e 2
-   ============================================================ */
+/* StoryMind — menu de contexto (botão direito no computador, toque longo no celular)
+ *
+ * Carregado no fim do app.html:  <script src="assets/context-menu.js"></script>
+ *
+ * Princípios:
+ *  - Um único elemento de menu, reutilizado. Um único ouvinte no documento (não há ouvinte por cartão,
+ *    então nada se perde quando o mapa é redesenhado).
+ *  - Abrir o menu NÃO chama renderApp(): a seleção é pintada só nos cartões afetados.
+ *  - Todas as ações reaproveitam as funções que o app já tem (undo, salvar e sincronizar continuam iguais).
+ */
 (function () {
-    'use strict';
-    if (window.SM_CONTEXT_MENU_LOADED) return;
-    window.SM_CONTEXT_MENU_LOADED = true;
+  'use strict';
+  if (window.SM_CTX) return;
 
-    let menuEl = null;
-    let submenuEl = null;
-    let activeNodeId = null;
+  var LONG_PRESS_MS = 520;   // tempo do toque longo
+  var MOVE_TOL = 10;         // px de movimento que cancelam o toque longo
+  var GUARD_MS = 380;        // ignora toques logo após abrir (evita clique "fantasma")
+  var EDGE = 8;              // margem até a borda da tela
+  var MAX_C = 19700;         // limite do canvas (igual ao app)
 
-    // ============================================================
-    // 1. CSS DO MENU
-    // ============================================================
-    function injectCSS() {
-        if (document.getElementById('sm-cm-styles')) return;
-        const s = document.createElement('style');
-        s.id = 'sm-cm-styles';
-        s.textContent = `
-            .sm-cm-menu, .sm-cm-submenu {
-                position: fixed;
-                z-index: 9999;
-                min-width: 220px;
-                background: #ffffff;
-                border: 1px solid #e2e8f0;
-                border-radius: 10px;
-                box-shadow: 0 10px 30px -5px rgba(15,23,42,.25), 0 4px 10px -2px rgba(15,23,42,.1);
-                padding: 6px;
-                font-family: 'Inter', sans-serif;
-                font-size: 12px;
-                color: #334155;
-                user-select: none;
-                animation: sm-cm-pop .12s cubic-bezier(.16,1,.3,1);
-                display: flex;
-                flex-direction: column;
-            }
-            @keyframes sm-cm-pop {
-                from { opacity: 0; transform: scale(0.96) translateY(-4px); }
-                to   { opacity: 1; transform: scale(1) translateY(0); }
-            }
-            .sm-cm-item {
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                padding: 8px 10px;
-                border-radius: 6px;
-                cursor: pointer;
-                transition: background 0.1s;
-                position: relative;
-            }
-            .sm-cm-item:hover {
-                background: #eef2ff;
-                color: #4338ca;
-            }
-            .sm-cm-item.sm-cm-disabled {
-                opacity: 0.4;
-                cursor: not-allowed;
-                pointer-events: none;
-            }
-            .sm-cm-item.sm-cm-danger:hover {
-                background: #fef2f2;
-                color: #dc2626;
-            }
-            .sm-cm-icon {
-                width: 16px;
-                text-align: center;
-                font-size: 13px;
-                flex-shrink: 0;
-                color: #64748b;
-            }
-            .sm-cm-item:hover .sm-cm-icon { color: inherit; }
-            .sm-cm-label { flex: 1; font-weight: 500; }
-            .sm-cm-hint {
-                font-family: ui-monospace, monospace;
-                font-size: 9.5px;
-                color: #94a3b8;
-                padding: 1px 5px;
-                border: 1px solid #e2e8f0;
-                border-radius: 4px;
-                background: #f8fafc;
-            }
-            .sm-cm-divider {
-                height: 1px;
-                background: #e2e8f0;
-                margin: 4px 6px;
-            }
-            .sm-cm-header {
-                padding: 8px 10px 6px;
-                font-size: 10px;
-                font-weight: 700;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-                color: #94a3b8;
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                border-bottom: 1px solid #e2e8f0;
-                margin-bottom: 4px;
-                pointer-events: none;
-            }
-            .sm-cm-submenu {
-                position: fixed;
-                z-index: 10000;
-                min-width: 180px;
-                max-height: 320px;
-                overflow-y: auto;
-                animation: sm-cm-pop .12s ease;
-            }
-            .sm-cm-submenu .sm-cm-item { padding: 6px 10px; }
+  /* ------------------------------------------------------------------ acesso ao app */
+  function $(id) { return document.getElementById(id); }
+  function fn(name) { return typeof window[name] === 'function' ? window[name] : null; }
+  function call(name) { var f = fn(name); return f ? f.apply(null, Array.prototype.slice.call(arguments, 1)) : undefined; }
+  function selSet() { return typeof selectedNodeIds !== 'undefined' ? selectedNodeIds : new Set(); }
+  function mapData() { return typeof mindMapData !== 'undefined' ? mindMapData : null; }
+  function getN(id) { return call('getNode', id); }
+  function toast(msg, type, ms) { call('showToast', msg, type || 'info', ms || 2200); }
+  function nodeW() { return typeof NODE_W !== 'undefined' ? NODE_W : 260; }
+  function clamp(v) { return Math.max(0, Math.min(MAX_C, v)); }
+  function isDark() { var c = $('canvas-container'); return !!(c && c.classList.contains('theme-dark')); }
+  function hasChildren(id) { var d = mapData(); return !!d && d.nodes.some(function (n) { return n.parentId === id; }); }
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
 
-            /* Dark Theme */
-            body.app-theme-dark .sm-cm-menu,
-            body.app-theme-dark .sm-cm-submenu {
-                background: #1e293b; border-color: #334155; color: #e2e8f0;
-            }
-            body.app-theme-dark .sm-cm-item:hover { background: #312e81; color: #c7d2fe; }
-            body.app-theme-dark .sm-cm-item.sm-cm-danger:hover { background: #7f1d1d; color: #fecaca; }
-            body.app-theme-dark .sm-cm-icon { color: #94a3b8; }
-            body.app-theme-dark .sm-cm-hint { background: #0f172a; border-color: #334155; color: #94a3b8; }
-            body.app-theme-dark .sm-cm-divider { background: #334155; }
-            body.app-theme-dark .sm-cm-header { border-bottom-color: #334155; }
-            
-            @media (hover: none) and (max-width: 640px) {
-                .sm-cm-menu, .sm-cm-submenu {
-                    left: 10px !important; right: 10px !important; bottom: 10px !important; top: auto !important;
-                    width: auto !important; transform: none !important; animation: sm-cm-slide-up .2s ease;
-                }
-                @keyframes sm-cm-slide-up {
-                    from { transform: translateY(100%); } to { transform: translateY(0); }
-                }
-            }
-        `;
-        document.head.appendChild(s);
+  /* ------------------------------------------------------------------ seleção "leve" (sem renderApp) */
+  function borderColors(el, node, on) {
+    if (on) { el.style.borderTopColor = el.style.borderRightColor = el.style.borderBottomColor = el.style.borderLeftColor = ''; return; }
+    var nc = (typeof NODE_COLORS !== 'undefined' && NODE_COLORS[node.color]) || (typeof NODE_COLORS !== 'undefined' ? NODE_COLORS.white : { border: '#e2e8f0' });
+    var td = node.type && typeof NODE_TYPES !== 'undefined' ? NODE_TYPES[node.type] : null;
+    if (el.classList.contains('is-variant')) {
+      el.style.borderTopColor = el.style.borderRightColor = el.style.borderBottomColor = el.style.borderLeftColor = '#a855f7';
+    } else {
+      el.style.borderTopColor = el.style.borderRightColor = el.style.borderBottomColor = nc.border;
+      el.style.borderLeftColor = td ? td.color : nc.border;
     }
-
-    // ============================================================
-    // 2. UTILITÁRIOS GERAIS
-    // ============================================================
-    function closeMenu() {
-        if (menuEl) { menuEl.remove(); menuEl = null; }
-        if (submenuEl) { submenuEl.remove(); submenuEl = null; }
-        activeNodeId = null;
-        document.removeEventListener('click', onDocClick);
-        document.removeEventListener('keydown', onKeyDown);
-        window.removeEventListener('resize', closeMenu);
-        window.removeEventListener('blur', closeMenu);
-    }
-
-    function onDocClick(e) {
-        if (menuEl && !menuEl.contains(e.target) && (!submenuEl || !submenuEl.contains(e.target))) closeMenu();
-    }
-
-    function onKeyDown(e) { if (e.key === 'Escape') closeMenu(); }
-
-    function createItem(icon, label, hint, actionFn, isDanger = false, disabled = false, hasArrow = false) {
-        const item = document.createElement('div');
-        item.className = `sm-cm-item ${isDanger ? 'sm-cm-danger' : ''} ${disabled ? 'sm-cm-disabled' : ''}`;
-        let hintHTML = hint ? `<span class="sm-cm-hint">${hint}</span>` : '';
-        let arrowHTML = hasArrow ? `<i class="fa-solid fa-chevron-right" style="font-size:10px;margin-left:4px;opacity:0.5;"></i>` : '';
-        
-        item.innerHTML = `<div class="sm-cm-icon">${window.renderIcon(icon)}</div><div class="sm-cm-label">${label}</div>${hintHTML}${arrowHTML}`;
-        
-        if (!disabled && typeof actionFn === 'function') {
-            item.addEventListener('click', (e) => {
-                e.stopPropagation();
-                actionFn();
-                closeMenu();
-            });
-        }
-        return item;
-    }
-
-    function createDivider() {
-        const d = document.createElement('div'); d.className = 'sm-cm-divider'; return d;
-    }
-
-    function positionMenu(el, clientX, clientY) {
-        const rect = el.getBoundingClientRect();
-        let left = clientX, top = clientY;
-        if (left + rect.width > window.innerWidth - 8) left = window.innerWidth - rect.width - 8;
-        if (top + rect.height > window.innerHeight - 8) top = window.innerHeight - rect.height - 8;
-        if (left < 8) left = 8;
-        if (top < 8) top = 8;
-        el.style.left = left + 'px';
-        el.style.top = top + 'px';
-    }
-
-    function setupAutoClose() {
-        setTimeout(() => {
-            document.addEventListener('click', onDocClick);
-            document.addEventListener('keydown', onKeyDown);
-            window.addEventListener('resize', closeMenu);
-            window.addEventListener('blur', closeMenu);
-        }, 10);
-    }
-
-    // ============================================================
-    // 3. AÇÕES DO NÓ
-    // ============================================================
-    const nodeActions = {
-        'edit-title': (id) => { if (window.startInlineEdit) window.startInlineEdit(id, 'title'); },
-        'add-child': (id) => { if (window.addChildToNode) window.addChildToNode(id); },
-        'add-sibling': (id) => {
-            if (window.createSibling) {
-                const newId = window.createSibling(id);
-                if (newId) {
-                    if (window.selectedNodeIds) { window.selectedNodeIds.clear(); window.selectedNodeIds.add(newId); }
-                    if (window.commit) window.commit();
-                    if (window.startInlineEdit) window.startInlineEdit(newId, 'title');
-                }
-            }
-        },
-        'create-variant': (id) => {
-            if (window.selectedNodeIds) { window.selectedNodeIds.clear(); window.selectedNodeIds.add(id); }
-            if (window.openInspectorFor) window.openInspectorFor(id);
-            if (window.openVariantModal) window.openVariantModal();
-        },
-        'duplicate': (id) => {
-            if (window.selectedNodeIds) { window.selectedNodeIds.clear(); window.selectedNodeIds.add(id); }
-            if (window.pushHistory && window.duplicateSelectedNodesInPlace) {
-                window.pushHistory();
-                const newIds = window.duplicateSelectedNodesInPlace();
-                if (window.selectedNodeIds) { window.selectedNodeIds.clear(); newIds.forEach(nid => window.selectedNodeIds.add(nid)); }
-                if (window.invalidateStructure) window.invalidateStructure();
-                if (window.saveStoriesStorage) window.saveStoriesStorage();
-                if (window.renderApp) window.renderApp();
-            }
-        },
-        'copy': (id) => {
-            if (window.selectedNodeIds) { window.selectedNodeIds.clear(); window.selectedNodeIds.add(id); }
-            if (window.copySelectedNodes) window.copySelectedNodes();
-            if (window.showToast) window.showToast('Nó copiado.', 'success', 1500);
-        },
-        'delete': (id) => {
-            if (window.selectedNodeIds) { window.selectedNodeIds.clear(); window.selectedNodeIds.add(id); }
-            if (window.deleteSelectedNodes) window.deleteSelectedNodes();
-        },
-        'change-type': (id, type) => {
-            const node = window.getNode ? window.getNode(id) : null;
-            if (!node) return;
-            if (type === '__clear') node.type = null; else node.type = type;
-            if (!node.typeData) node.typeData = {};
-            if (window.domCache) window.domCache.invalidateHeight(node.id);
-            if (window.pushHistory) window.pushHistory();
-            if (window.saveStoriesStorage) window.saveStoriesStorage();
-            if (window.renderApp) window.renderApp();
-            if (document.getElementById('edit-node-id') && document.getElementById('edit-node-id').value === id) {
-                if (window.renderTypePicker) window.renderTypePicker();
-                if (window.renderTypeFields) window.renderTypeFields();
-            }
-        }
-    };
-
-    // ============================================================
-    // 4. MENU DE UM NÓ (FASE 1)
-    // ============================================================
-    function buildNodeMenu(node, clientX, clientY) {
-        closeMenu();
-        activeNodeId = node.id;
-        injectCSS();
-
-        menuEl = document.createElement('div');
-        menuEl.className = 'sm-cm-menu';
-
-        const header = document.createElement('div');
-        header.className = 'sm-cm-header';
-        const types = window.NODE_TYPES || {};
-        const typeIcon = node.type && types[node.type] ? window.renderIcon(types[node.type].icon) : '📄';
-        header.innerHTML = `<span>${typeIcon}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${window.escapeHTML(node.title)}</span>`;
-        menuEl.appendChild(header);
-
-               menuEl.appendChild(createItem('✏️', 'Editar título', 'F2', () => nodeActions['edit-title'](node.id)));
-
-        // ── NOVO: Inspector agora ativo ──
-        menuEl.appendChild(createItem('📝', 'Abrir Inspector', 'F2',
-            () => { if (window.openInspectorFor) window.openInspectorFor(node.id); }));
-
-        menuEl.appendChild(createDivider());
-
-        menuEl.appendChild(createItem('🌿', 'Adicionar filho', 'Tab', () => nodeActions['add-child'](node.id)));
-        menuEl.appendChild(createItem('↔️', 'Adicionar irmão', 'Enter', () => nodeActions['add-sibling'](node.id)));
-        menuEl.appendChild(createItem('🧪', 'Criar variante', 'E', () => nodeActions['create-variant'](node.id)));
-        menuEl.appendChild(createItem('📋', 'Duplicar', 'Ctrl+D', () => nodeActions['duplicate'](node.id)));
-        menuEl.appendChild(createDivider());
-
-        // ── NOVO: Seção contextual por tipo (só aparece se houver itens) ──
-        const contextual = getContextualItemsForNode(node);
-        if (contextual.length > 0) {
-            contextual.forEach(act => {
-                menuEl.appendChild(createItem(act.icon, act.label, '', () => act.run()));
-            });
-            menuEl.appendChild(createDivider());
-        }
-
-        // ... resto do menu (Mudar tipo, Copiar, Excluir) inalterado
-
-        document.body.appendChild(menuEl);
-        positionMenu(menuEl, clientX, clientY);
-        setupAutoClose();
-    }
-
-    // ============================================================
-    // 5. SUBMENU DE TIPO (FASE 1)
-    // ============================================================
-    function buildTypeSubmenu(node, x, y) {
-        if (submenuEl) submenuEl.remove();
-        submenuEl = document.createElement('div');
-        submenuEl.className = 'sm-cm-submenu';
-
-        submenuEl.appendChild(createItem('✖', 'Sem tipo (limpar)', '', () => nodeActions['change-type'](node.id, '__clear')));
-        submenuEl.appendChild(createDivider());
-
-        const types = window.NODE_TYPES || {};
-        Object.values(types).forEach(t => {
-            const isSelected = node.type === t.id;
-            submenuEl.appendChild(createItem(t.icon, window.escapeHTML(t.label), '', () => nodeActions['change-type'](node.id, t.id), false, isSelected));
-        });
-
-        document.body.appendChild(submenuEl);
-        positionMenu(submenuEl, x, y);
-    }
-
-    // ============================================================
-    // 6. MENU DO CANVAS VAZIO (FASE 2)
-    // ============================================================
-    function buildCanvasMenu(clientX, clientY) {
-        closeMenu();
-        injectCSS();
-
-        menuEl = document.createElement('div');
-        menuEl.className = 'sm-cm-menu';
-
-        const header = document.createElement('div');
-        header.className = 'sm-cm-header';
-        header.innerHTML = `<span>🗺️</span><span>Área do Mapa</span>`;
-        menuEl.appendChild(header);
-
-        menuEl.appendChild(createItem('➕', 'Novo nó raiz', 'N', () => { if (window.addNewNode) window.addNewNode(); }));
-        
-        const hasClipboard = window.nodeClipboard && window.nodeClipboard.nodes && window.nodeClipboard.nodes.length > 0;
-        menuEl.appendChild(createItem('📥', 'Colar', 'Ctrl+V', () => { if (window.pasteClipboard) window.pasteClipboard(); }, false, !hasClipboard));
-        
-        menuEl.appendChild(createDivider());
-
-        // Layout (com submenu)
-        const layoutItem = createItem('🗺️', 'Alterar Layout', '', null, false, false, true);
-        layoutItem.addEventListener('mouseenter', () => { const rect = layoutItem.getBoundingClientRect(); buildLayoutSubmenu(rect.right, rect.top); });
-        layoutItem.addEventListener('click', (e) => { e.stopPropagation(); const rect = layoutItem.getBoundingClientRect(); buildLayoutSubmenu(rect.left, rect.bottom); });
-        menuEl.appendChild(layoutItem);
-
-        menuEl.appendChild(createItem('🧭', 'Organizar automaticamente', '', () => { if (window.autoLayoutNodes) window.autoLayoutNodes(); }));
-        menuEl.appendChild(createItem('🎯', 'Centralizar mapa', 'F', () => { if (window.fitView) window.fitView(); }));
-
-        menuEl.appendChild(createDivider());
-
-        menuEl.appendChild(createItem('📄', 'Nova Aba', 'Shift+T', () => { if (window.addSheet) window.addSheet(); }));
-
-        // Tema (com submenu)
-        const themeItem = createItem('🌓', 'Tema Visual', '', null, false, false, true);
-        themeItem.addEventListener('mouseenter', () => { const rect = themeItem.getBoundingClientRect(); buildThemeSubmenu(rect.right, rect.top); });
-        themeItem.addEventListener('click', (e) => { e.stopPropagation(); const rect = themeItem.getBoundingClientRect(); buildThemeSubmenu(rect.left, rect.bottom); });
-        menuEl.appendChild(themeItem);
-
-        menuEl.appendChild(createDivider());
-
-        menuEl.appendChild(createItem('🔍', 'Busca avançada', 'Ctrl+Shift+F', () => { if (window.openAdvancedSearch) window.openAdvancedSearch(); }));
-
-        document.body.appendChild(menuEl);
-        positionMenu(menuEl, clientX, clientY);
-        setupAutoClose();
-    }
-
-    // ============================================================
-    // 7. SUBMENUS DO CANVAS VAZIO
-    // ============================================================
-    function buildLayoutSubmenu(x, y) {
-        if (submenuEl) submenuEl.remove();
-        submenuEl = document.createElement('div');
-        submenuEl.className = 'sm-cm-submenu';
-
-        const layouts = [
-            { id: 'tree', label: '🌳 Árvore' },
-            { id: 'radial', label: '🎯 Radial' },
-            { id: 'org', label: '🏢 Organograma' }
-        ];
-        
-        const current = window.mindMapData ? window.mindMapData.layout : 'tree';
-
-        layouts.forEach(l => {
-            const isSelected = current === l.id;
-            submenuEl.appendChild(createItem('', l.label, '', () => { if (window.changeLayout) window.changeLayout(l.id); }, false, isSelected));
-        });
-
-        document.body.appendChild(submenuEl);
-        positionMenu(submenuEl, x, y);
-    }
-
-    function buildThemeSubmenu(x, y) {
-        if (submenuEl) submenuEl.remove();
-        submenuEl = document.createElement('div');
-        submenuEl.className = 'sm-cm-submenu';
-
-        const themes = [
-            { id: 'default', label: '☀️ Claro' },
-            { id: 'dark', label: '🌙 Escuro' },
-            { id: 'paper', label: '📜 Papel' }
-        ];
-        
-        const current = window.mindMapData ? window.mindMapData.theme : 'default';
-
-        themes.forEach(t => {
-            const isSelected = current === t.id;
-            submenuEl.appendChild(createItem('', t.label, '', () => { if (window.changeTheme) window.changeTheme(t.id); }, false, isSelected));
-        });
-
-        document.body.appendChild(submenuEl);
-        positionMenu(submenuEl, x, y);
-    }
-    // ============================================================
-    // 8b. FASE 4 — AÇÕES CONTEXTUAIS POR TIPO DE NÓ
-    // ============================================================
-
-    // ---- Helpers de busca no mapa (independente do app.html) ----
-
-    function getAllNodes() {
-        if (!window.getNode) return [];
-        // Não temos acesso direto ao array; fazemos lookup via nodes do DOM
-        const cards = document.querySelectorAll('[data-node-id]');
-        const seen = new Set();
-        const out = [];
-        cards.forEach(el => {
-            const id = el.getAttribute('data-node-id');
-            if (seen.has(id)) return;
-            seen.add(id);
-            const n = window.getNode(id);
-            if (n) out.push(n);
-        });
-        return out;
-    }
-
-    // ⚠️ getAllNodes() acima só pega nós visíveis no DOM.
-    // Para uma varredura completa, dependemos de expor em app.html:
-    //   window.getAllNodes = () => mindMapData.nodes;
-    // Faço um fallback defensivo aqui (usa o app se expuser, senão DOM).
-
-    function findAllNodes() {
-        if (typeof window.getAllNodes === 'function') return window.getAllNodes();
-        return getAllNodes();
-    }
-
-    function normalizeTitle(s) {
-        return String(s || '').trim().toLowerCase()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    }
-
-    // ---- Ações contextuais ----
-
-    const contextualActions = {
-
-        // 🎬 Cena
-        scene: {
-            run(node) {
-                const actions = [];
-
-                // Modo escrita
-                actions.push({
-                    icon: '✍️', label: 'Abrir modo escrita',
-                    run: () => {
-                        if (typeof window.openSceneWritingMode === 'function') {
-                            window.openSceneWritingMode(node.id);
-                        } else {
-                            window.showToast?.('Modo escrita indisponível.', 'warn');
-                        }
-                    }
-                });
-
-                // Diagnóstico de virada (só se tiver dados suficientes)
-                const d = node.typeData || {};
-                if (d.valueAtStake || (d.valueStart && d.valueEnd)) {
-                    actions.push({
-                        icon: '📊', label: 'Ver diagnóstico de virada',
-                        run: () => {
-                            if (typeof window.getSceneDiagnostic === 'function') {
-                                const diag = window.getSceneDiagnostic(node);
-                                if (!diag) {
-                                    window.showToast?.(
-                                        'Preencha Carga Inicial e Carga Final para o diagnóstico.',
-                                        'info', 3000
-                                    );
-                                    return;
-                                }
-                                const msg = diag.level === 'warn'
-                                    ? `⚠ ${diag.title}: ${diag.message}`
-                                    : `✓ ${diag.title}: ${diag.message}`;
-                                window.showToast?.(msg, diag.level === 'warn' ? 'warn' : 'success', 5000);
-                            } else {
-                                window.showToast?.('Diagnóstico indisponível.', 'warn');
-                            }
-                        }
-                    });
-                }
-
-                return actions;
-            }
-        },
-
-        // 🧙 Personagem
-        character: {
-            run(node) {
-                const actions = [];
-
-                actions.push({
-                    icon: '🕸️', label: 'Abrir na Teia de Relações',
-                    run: () => {
-                        if (typeof window.openRelationWeb === 'function') {
-                            window.openRelationWeb();
-                        } else {
-                            window.showToast?.('Teia indisponível.', 'warn');
-                        }
-                    }
-                });
-
-                actions.push({
-                    icon: '⭐', label: 'Árvore de Habilidades',
-                    run: () => {
-                        if (typeof window.openSkillTree === 'function') {
-                            window.openSkillTree(node.id);   // foca neste personagem
-                        } else {
-                            window.showToast?.('Árvore de Habilidades indisponível.', 'warn');
-                        }
-                    }
-                });
-
-                actions.push({
-                    icon: '👥', label: 'Ver no Grafo de Menções',
-                    run: () => {
-                        if (typeof window.openMentionsGraph === 'function') {
-                            window.openMentionsGraph();
-                            // Filtro por personagem seria ideal, mas
-                            // openMentionsGraph() não aceita parâmetro hoje.
-                            // Fica a próxima fase: aceitar charId como filtro.
-                        } else {
-                            window.showToast?.('Grafo de Menções indisponível.', 'warn');
-                        }
-                    }
-                });
-
-                return actions;
-            }
-        },
-
-        // 📅 Timeline
-        timeline: {
-            run(node) {
-                const actions = [];
-
-                const year = node.typeData?.year;
-                actions.push({
-                    icon: '⏳', label: year ? `Abrir Linha do Tempo (Ano ${year})` : 'Abrir Linha do Tempo',
-                    run: () => {
-                        if (typeof window.openTimeline === 'function') {
-                            window.openTimeline();
-                        } else {
-                            window.showToast?.('Linha do Tempo indisponível.', 'warn');
-                        }
-                    }
-                });
-
-                return actions;
-            }
-        },
-
-        // 🎭 Tema
-        theme: {
-            run(node) {
-                const actions = [];
-                const core = (node.typeData?.coreValue || '').trim();
-
-                if (core) {
-                    actions.push({
-                        icon: '📖', label: `Ver cenas que dramatizam "${core}"`,
-                        run: () => {
-                            const all = findAllNodes();
-                            const needle = normalizeTitle(core);
-                            const hits = all.filter(n =>
-                                n.type === 'scene' &&
-                                normalizeTitle(n.typeData?.valueAtStake || '').includes(needle)
-                            );
-                            if (hits.length === 0) {
-                                window.showToast?.(
-                                    `Nenhuma cena tem "${core}" como valor em jogo.`,
-                                    'warn', 3500
-                                );
-                                return;
-                            }
-                            if (window.selectedNodeIds) {
-                                window.selectedNodeIds.clear();
-                                hits.forEach(h => window.selectedNodeIds.add(h.id));
-                            }
-                            if (hits.length === 1) window.openInspectorFor?.(hits[0].id);
-                            else window.openMultiInspector?.();
-                            window.renderApp?.();
-                            window.showToast?.(
-                                `${hits.length} cena(s) dramatizam "${core}".`,
-                                'success', 2500
-                            );
-                        }
-                    });
-                }
-
-                return actions;
-            }
-        },
-
-        // 📍 Cenário
-        location: {
-            run(node) {
-                const actions = [];
-                const locName = normalizeTitle(node.title);
-
-                actions.push({
-                    icon: '🎬', label: 'Ver cenas que acontecem aqui',
-                    run: () => {
-                        const all = findAllNodes();
-                        const hits = all.filter(n =>
-                            n.type === 'scene' &&
-                            normalizeTitle(n.typeData?.location || '') === locName
-                        );
-                        if (hits.length === 0) {
-                            window.showToast?.(
-                                `Nenhuma cena acontece em "${node.title}".`,
-                                'warn', 3500
-                            );
-                            return;
-                        }
-                        if (window.selectedNodeIds) {
-                            window.selectedNodeIds.clear();
-                            hits.forEach(h => window.selectedNodeIds.add(h.id));
-                        }
-                        if (hits.length === 1) window.openInspectorFor?.(hits[0].id);
-                        else window.openMultiInspector?.();
-                        window.renderApp?.();
-                        window.showToast?.(
-                            `${hits.length} cena(s) acontecem em "${node.title}".`,
-                            'success', 2500
-                        );
-                    }
-                });
-
-                return actions;
-            }
-        },
-
-        // 🧪 Variante
-        variant: {
-            run(node) {
-                if (!node.isVariant) return [];
-
-                const actions = [];
-
-                actions.push({
-                    icon: '✅', label: 'Promover a canônica',
-                    run: () => {
-                        if (typeof window.selectedNodeIds !== 'undefined') {
-                            window.selectedNodeIds.clear();
-                            window.selectedNodeIds.add(node.id);
-                        }
-                        window.openInspectorFor?.(node.id);
-                        // A função real pede o ID do inspector
-                        if (typeof window.promoteCurrentVariant === 'function') {
-                            setTimeout(() => window.promoteCurrentVariant(), 80);
-                        } else {
-                            window.showToast?.('Ação indisponível.', 'warn');
-                        }
-                    }
-                });
-
-                actions.push({
-                    icon: '↩️', label: 'Tornar canônico (sem substituir)',
-                    run: () => {
-                        if (typeof window.removeVariantFlag === 'function') {
-                            if (typeof window.selectedNodeIds !== 'undefined') {
-                                window.selectedNodeIds.clear();
-                                window.selectedNodeIds.add(node.id);
-                            }
-                            window.openInspectorFor?.(node.id);
-                            setTimeout(() => {
-                                // removeVariantFlag() usa o id do inspector
-                                if (typeof window.removeVariantFlag === 'function') {
-                                    // Chama direto se o inspector setou o id
-                                    window.removeVariantFlag();
-                                }
-                            }, 80);
-                        } else {
-                            window.showToast?.('Ação indisponível.', 'warn');
-                        }
-                    }
-                });
-
-                return actions;
-            }
-        },
-
-        // 💬 Diálogo
-        dialogue: {
-            run(node) {
-                const actions = [];
-                const d = node.typeData || {};
-                const all = findAllNodes();
-
-                if (d.speaker) {
-                    const speakerNode = all.find(n =>
-                        n.type === 'character' &&
-                        (normalizeTitle(n.title) === normalizeTitle(d.speaker) ||
-                         normalizeTitle(n.typeData?.fullName || '') === normalizeTitle(d.speaker))
-                    );
-                    if (speakerNode) {
-                        actions.push({
-                            icon: '🗣️', label: `Ir para falante: ${speakerNode.title}`,
-                            run: () => window.jumpToNodeFromBible?.(speakerNode.id)
-                        });
-                    }
-                }
-
-                if (d.target) {
-                    const targetNode = all.find(n =>
-                        n.type === 'character' &&
-                        (normalizeTitle(n.title) === normalizeTitle(d.target) ||
-                         normalizeTitle(n.typeData?.fullName || '') === normalizeTitle(d.target))
-                    );
-                    if (targetNode) {
-                        actions.push({
-                            icon: '👂', label: `Ir para alvo: ${targetNode.title}`,
-                            run: () => window.jumpToNodeFromBible?.(targetNode.id)
-                        });
-                    }
-                }
-
-                return actions;
-            }
-        }
-    };
-
-    function getContextualItemsForNode(node) {
-        if (!node || !node.type) return [];
-        const group = contextualActions[node.type];
-        if (!group || typeof group.run !== 'function') return [];
-        try {
-            return group.run(node) || [];
-        } catch (e) {
-            console.warn('[context-menu] ação contextual falhou:', e);
-            return [];
-        }
-    }
-    // ============================================================
-    // 8. GATILHO GLOBAL
-    // ============================================================
-    document.addEventListener('contextmenu', (e) => {
-        const card = e.target.closest('[data-node-id]');
-
-        if (card && window.getNode) {
-            e.preventDefault();
-            const nodeId = card.getAttribute('data-node-id');
-            const node = window.getNode(nodeId);
-            if (node) {
-                // ── NOVO: se o nó clicado faz parte de uma seleção múltipla,
-                //          abre o menu de lote. Senão, segue o fluxo single.
-                if (window.selectedNodeIds &&
-                    window.selectedNodeIds.size >= 2 &&
-                    window.selectedNodeIds.has(nodeId)) {
-                    buildMultiNodeMenu(e.clientX, e.clientY);
-                    return;
-                }
-
-                // Comportamento original (single)
-                if (window.selectedNodeIds && !window.selectedNodeIds.has(nodeId)) {
-                    window.selectedNodeIds.clear();
-                    window.selectedNodeIds.add(nodeId);
-                    if (window.renderApp) window.renderApp();
-                }
-                buildNodeMenu(node, e.clientX, e.clientY);
-            }
-        } else {
-            const canvas = document.getElementById('canvas-container');
-            if (canvas && canvas.contains(e.target)) {
-                e.preventDefault();
-                buildCanvasMenu(e.clientX, e.clientY);
-            }
-        }
+  }
+  function paint(id, on) {
+    var el = (typeof domCache !== 'undefined' && domCache.get) ? domCache.get(id) : document.querySelector('[data-node-id="' + id + '"]');
+    var n = getN(id);
+    if (!el || !n) return;
+    ['ring-4', 'ring-indigo-400', 'is-selected', 'shadow-xl'].forEach(function (c) { el.classList.toggle(c, on); });
+    borderColors(el, n, on);
+  }
+  function fastSelect(ids) {
+    var s = selSet(), prev = Array.from(s);
+    s.clear(); ids.forEach(function (id) { s.add(id); });
+    prev.forEach(function (id) { if (ids.indexOf(id) < 0) paint(id, false); });
+    ids.forEach(function (id) { paint(id, true); });
+    call('updateAlignToolbar');
+  }
+
+  /* ------------------------------------------------------------------ construtores de itens */
+  var SEP = { t: 'sep' };
+  function HEAD(label) { return { t: 'head', label: label }; }
+  function ITEM(icon, label, action, o) { return Object.assign({ t: 'item', icon: icon, label: label, action: action }, o || {}); }
+  function SUB(icon, label, items, o) { return Object.assign({ t: 'sub', icon: icon, label: label, items: items }, o || {}); }
+
+  function keepInspectorClosed(f) {      // applyMulti* abrem o painel lateral; aqui ele deve continuar fechado
+    var sb = $('inspector-sidebar');
+    var was = !!sb && !sb.classList.contains('translate-x-full');
+    f();
+    if (!was) call('closeInspector');
+  }
+
+  var COLOR_NAMES = { purple: 'Roxo', orange: 'Âmbar', blue: 'Azul', emerald: 'Verde', rose: 'Rosa', white: 'Branco' };
+
+  function colorRow(current) {
+    if (typeof NODE_COLORS === 'undefined') return [];
+    return [{ t: 'sw', list: Object.keys(NODE_COLORS).map(function (k) {
+      return { label: COLOR_NAMES[k] || k, bg: NODE_COLORS[k].bg, border: NODE_COLORS[k].border, on: k === current,
+               action: function () { call('applyMultiColor', k); } };
+    }) }];
+  }
+  function typeItems(current) {
+    if (typeof NODE_TYPES === 'undefined') return [];
+    var out = Object.keys(NODE_TYPES).map(function (k) {
+      var t = NODE_TYPES[k];
+      return ITEM(t.icon, t.label, function () { keepInspectorClosed(function () { call('applyMultiType', k); }); }, { on: k === current });
     });
-        // ============================================================
-    // 9. FASE 3 — MENU EM MÚLTIPLOS NÓS
-    // ============================================================
+    out.push(SEP, ITEM('fa-ban', 'Sem tipo', function () { keepInspectorClosed(function () { call('applyMultiType', '__clear'); }); }, { on: !current }));
+    return out;
+  }
+  function tensionRow(current) {
+    var list = [];
+    for (var v = 0; v <= 10; v++) (function (val) {
+      list.push({ label: String(val), on: current === val, action: function () { keepInspectorClosed(function () { call('applyMultiTension', val); }); } });
+    })(v);
+    return [HEAD('Nível de tensão (0 a 10)'), { t: 'chips', list: list }];
+  }
+  function beatItems(current) {
+    var fw = call('getCurrentFramework'); if (!fw || !fw.beats) return null;
+    var out = fw.beats.map(function (b) {
+      return ITEM(b.icon, b.name, function () { keepInspectorClosed(function () { call('applyMultiBeat', b.id); }); }, { on: b.id === current });
+    });
+    out.push(SEP, ITEM('fa-ban', 'Nenhum beat', function () { keepInspectorClosed(function () { call('applyMultiBeat', null); }); }, { on: !current }));
+    return out;
+  }
+  function sheetTargets() {
+    var cs = typeof currentStory !== 'undefined' ? currentStory : null, d = mapData();
+    var out = [];
+    if (cs && d) cs.sheets.forEach(function (sh) {
+      if (sh.id !== d.id) out.push(ITEM('fa-file-lines', sh.name || 'Aba', function () { call('moveSelectedNodesToSheet', sh.id); }));
+    });
+    if (out.length) out.push(SEP);
+    out.push(ITEM('fa-plus', 'Nova aba…', function () { call('moveSelectedNodesToNewSheet'); }));
+    return out;
+  }
 
-    function getSelectedNodes() {
-        if (!window.selectedNodeIds || window.selectedNodeIds.size < 2) return [];
-        const arr = [];
-        window.selectedNodeIds.forEach(id => {
-            const n = window.getNode(id);
-            if (n) arr.push(n);
-        });
-        return arr;
+  /* ------------------------------------------------------------------ ações próprias (reproduzem as do app) */
+  function duplicateSelection() {
+    var s = selSet(); if (!s.size) return;
+    call('pushHistory');
+    var newIds = call('duplicateSelectedNodesInPlace') || [];
+    newIds.forEach(function (id) { var n = getN(id); if (n) { n.x = clamp(n.x + 40); n.y = clamp(n.y + 40); } });   // deslocado, para não ficar escondido atrás do original
+    s.clear(); newIds.forEach(function (id) { s.add(id); });
+    call('invalidateStructure'); call('saveStoriesStorage'); call('renderApp');
+  }
+  function copySelection() {
+    var n = selSet().size; call('copySelectedNodes');
+    toast(plural(n, 'nó copiado.', 'nós copiados.'), 'success', 1400);
+  }
+  function addSibling(id) {
+    var nid = call('createSibling', id);
+    if (nid) { var s = selSet(); s.clear(); s.add(nid); call('commit'); call('startInlineEdit', nid, 'title'); }
+  }
+  function newNodeAt(cx, cy) {
+    var d = mapData(); if (!d) return;
+    if (d.beatSheetMode || d.beatSortMode || d.timelineMode) { call('addNewNode'); return; }   // nesses modos o app posiciona sozinho
+    var id = call('generateNodeId');
+    var pos = call('findFreePosition', clamp(cx - nodeW() / 2), clamp(cy - 40)) || { x: cx, y: cy };
+    d.nodes.push({ id: id, title: 'Novo nó de enredo', content: 'Escreva os detalhes...', parentId: null, x: pos.x, y: pos.y, color: 'white', icons: [], collapsed: false, tension: 0, beatId: null, type: null, pov: '', typeData: {}, isVariant: false, variantOf: null, variantLabel: '' });
+    call('rebuildNodeIndex');
+    var s = selSet(); s.clear(); s.add(id);
+    call('commit'); call('startInlineEdit', id, 'title');
+  }
+  function pasteAt(cx, cy) {
+    var cb = typeof nodeClipboard !== 'undefined' ? nodeClipboard : null, d = mapData();
+    if (!cb || !cb.nodes || !cb.nodes.length || !d) return;
+    call('pushHistory');
+    var idMap = {}; cb.nodes.forEach(function (n) { idMap[n.id] = call('generateNodeId'); });
+    var minX = Infinity, minY = Infinity; cb.nodes.forEach(function (n) { minX = Math.min(minX, n.x); minY = Math.min(minY, n.y); });
+    var dx = cx - minX, dy = cy - minY;                       // canto superior esquerdo do grupo no ponto do clique
+    var newNodes = cb.nodes.map(function (n) {
+      var c = call('deepClone', n);
+      c.id = idMap[n.id]; c.parentId = (n.parentId && idMap[n.parentId]) ? idMap[n.parentId] : null;
+      c.x = clamp(n.x + dx); c.y = clamp(n.y + dy); c.icons = (n.icons || []).slice(); c.collapsed = false;
+      return c;
+    });
+    var newRels = (cb.relationships || []).map(function (r) {
+      return Object.assign({}, r, { id: 'rel-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), from: idMap[r.from], to: idMap[r.to], c1x: null, c1y: null, c2x: null, c2y: null });
+    });
+    d.nodes.push.apply(d.nodes, newNodes);
+    d.relationships = (d.relationships || []).concat(newRels);
+    call('rebuildNodeIndex');
+    var s = selSet(); s.clear(); newNodes.forEach(function (n) { s.add(n.id); });
+    if (d.beatSortMode) { d.beatSortLastArrangement = null; call('applyBeatSortLayout'); }
+    var ids = new Set(newNodes.map(function (n) { return n.id; }));
+    requestAnimationFrame(function () { var f = fn('resolveOverlapsForDragged'); if (f && f(ids)) call('renderApp'); });
+    call('saveStoriesStorage'); call('renderApp');
+    toast(plural(newNodes.length, 'nó colado.', 'nós colados.'), 'success', 1800);
+  }
+  function copyWikiLink(n) {
+    var text = '[[' + (n.title || '') + ']]';
+    var done = function () { toast('Link ' + text + ' copiado.', 'success', 1800); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
+    else { fallbackCopy(text); done(); }
+  }
+  function fallbackCopy(text) {
+    var t = document.createElement('textarea'); t.value = text; t.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (e) {} t.remove();
+  }
+  function undoState() { var h = typeof history !== 'undefined' && history && Array.isArray(history.stack) ? history : null; return h ? { undo: h.index > 0, redo: h.index < h.stack.length - 1 } : { undo: true, redo: true }; }
+
+  /* ------------------------------------------------------------------ menus por contexto */
+  function nodeMenu(id) {
+    var n = getN(id); if (!n) return [];
+    var s = selSet(), multi = s.size > 1 && s.has(id), count = s.size;
+    var items = [];
+    var canPaste = typeof nodeClipboard !== 'undefined' && nodeClipboard && nodeClipboard.nodes && nodeClipboard.nodes.length;
+
+    if (multi) {
+      items.push(HEAD(count + ' cartões selecionados'));
+      items.push(SUB('fa-align-left', 'Alinhar', [
+        ITEM('fa-align-left', 'À esquerda', function () { call('alignSelectedNodes', 'left'); }),
+        ITEM('fa-align-center', 'Centralizar na horizontal', function () { call('alignSelectedNodes', 'center-h'); }),
+        ITEM('fa-align-right', 'À direita', function () { call('alignSelectedNodes', 'right'); }),
+        SEP,
+        ITEM('fa-arrow-up', 'Ao topo', function () { call('alignSelectedNodes', 'top'); }),
+        ITEM('fa-grip-lines', 'Centralizar na vertical', function () { call('alignSelectedNodes', 'center-v'); }),
+        ITEM('fa-arrow-down', 'Na base', function () { call('alignSelectedNodes', 'bottom'); })
+      ]));
+      items.push(SUB('fa-arrows-left-right', 'Distribuir', [
+        ITEM('fa-arrows-left-right', 'Espaço igual na horizontal', function () { call('alignSelectedNodes', 'distribute-h'); }, { disabled: count < 3 }),
+        ITEM('fa-arrows-up-down', 'Espaço igual na vertical', function () { call('alignSelectedNodes', 'distribute-v'); }, { disabled: count < 3 })
+      ]));
+      items.push(SEP);
+    } else {
+      items.push(ITEM('fa-pen', 'Editar título', function () { call('startInlineEdit', id, 'title'); }, { hint: 'F2' }));
+      items.push(ITEM('fa-sliders', 'Abrir detalhes', function () { call('openInspectorFor', id); }));
+      if (n.type === 'scene') items.push(ITEM('fa-feather-pointed', 'Abrir rascunho da cena', function () { call('openSceneWritingMode', id); }));
+      items.push(SEP);
+      items.push(ITEM('fa-diagram-successor', 'Adicionar filho', function () { call('addChildToNode', id); }, { hint: 'Tab' }));
+      items.push(ITEM('fa-share-nodes', 'Adicionar irmão', function () { addSibling(id); }, { hint: 'Enter' }));
+      items.push(SEP);
     }
 
-    // ---- Aplicações em lote (não existem como API pública) ----
-    const MULTI_COLORS = [
-        { id: 'purple',  hex: '#a855f7', label: 'Roxo' },
-        { id: 'orange',  hex: '#f59e0b', label: 'Laranja' },
-        { id: 'white',   hex: '#ffffff', label: 'Branco' },
-        { id: 'blue',    hex: '#3b82f6', label: 'Azul' },
-        { id: 'emerald', hex: '#10b981', label: 'Verde' },
-        { id: 'rose',    hex: '#f43f5e', label: 'Vermelho' }
+    items.push(ITEM('fa-clone', multi ? 'Duplicar seleção' : 'Duplicar', duplicateSelection, { hint: 'Ctrl+D' }));
+    items.push(ITEM('fa-copy', multi ? 'Copiar seleção' : 'Copiar', copySelection, { hint: 'Ctrl+C' }));
+    items.push(ITEM('fa-scissors', multi ? 'Recortar seleção' : 'Recortar', function () { call('cutSelectedNodes'); }, { hint: 'Ctrl+X' }));
+    if (!multi) items.push(ITEM('fa-paste', 'Colar como filho', function () { call('pasteClipboard'); }, { hint: 'Ctrl+V', disabled: !canPaste }));
+    items.push(ITEM('fa-trash', multi ? 'Excluir seleção' : 'Excluir', function () { call('deleteSelectedNodes'); }, { hint: 'Del', danger: true }));
+    items.push(SEP);
+
+    items.push(SUB('fa-palette', 'Cor', colorRow(multi ? null : n.color)));
+    items.push(SUB('fa-shapes', 'Tipo', typeItems(multi ? null : n.type)));
+    items.push(SUB('fa-bolt', 'Tensão', tensionRow(multi ? null : n.tension)));
+    var beats = beatItems(multi ? null : n.beatId);
+    if (beats) items.push(SUB('fa-flag', 'Beat da estrutura', beats));
+    items.push(SEP);
+
+    if (!multi) {
+      if (hasChildren(id)) items.push(ITEM(n.collapsed ? 'fa-expand' : 'fa-compress', n.collapsed ? 'Expandir ramo' : 'Recolher ramo', function () { call('toggleCollapse', id); }));
+      items.push(ITEM('fa-sitemap', 'Selecionar ramo inteiro', function () { call('selectDescendants'); }));
+      var inFocus = typeof focusModeNodeId !== 'undefined' && focusModeNodeId;
+      items.push(ITEM('fa-bullseye', inFocus ? 'Sair do modo foco' : 'Modo foco neste nó', function () { call('toggleFocusMode'); }));
+      items.push(ITEM('fa-crosshairs', 'Centralizar na tela', function () { call('focusNodeInView', n); }));
+      items.push(SEP);
+    } else {
+      items.push(ITEM('fa-sitemap', 'Incluir descendentes na seleção', function () { call('selectDescendants'); }));
+    }
+
+    items.push(SUB('fa-folder-tree', 'Mover para aba', sheetTargets()));
+    if (!multi) {
+      items.push(ITEM('fa-code-branch', 'Extrair ramo para nova aba', function () { var f = $('edit-node-id'); if (f) f.value = id; call('extractCurrentNodeToNewSheet'); }));
+      items.push(ITEM('fa-link', 'Iniciar relação daqui', function () { call('setTool', 'relation'); call('handleRelationshipClick', id); }));
+      items.push(ITEM('fa-at', 'Copiar como [[link]]', function () { copyWikiLink(n); }));
+    } else {
+      items.push(ITEM('fa-image', 'Exportar seleção como PNG', function () { call('exportPNG', 'selected'); }));
+    }
+    return items;
+  }
+
+  function bgMenu(cx, cy) {
+    var d = mapData(); if (!d) return [];
+    var canPaste = typeof nodeClipboard !== 'undefined' && nodeClipboard && nodeClipboard.nodes && nodeClipboard.nodes.length;
+    var u = undoState(), layout = d.layout || 'tree';
+    var minimap = typeof minimapVisible !== 'undefined' && minimapVisible, tension = typeof tensionStripVisible !== 'undefined' && tensionStripVisible;
+    return [
+      ITEM('fa-circle-plus', 'Novo nó aqui', function () { newNodeAt(cx, cy); }),
+      ITEM('fa-paste', 'Colar aqui', function () { pasteAt(cx, cy); }, { hint: 'Ctrl+V', disabled: !canPaste }),
+      SEP,
+      ITEM('fa-object-group', 'Selecionar tudo', function () { call('selectAllNodes'); }, { hint: 'Ctrl+A' }),
+      ITEM('fa-rotate-left', 'Desfazer', function () { call('undo'); }, { hint: 'Ctrl+Z', disabled: !u.undo }),
+      ITEM('fa-rotate-right', 'Refazer', function () { call('redo'); }, { hint: 'Ctrl+Y', disabled: !u.redo }),
+      SEP,
+      SUB('fa-eye', 'Visualização', [
+        ITEM('fa-expand', 'Ajustar à tela', function () { call('fitView'); }),
+        ITEM('fa-magnifying-glass', 'Zoom 100%', function () { call('resetView'); }),
+        SEP,
+        ITEM('fa-map', 'Minimapa', function () { call('toggleMinimap'); }, { on: minimap }),
+        ITEM('fa-chart-line', 'Curva de tensão', function () { call('toggleTensionStrip'); }, { on: tension }),
+        ITEM('fa-list-ul', 'Estrutura (lista lateral)', function () { call('toggleOutline'); })
+      ]),
+      SUB('fa-wand-magic-sparkles', 'Organizar', [
+        ITEM('fa-wand-magic-sparkles', 'Organizar automaticamente', function () { call('autoLayoutNodes'); }),
+        SEP,
+        ITEM('fa-diagram-project', 'Layout em árvore', function () { call('changeLayout', 'tree'); }, { on: layout === 'tree' }),
+        ITEM('fa-sitemap', 'Layout de organograma', function () { call('changeLayout', 'org'); }, { on: layout === 'org' }),
+        ITEM('fa-bullseye', 'Layout radial', function () { call('changeLayout', 'radial'); }, { on: layout === 'radial' }),
+        SEP,
+        ITEM('fa-compress', 'Recolher tudo', function () { call('collapseAll'); }),
+        ITEM('fa-expand', 'Expandir tudo', function () { call('expandAll'); })
+      ]),
+      SUB('fa-file-export', 'Exportar', [
+        ITEM('fa-image', 'Imagem PNG (mapa inteiro)', function () { call('exportPNG', 'all'); }),
+        ITEM('fa-bezier-curve', 'Imagem SVG', function () { call('exportSVG'); }),
+        ITEM('fa-file-lines', 'Texto Markdown', function () { call('exportMarkdown'); }),
+        ITEM('fa-database', 'Backup (JSON)', function () { call('exportDataWithDialog'); })
+      ]),
+      SEP,
+      ITEM('fa-book-open', 'Bíblia da história', function () { call('openStoryBible'); }, { hint: 'Ctrl+B' })
     ];
+  }
 
-    function tensionColorForMenu(v) {
-        if (v === 0) return '#cbd5e1';
-        if (v <= 3) return '#10b981';
-        if (v <= 6) return '#fbbf24';
-        if (v <= 8) return '#f97316';
-        return '#ef4444';
+  function relMenu(relId) {
+    var d = mapData(); if (!d) return [];
+    var rel = (d.relationships || []).find(function (r) { return r.id === relId; }); if (!rel) return [];
+    var colors = typeof RELATIONSHIP_COLORS !== 'undefined' ? RELATIONSHIP_COLORS : {};
+    var commit = function (mutate) { call('pushHistory'); mutate(); call('saveStoriesStorage'); call('renderApp'); };
+    return [
+      ITEM('fa-pen', 'Editar rótulo e detalhes', function () { call('openRelationshipEditor', rel); call('renderApp'); }),
+      { t: 'sw', list: Object.keys(colors).map(function (k) { return { label: k, bg: colors[k], border: colors[k], on: rel.color === k, action: function () { commit(function () { rel.color = k; }); } }; }) },
+      SEP,
+      ITEM('fa-arrows-left-right', 'Inverter direção', function () { commit(function () { var f = rel.from; rel.from = rel.to; rel.to = f; rel.c1x = rel.c1y = rel.c2x = rel.c2y = null; }); }),
+      ITEM('fa-bezier-curve', 'Resetar curva', function () { commit(function () { rel.c1x = rel.c1y = rel.c2x = rel.c2y = null; }); }),
+      SEP,
+      ITEM('fa-trash', 'Excluir relação', function () { if (typeof selectedRelationshipId !== 'undefined') selectedRelationshipId = rel.id; call('deleteSelectedRelationship'); }, { danger: true })
+    ];
+  }
+
+  /* ------------------------------------------------------------------ interface do menu */
+  var S = { open: false, sheet: false, root: null, panel: null, back: null, fly: null, flyRow: null, stack: [], openedAt: 0, tOpen: 0, tClose: 0, ctx: null };
+  var extenders = {};
+
+  function injectStyle() {
+    if ($('sm-ctx-style')) return;
+    var st = document.createElement('style'); st.id = 'sm-ctx-style';
+    st.textContent = [
+      '#canvas-container{-webkit-touch-callout:none}',
+      '.sm-ctx-layer{position:fixed;inset:0;z-index:9000;pointer-events:none}',
+      '.sm-ctx-back{position:fixed;inset:0;background:rgba(15,23,42,.45);pointer-events:auto}',
+      '.sm-ctx{position:fixed;box-sizing:border-box;min-width:224px;max-width:min(330px,calc(100vw - 16px));max-height:calc(100vh - 16px);overflow-y:auto;overscroll-behavior:contain;padding:6px;border-radius:12px;pointer-events:auto;',
+      'background:#fff;color:#1e293b;border:1px solid #e2e8f0;box-shadow:0 18px 40px -12px rgba(15,23,42,.35),0 2px 8px rgba(15,23,42,.08);font:500 13.5px/1.25 Inter,system-ui,-apple-system,Segoe UI,sans-serif;animation:sm-ctx-in .12s ease-out}',
+      '.sm-ctx.dark{background:#1e293b;color:#e2e8f0;border-color:#334155}',
+      '.sm-ctx-item{display:flex;align-items:center;gap:10px;width:100%;min-height:34px;padding:7px 10px;border:0;border-radius:8px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;position:relative}',
+      '.sm-ctx-item:hover,.sm-ctx-item:focus-visible,.sm-ctx-item.act{background:#eef2ff;outline:none}',
+      '.dark .sm-ctx-item:hover,.dark .sm-ctx-item:focus-visible,.dark .sm-ctx-item.act{background:#334155}',
+      '.sm-ctx-item[aria-disabled="true"]{opacity:.4;cursor:default}',
+      '.sm-ctx-item[aria-disabled="true"]:hover{background:none}',
+      '.sm-ctx-item.danger{color:#e11d48}',
+      '.sm-ctx-ico{flex:none;width:18px;text-align:center;color:#64748b;font-size:13px}',
+      '.dark .sm-ctx-ico{color:#94a3b8}.sm-ctx-item.danger .sm-ctx-ico{color:inherit}',
+      '.sm-ctx-lbl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.sm-ctx-hint{flex:none;margin-left:14px;color:#94a3b8;font-size:12px}',
+      '.sm-ctx-arrow{flex:none;color:#94a3b8;font-size:11px}',
+      '.sm-ctx-check{flex:none;color:#6366f1;font-size:12px}',
+      '.sm-ctx-sep{height:1px;margin:6px 4px;background:#e2e8f0}.dark .sm-ctx-sep{background:#334155}',
+      '.sm-ctx-head{padding:6px 10px 4px;color:#64748b;font-size:12px}',
+      '.sm-ctx-row{display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px}',
+      '.sm-ctx-dot{width:26px;height:26px;padding:0;border-radius:50%;border:2px solid;cursor:pointer}',
+      '.sm-ctx-dot.on{box-shadow:0 0 0 2px #fff,0 0 0 4px #6366f1}',
+      '.sm-ctx-dot:focus-visible{outline:2px solid #6366f1;outline-offset:2px}',
+      '.sm-ctx-chip{min-width:30px;height:30px;padding:0 6px;border-radius:8px;border:1px solid #cbd5e1;background:transparent;color:inherit;font:inherit;cursor:pointer}',
+      '.sm-ctx-chip.on{background:#6366f1;border-color:#6366f1;color:#fff}.sm-ctx-chip:hover{border-color:#6366f1}',
+      '.sm-ctx-chip:focus-visible{outline:2px solid #6366f1;outline-offset:2px}',
+      '.sm-ctx.sheet{left:8px!important;right:8px!important;top:auto!important;bottom:calc(8px + env(safe-area-inset-bottom))!important;max-width:none;max-height:74vh;padding:8px;border-radius:18px;animation:sm-ctx-up .18s ease-out}',
+      '.sm-ctx.sheet .sm-ctx-item{min-height:48px;padding:10px 12px;font-size:15.5px}',
+      '.sm-ctx.sheet .sm-ctx-dot{width:36px;height:36px}.sm-ctx.sheet .sm-ctx-chip{min-width:40px;height:40px}',
+      '.sm-ctx.sheet .sm-ctx-hint{display:none}',
+      '@keyframes sm-ctx-in{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}',
+      '@keyframes sm-ctx-up{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}',
+      '@media (prefers-reduced-motion:reduce){.sm-ctx{animation:none!important}}'
+    ].join('');
+    document.head.appendChild(st);
+  }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function icon(ic) {
+    var s = el('span', 'sm-ctx-ico');
+    if (!ic) return s;
+    if (ic.indexOf('fa-') === 0) { var i = el('i', 'fa-solid ' + ic); i.setAttribute('aria-hidden', 'true'); s.appendChild(i); } else s.textContent = ic;
+    return s;
+  }
+  function ensureRoot() {
+    if (S.root) return;
+    injectStyle();
+    S.root = el('div', 'sm-ctx-layer'); S.root.id = 'sm-ctx-root'; S.root.hidden = true;
+    document.body.appendChild(S.root);
+    S.root.addEventListener('click', onMenuClick);
+    S.root.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    S.root.addEventListener('mouseover', onMenuHover);
+  }
+
+  function renderItems(panel, items) {
+    panel.textContent = '';
+    items.forEach(function (it) {
+      if (it.t === 'sep') { panel.appendChild(el('div', 'sm-ctx-sep')); return; }
+      if (it.t === 'head') { panel.appendChild(el('div', 'sm-ctx-head', it.label)); return; }
+      if (it.t === 'sw' || it.t === 'chips') {
+        var row = el('div', 'sm-ctx-row'); row.setAttribute('role', 'group');
+        it.list.forEach(function (c) {
+          var b;
+          if (it.t === 'sw') { b = el('button', 'sm-ctx-dot' + (c.on ? ' on' : '')); b.style.background = c.bg; b.style.borderColor = c.border; b.title = c.label; b.setAttribute('aria-label', c.label); }
+          else { b = el('button', 'sm-ctx-chip' + (c.on ? ' on' : ''), c.label); }
+          b.type = 'button'; b.tabIndex = -1; b.setAttribute('role', 'menuitemradio'); b.setAttribute('aria-checked', c.on ? 'true' : 'false'); b._it = c; row.appendChild(b);
+        });
+        panel.appendChild(row); return;
+      }
+      var b2 = el('button', 'sm-ctx-item' + (it.danger ? ' danger' : '') + (it.t === 'sub' ? ' sub' : ''));
+      b2.type = 'button'; b2.tabIndex = -1; b2._it = it;
+      b2.setAttribute('role', it.on !== undefined && it.t === 'item' ? 'menuitemcheckbox' : 'menuitem');
+      if (it.on !== undefined && it.t === 'item') b2.setAttribute('aria-checked', it.on ? 'true' : 'false');
+      if (it.disabled) b2.setAttribute('aria-disabled', 'true');
+      if (it.t === 'sub') { b2.setAttribute('aria-haspopup', 'menu'); b2.setAttribute('aria-expanded', 'false'); }
+      b2.appendChild(icon(it.icon)); b2.appendChild(el('span', 'sm-ctx-lbl', it.label));
+      if (it.on && it.t === 'item') { var ck = el('i', 'fa-solid fa-check sm-ctx-check'); ck.setAttribute('aria-hidden', 'true'); b2.appendChild(ck); }
+      if (it.hint) b2.appendChild(el('span', 'sm-ctx-hint', it.hint));
+      if (it.t === 'sub') { var ar = el('i', 'fa-solid fa-chevron-right sm-ctx-arrow'); ar.setAttribute('aria-hidden', 'true'); b2.appendChild(ar); }
+      panel.appendChild(b2);
+    });
+  }
+  function newPanel(items, cls) {
+    var p = el('div', 'sm-ctx' + (isDark() ? ' dark' : '') + (cls ? ' ' + cls : '')); p.setAttribute('role', 'menu'); p.tabIndex = -1;
+    renderItems(p, items); return p;
+  }
+  function place(p, x, y) {
+    p.style.left = '0px'; p.style.top = '0px'; p.style.visibility = 'hidden';
+    var w = p.offsetWidth, h = p.offsetHeight, left = x + 2, top = y + 2;
+    if (left + w > innerWidth - EDGE) left = Math.max(EDGE, x - w - 2);
+    if (top + h > innerHeight - EDGE) top = Math.max(EDGE, innerHeight - h - EDGE);
+    p.style.left = left + 'px'; p.style.top = top + 'px'; p.style.visibility = '';
+  }
+
+  function close() {
+    clearTimeout(S.tOpen); clearTimeout(S.tClose);
+    if (!S.open) return;
+    S.open = false; S.stack = []; S.fly = null; S.flyRow = null; S.panel = null;
+    if (S.root) { S.root.textContent = ''; S.root.hidden = true; }
+  }
+
+  function focusables(panel) { return Array.prototype.slice.call(panel.querySelectorAll('.sm-ctx-item:not([aria-disabled="true"]),.sm-ctx-dot,.sm-ctx-chip')); }
+  function focusFirst(panel) { var f = focusables(panel); if (f[0]) { f[0].focus(); f[0].classList.add('act'); } }
+
+  /* submenus: desktop = flyout ao lado; celular = troca o conteúdo da folha (com "Voltar") */
+  function openSub(row, viaKeyboard) {
+    var it = row._it; if (!it || it.t !== 'sub') return;
+    if (S.sheet) {
+      S.stack.push({ items: S.panel._items, title: null });
+      var items = [ITEM('fa-chevron-left', it.label, function () { goBack(); }, { back: true }), SEP].concat(it.items);
+      S.panel._items = items; renderItems(S.panel, items); S.panel.scrollTop = 0; return;
     }
+    if (S.flyRow === row && S.fly) return;
+    closeFly();
+    var f = newPanel(it.items, 'fly'); f._items = it.items; S.root.appendChild(f); S.fly = f; S.flyRow = row; row.setAttribute('aria-expanded', 'true'); row.classList.add('act');
+    var rr = row.getBoundingClientRect(), pr = S.panel.getBoundingClientRect();
+    f.style.visibility = 'hidden'; f.style.left = '0px'; f.style.top = '0px';
+    var w = f.offsetWidth, h = f.offsetHeight, left = pr.right - 4, top = rr.top - 6;
+    if (left + w > innerWidth - EDGE) left = Math.max(EDGE, pr.left - w + 4);
+    if (top + h > innerHeight - EDGE) top = Math.max(EDGE, innerHeight - h - EDGE);
+    f.style.left = left + 'px'; f.style.top = top + 'px'; f.style.visibility = '';
+    if (viaKeyboard) focusFirst(f);
+  }
+  function closeFly(refocus) {
+    if (S.fly) { S.fly.remove(); S.fly = null; }
+    if (S.flyRow) { S.flyRow.setAttribute('aria-expanded', 'false'); S.flyRow.classList.remove('act'); if (refocus) S.flyRow.focus(); S.flyRow = null; }
+  }
+  function goBack() {
+    var prev = S.stack.pop(); if (!prev) return;
+    S.panel._items = prev.items; renderItems(S.panel, prev.items); S.panel.scrollTop = 0;
+  }
 
-    function applyFieldToSelected(field, value, label) {
-        const nodes = getSelectedNodes();
-        if (!nodes.length) return;
-        window.pushHistory();
-        nodes.forEach(n => {
-            if (field === 'type') {
-                if (value === '__clear') n.type = null;
-                else {
-                    n.type = value;
-                    if (!n.typeData) n.typeData = {};
-                }
-                if (window.domCache?.invalidateHeight) window.domCache.invalidateHeight(n.id);
-            } else {
-                n[field] = value;
-            }
-        });
-        window.saveStoriesStorage();
-        window.renderApp();
-        window.showToast?.(`${label} aplicado a ${nodes.length} nó(s).`, 'success', 1500);
+  function activate(node) {
+    var it = node._it; if (!it) return;
+    if (Date.now() - S.openedAt < GUARD_MS) return;                       // clique "fantasma" logo após o toque longo
+    if (it.disabled) return;
+    if (it.t === 'sub') { openSub(node, true); return; }
+    if (it.back) { goBack(); return; }
+    var action = it.action; close();
+    if (!action) return;
+    requestAnimationFrame(function () {                                   // deixa o menu sumir antes da ação (que pode redesenhar o mapa)
+      setTimeout(function () {
+        try { action(); } catch (err) { console.error('[SM_CTX]', err); toast('Não foi possível executar essa ação.', 'error'); }
+      }, 0);
+    });
+  }
+  function onMenuClick(e) {
+    var n = e.target.closest('.sm-ctx-item,.sm-ctx-dot,.sm-ctx-chip');
+    if (n) { e.preventDefault(); activate(n); }
+  }
+  function onMenuHover(e) {                                               // intenção de hover para abrir/fechar submenus (só com mouse)
+    if (S.sheet) return;
+    var row = e.target.closest('.sm-ctx-item'); if (!row) return;
+    var inFly = !!row.closest('.sm-ctx.fly');
+    clearTimeout(S.tClose);
+    if (inFly) return;
+    clearTimeout(S.tOpen);
+    var it = row._it;
+    if (it && it.t === 'sub' && !it.disabled) S.tOpen = setTimeout(function () { openSub(row, false); }, 130);
+    else if (S.fly) S.tClose = setTimeout(function () { closeFly(); }, 220);
+  }
+
+  /* ------------------------------------------------------------------ abrir */
+  function hitInfo(t) {
+    if (!t || !t.closest || !t.closest('#canvas-container')) return null;
+    if (t.closest('input,textarea,select,[contenteditable="true"],.rel-handle,#focus-pill,#beat-pill,#narrative-pill,#marquee-box')) return null;
+    var card = t.closest('.node-card'); if (card && card.dataset.nodeId) return { kind: 'node', id: card.dataset.nodeId };
+    var path = t.closest('.relationship-path'); if (path && path.dataset.relId) return { kind: 'rel', id: path.dataset.relId };
+    return { kind: 'bg' };
+  }
+
+  function openMenu(hit, x, y, touch) {
+    if (!mapData()) return;
+    ensureRoot(); close();
+    call('hideNodeTooltip');
+    var pt = call('getCanvasPoint', { clientX: x, clientY: y }) || { canvasX: 0, canvasY: 0 };
+    var items;
+    if (hit.kind === 'node') {
+      if (!getN(hit.id)) return;
+      if (!selSet().has(hit.id)) fastSelect([hit.id]);                    // como no sistema: clicar com o direito num item não selecionado seleciona só ele
+      items = nodeMenu(hit.id);
+    } else if (hit.kind === 'rel') { items = relMenu(hit.id); }
+    else { items = bgMenu(pt.canvasX, pt.canvasY); }
+    (extenders[hit.kind] || []).forEach(function (f) { try { items = f(items, { kind: hit.kind, id: hit.id, x: pt.canvasX, y: pt.canvasY }) || items; } catch (e) { console.error('[SM_CTX]', e); } });
+    if (!items.length) return;
+
+    S.sheet = !!touch; S.openedAt = Date.now(); S.open = true; S.ctx = hit; S.stack = [];
+    S.root.hidden = false; S.root.textContent = '';
+    if (S.sheet) { var bk = el('div', 'sm-ctx-back'); bk.addEventListener('pointerdown', function (e) { if (Date.now() - S.openedAt > GUARD_MS) { e.preventDefault(); close(); } }); S.root.appendChild(bk); }
+    var p = newPanel(items, S.sheet ? 'sheet' : ''); p._items = items; S.panel = p; S.root.appendChild(p);
+    if (!S.sheet) place(p, x, y);
+    p.focus({ preventScroll: true });
+    if (navigator.vibrate && touch) { try { navigator.vibrate(12); } catch (e) {} }
+  }
+
+  /* ------------------------------------------------------------------ eventos */
+  var isMac = /Mac|iPhone|iPad/.test(navigator.platform || '');
+  var lp = null;
+  function lpCancel() { if (lp) { clearTimeout(lp.timer); lp = null; } }
+
+  document.addEventListener('contextmenu', function (e) {
+    if (e.target.closest && e.target.closest('.sm-ctx-layer')) { e.preventDefault(); return; }
+    var hit = hitInfo(e.target); if (!hit) return;                         // fora do mapa (ou campo de texto): comportamento normal
+    e.preventDefault(); e.stopPropagation();
+    if (S.open && Date.now() - S.openedAt < 800) return;                   // toque longo: o navegador e o nosso timer podem disparar juntos
+    lpCancel();
+    var touch = e.pointerType ? e.pointerType !== 'mouse' : (S.sheetHint === true);
+    openMenu(hit, e.clientX, e.clientY, touch);
+  }, true);
+
+  document.addEventListener('pointerdown', function (e) {
+    var inMenu = e.target.closest && e.target.closest('.sm-ctx');
+    if (S.open && !inMenu) {
+      if (S.sheet && e.target.closest && e.target.closest('.sm-ctx-back')) return;   // o fundo escurecido tem tratamento próprio
+      close();
     }
-
-    // ---- Submenus ----
-    function buildAlignSubmenu(x, y) {
-        if (submenuEl) submenuEl.remove();
-        submenuEl = document.createElement('div');
-        submenuEl.className = 'sm-cm-submenu';
-
-        const canDistribute = getSelectedNodes().length >= 3;
-
-        submenuEl.appendChild(createItem('⬅', 'Esquerda',    'Ctrl+Shift+←', () => window.alignSelectedNodes('left')));
-        submenuEl.appendChild(createItem('↔', 'Centro H',    'Ctrl+Shift+C', () => window.alignSelectedNodes('center-h')));
-        submenuEl.appendChild(createItem('➡', 'Direita',     'Ctrl+Shift+→', () => window.alignSelectedNodes('right')));
-        submenuEl.appendChild(createDivider());
-        submenuEl.appendChild(createItem('⬆', 'Topo',        'Ctrl+Shift+↑', () => window.alignSelectedNodes('top')));
-        submenuEl.appendChild(createItem('↕', 'Centro V',    'Ctrl+Shift+M', () => window.alignSelectedNodes('center-v')));
-        submenuEl.appendChild(createItem('⬇', 'Base',        'Ctrl+Shift+↓', () => window.alignSelectedNodes('bottom')));
-        submenuEl.appendChild(createDivider());
-        submenuEl.appendChild(createItem('⋯', 'Distribuir H', 'Ctrl+Shift+H', () => window.alignSelectedNodes('distribute-h'), false, !canDistribute));
-        submenuEl.appendChild(createItem('⋮', 'Distribuir V', 'Ctrl+Shift+V', () => window.alignSelectedNodes('distribute-v'), false, !canDistribute));
-
-        document.body.appendChild(submenuEl);
-        positionMenu(submenuEl, x, y);
+    if (inMenu) return;
+    var hit = hitInfo(e.target);
+    // 1) botão direito (ou Ctrl+clique no Mac): não é clique de seleção/arrasto. O app antes limpava a seleção e redesenhava tudo.
+    if (e.pointerType === 'mouse' && hit && (e.button === 2 || (isMac && e.button === 0 && e.ctrlKey))) { e.stopImmediatePropagation(); return; }
+    // 2) toque longo
+    if (e.pointerType !== 'mouse') {
+      if (e.isPrimary === false) { lpCancel(); return; }
+      lpCancel();
+      if (!hit) return;
+      lp = { x: e.clientX, y: e.clientY, hit: hit, timer: setTimeout(function () {
+        var h = lp && lp.hit, x = lp && lp.x, y = lp && lp.y; lp = null;
+        if (!h) return;
+        call('cancelAllInteractions');                                     // desfaz o "arrastar" que o app iniciou no toque
+        S.sheetHint = true; openMenu(h, x, y, true);
+      }, LONG_PRESS_MS) };
     }
+  }, true);
+  document.addEventListener('pointermove', function (e) {
+    if (lp && Math.abs(e.clientX - lp.x) + Math.abs(e.clientY - lp.y) > MOVE_TOL) lpCancel();
+  }, true);
+  ['pointerup', 'pointercancel'].forEach(function (t) { document.addEventListener(t, lpCancel, true); });
 
-    function buildMultiColorSubmenu(x, y) {
-        if (submenuEl) submenuEl.remove();
-        submenuEl = document.createElement('div');
-        submenuEl.className = 'sm-cm-submenu';
+  document.addEventListener('keydown', function (e) {
+    if (!S.open) return;
+    var k = e.key, panel = S.fly || S.panel; if (!panel) return;
+    var stop = function () { e.preventDefault(); e.stopImmediatePropagation(); };
+    if (k === 'Escape') { stop(); if (S.fly) closeFly(true); else if (S.stack.length) goBack(); else close(); return; }
+    if (k === 'Tab') { close(); return; }
+    var list = focusables(panel), i = list.indexOf(document.activeElement);
+    if (k === 'ArrowDown') { stop(); var nx = list[(i + 1 + list.length) % list.length]; if (nx) { nx.focus(); } return; }
+    if (k === 'ArrowUp') { stop(); var pv = list[i <= 0 ? list.length - 1 : i - 1]; if (pv) pv.focus(); return; }
+    if (k === 'Home') { stop(); if (list[0]) list[0].focus(); return; }
+    if (k === 'End') { stop(); if (list.length) list[list.length - 1].focus(); return; }
+    if (k === 'ArrowRight') { var cur = document.activeElement; if (cur && cur._it && cur._it.t === 'sub') { stop(); openSub(cur, true); } return; }
+    if (k === 'ArrowLeft') { if (S.fly) { stop(); closeFly(true); } else if (S.stack.length) { stop(); goBack(); } return; }
+    if (k === 'Enter' || k === ' ') { var c = document.activeElement; if (c && c._it) { stop(); S.openedAt = 0; activate(c); } }
+  }, true);
 
-        MULTI_COLORS.forEach(c => {
-            const item = createItem('', c.label, '', () => applyFieldToSelected('color', c.id, 'Cor'));
-            const iconBox = item.querySelector('.sm-cm-icon');
-            if (iconBox) {
-                const border = c.id === 'white' ? 'border:1px solid #cbd5e1;' : '';
-                iconBox.innerHTML = `<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${c.hex};${border}box-shadow:0 0 0 1px rgba(0,0,0,0.06);"></span>`;
-            }
-            submenuEl.appendChild(item);
-        });
+  ['wheel', 'resize', 'blur'].forEach(function (t) { window.addEventListener(t, function (e) { if (S.open && !(e.target && e.target.closest && e.target.closest('.sm-ctx'))) close(); }, true); });
+  document.addEventListener('visibilitychange', function () { if (document.hidden) close(); });
 
-        document.body.appendChild(submenuEl);
-        positionMenu(submenuEl, x, y);
-    }
-
-    function buildMultiTensionSubmenu(x, y) {
-        if (submenuEl) submenuEl.remove();
-        submenuEl = document.createElement('div');
-        submenuEl.className = 'sm-cm-submenu';
-
-        for (let i = 0; i <= 10; i++) {
-            const color = tensionColorForMenu(i);
-            const label = i === 0 ? 'Sem tensão' : `Tensão ${i}`;
-            const item = createItem('', label, '', () => applyFieldToSelected('tension', i, `Tensão ${i}`));
-            const iconBox = item.querySelector('.sm-cm-icon');
-            if (iconBox) {
-                iconBox.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};"></span>`;
-            }
-            submenuEl.appendChild(item);
-        }
-
-        document.body.appendChild(submenuEl);
-        positionMenu(submenuEl, x, y);
-    }
-
-    function buildMultiTypeSubmenu(x, y) {
-        if (submenuEl) submenuEl.remove();
-        submenuEl = document.createElement('div');
-        submenuEl.className = 'sm-cm-submenu';
-
-        submenuEl.appendChild(createItem('✖', 'Sem tipo (limpar)', '', () => applyFieldToSelected('type', '__clear', 'Tipo')));
-        submenuEl.appendChild(createDivider());
-
-        const types = window.NODE_TYPES || {};
-        Object.values(types).forEach(t => {
-            submenuEl.appendChild(createItem(t.icon, window.escapeHTML?.(t.label) ?? t.label, '',
-                () => applyFieldToSelected('type', t.id, `Tipo "${t.label}"`)));
-        });
-
-        document.body.appendChild(submenuEl);
-        positionMenu(submenuEl, x, y);
-    }
-
-    // ---- Menu principal multi-nó ----
-    function buildMultiNodeMenu(clientX, clientY) {
-        closeMenu();
-        injectCSS();
-
-        const nodes = getSelectedNodes();
-        if (nodes.length < 2) return;
-
-        menuEl = document.createElement('div');
-        menuEl.className = 'sm-cm-menu';
-
-        // Header contextual
-        const header = document.createElement('div');
-        header.className = 'sm-cm-header';
-        header.innerHTML = `<span>📚</span><span>${nodes.length} nós selecionados</span>`;
-        menuEl.appendChild(header);
-
-        // Editar em lote
-        menuEl.appendChild(createItem('📝', `Editar ${nodes.length} nós em lote`, '',
-            () => window.openMultiInspector?.()));
-        menuEl.appendChild(createDivider());
-
-        // Alinhar
-        const alignItem = createItem('📐', 'Alinhar', '', null, false, false, true);
-        alignItem.addEventListener('mouseenter', () => {
-            const r = alignItem.getBoundingClientRect();
-            buildAlignSubmenu(r.right, r.top);
-        });
-        alignItem.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const r = alignItem.getBoundingClientRect();
-            buildAlignSubmenu(r.left, r.bottom);
-        });
-        menuEl.appendChild(alignItem);
-
-        // Cor
-        const colorItem = createItem('🎨', 'Aplicar cor', '', null, false, false, true);
-        colorItem.addEventListener('mouseenter', () => {
-            const r = colorItem.getBoundingClientRect();
-            buildMultiColorSubmenu(r.right, r.top);
-        });
-        colorItem.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const r = colorItem.getBoundingClientRect();
-            buildMultiColorSubmenu(r.left, r.bottom);
-        });
-        menuEl.appendChild(colorItem);
-
-        // Tensão
-        const tensionItem = createItem('🔥', 'Aplicar tensão', '', null, false, false, true);
-        tensionItem.addEventListener('mouseenter', () => {
-            const r = tensionItem.getBoundingClientRect();
-            buildMultiTensionSubmenu(r.right, r.top);
-        });
-        tensionItem.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const r = tensionItem.getBoundingClientRect();
-            buildMultiTensionSubmenu(r.left, r.bottom);
-        });
-        menuEl.appendChild(tensionItem);
-
-        // Tipo
-        const typeItem = createItem('🎭', 'Aplicar tipo', '', null, false, false, true);
-        typeItem.addEventListener('mouseenter', () => {
-            const r = typeItem.getBoundingClientRect();
-            buildMultiTypeSubmenu(r.right, r.top);
-        });
-        typeItem.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const r = typeItem.getBoundingClientRect();
-            buildMultiTypeSubmenu(r.left, r.bottom);
-        });
-        menuEl.appendChild(typeItem);
-
-        menuEl.appendChild(createDivider());
-
-        // Copiar / Recortar
-        menuEl.appendChild(createItem('📄', 'Copiar todos', 'Ctrl+C',
-            () => window.copySelectedNodes?.()));
-        menuEl.appendChild(createItem('✂️', 'Recortar todos', 'Ctrl+X',
-            () => window.cutSelectedNodes?.()));
-
-        menuEl.appendChild(createDivider());
-
-        // Excluir todos
-        menuEl.appendChild(createItem('🗑️', `Excluir todos (${nodes.length})`, 'Del',
-            () => window.deleteSelectedNodes?.(), true));
-
-        document.body.appendChild(menuEl);
-        positionMenu(menuEl, clientX, clientY);
-        setupAutoClose();
-    }
+  /* ------------------------------------------------------------------ API pública */
+  window.SM_CTX = {
+    isOpen: function () { return S.open; },
+    close: close,
+    // permite acrescentar itens: SM_CTX.extend('node'|'bg'|'rel', (items, ctx) => items)
+    extend: function (kind, f) { (extenders[kind] = extenders[kind] || []).push(f); }
+  };
 })();
