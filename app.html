@@ -6319,6 +6319,11 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
             container.innerHTML = html;
         }
         // EXPOR VARIÁVEIS PARA O ARQUIVO EXTERNO
+        // EXPOR VARIÁVEIS PARA O CONTEXT MENU (FASE 2)
+window.mindMapData = mindMapData;
+
+// ── NOVO (Fase 4): acesso completo ao array de nós, sem depender do DOM ──
+window.getAllNodes = () => mindMapData.nodes;
         window.NODE_TYPES = NODE_TYPES;
         window.selectedNodeIds = selectedNodeIds;
         window.domCache = domCache;
