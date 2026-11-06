@@ -4,19 +4,8 @@
  *   <script src="assets/context-menu.js"></script>
  *   <script src="assets/context-menu-contextual.js"></script>
  *
- * Usa a API pública window.SM_CTX.extend('node', fn) para adicionar,
- * sem tocar no menu original, ações que só fazem sentido para o tipo do nó:
- *
- *  🎬 Cena        → Diagnóstico de virada de valor
- *  🧙 Personagem  → Teia de Relações · Árvore de Habilidades · Grafo de Menções
- *  📅 Timeline    → Abrir Linha do Tempo
- *  🎭 Tema        → Ver cenas que dramatizam o valor central
- *  📍 Cenário     → Ver cenas que acontecem aqui
- *  🧪 Variante    → Promover a canônica · Tornar canônico
- *  💬 Diálogo     → Ir para falante · Ir para alvo
- *
- * Nada disso substitui o menu: um HEAD "Contexto · X" + SEP cercam o bloco,
- * que é inserido antes de "Mover para aba".
+ * Debug: no console, execute `window.SM_CTX_DEBUG = true` para ver
+ * o tipo real do nó no console toda vez que o menu abrir.
  */
 (function () {
   'use strict';
@@ -25,57 +14,61 @@
     return;
   }
 
-  /* ---------- acesso ao app (mesmo padrão do context-menu.js) ---------- */
-  function $fn(name) { return typeof window[name] === 'function' ? window[name] : null; }
+  /* ---------- acesso ao app ---------- */
   function call(name) {
-    var f = $fn(name);
+    var f = typeof window[name] === 'function' ? window[name] : null;
     if (!f) return undefined;
     return f.apply(null, Array.prototype.slice.call(arguments, 1));
   }
   function getN(id) { return call('getNode', id); }
-  function mapData() { return typeof mindMapData !== 'undefined' ? mindMapData : null; }
-  function selSet() { return typeof selectedNodeIds !== 'undefined' ? selectedNodeIds : null; }
-  function nodeTypes() { return typeof NODE_TYPES !== 'undefined' ? NODE_TYPES : null; }
-  function allNodes() { var d = mapData(); return d && Array.isArray(d.nodes) ? d.nodes : []; }
-  function toast(msg, type, ms) { call('showToast', msg, type || 'info', ms || 2400); }
+  function allNodes() {
+    var d = typeof mindMapData !== 'undefined' ? mindMapData : null;
+    return d && Array.isArray(d.nodes) ? d.nodes : [];
+  }
+  function selSet() {
+    return typeof selectedNodeIds !== 'undefined' ? selectedNodeIds : null;
+  }
   function norm(s) {
     return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   }
-  function typeLabel(type) {
-    var t = nodeTypes();
-    return (t && t[type] && t[type].label) || type;
-  }
+  function toast(m, t, ms) { call('showToast', m, t || 'info', ms || 2400); }
 
-  /* ---------- construtores compatíveis com o renderItems do menu ---------- */
   function ITEM(icon, label, action, opts) {
     return Object.assign({ t: 'item', icon: icon, label: label, action: action }, opts || {});
   }
   function SEP() { return { t: 'sep' }; }
   function HEAD(label) { return { t: 'head', label: label }; }
 
+  function typeLabel(type) {
+    var t = typeof NODE_TYPES !== 'undefined' ? NODE_TYPES : null;
+    return (t && t[type] && t[type].label) || type;
+  }
+
   /* ============================================================
    *  AÇÕES POR TIPO
-   *  (mantidas pequenas, cada uma retorna zero ou mais ITEMs)
    * ============================================================ */
 
-  // 🎬 CENA — diagnóstico de virada de valor
-  //  (o "Abrir rascunho" já está no menu base, não duplico)
+  // 🎬 CENA — item garantido + diagnóstico
   function sceneItems(node) {
     var out = [];
+
+    // ⚠️ REDUNDÂNCIA PROPOSITAL: mesmo que o menu base perca esse item
+    // por qualquer motivo, aqui garantimos que ele aparece.
+    out.push(ITEM('fa-feather-pointed', 'Abrir modo escrita', function () {
+      call('openSceneWritingMode', node.id);
+    }));
+
     var diag = call('getSceneDiagnostic', node);
     if (diag) {
       var warn = diag.level === 'warn';
       out.push(ITEM(
         warn ? 'fa-triangle-exclamation' : 'fa-circle-check',
         warn ? 'Ver problema da cena' : 'Cena vira o valor',
-        function () {
-          toast(diag.title + ': ' + diag.message, warn ? 'warn' : 'success', 6000);
-        },
-        { danger: warn }   // o menu já colore itens danger em rosa
+        function () { toast(diag.title + ': ' + diag.message, warn ? 'warn' : 'success', 6000); },
+        { danger: warn }
       ));
       return out;
     }
-    // Sem start/end mas com valor declarado → dica curta
     var td = node.typeData || {};
     if (td.valueAtStake) {
       out.push(ITEM('fa-circle-info', 'Diagnóstico: faltam cargas', function () {
@@ -85,32 +78,25 @@
     return out;
   }
 
-  // 🧙 PERSONAGEM — três atalhos para as visões que já existem
+  // 🧙 PERSONAGEM
   function characterItems(node) {
     return [
-      ITEM('fa-diagram-project', 'Abrir na Teia de Relações', function () {
-        call('openRelationWeb');
-      }),
-      ITEM('fa-sitemap', 'Árvore de Habilidades', function () {
-        // openSkillTree já aceita o ID do personagem como foco inicial
-        call('openSkillTree', node.id);
-      }),
-      ITEM('fa-users-viewfinder', 'Ver no Grafo de Menções', function () {
-        call('openMentionsGraph');
-      })
+      ITEM('fa-diagram-project', 'Abrir na Teia de Relações', function () { call('openRelationWeb'); }),
+      ITEM('fa-sitemap', 'Árvore de Habilidades', function () { call('openSkillTree', node.id); }),
+      ITEM('fa-users-viewfinder', 'Ver no Grafo de Menções', function () { call('openMentionsGraph'); })
     ];
   }
 
-  // 📅 TIMELINE — abre o painel já com o ano no rótulo
+  // 📅 TIMELINE
   function timelineItems(node) {
     var year = node.typeData && node.typeData.year;
-    var label = year ? 'Abrir Linha do Tempo (Ano ' + year + ')' : 'Abrir Linha do Tempo';
-    return [ITEM('fa-timeline', label, function () {
-      call('openTimeline');
-    })];
+    return [ITEM('fa-timeline',
+      year ? 'Abrir Linha do Tempo (Ano ' + year + ')' : 'Abrir Linha do Tempo',
+      function () { call('openTimeline'); }
+    )];
   }
 
-  // 🎭 TEMA — busca cenas com o mesmo valor em jogo
+  // 🎭 TEMA
   function themeItems(node) {
     var core = ((node.typeData && node.typeData.coreValue) || '').trim();
     if (!core) return [];
@@ -119,12 +105,8 @@
       var scenes = allNodes().filter(function (n) {
         return n.type === 'scene' && norm(n.typeData && n.typeData.valueAtStake).indexOf(needle) >= 0;
       });
-      if (!scenes.length) {
-        toast('Nenhuma cena tem "' + core + '" como valor em jogo.', 'warn', 4200);
-        return;
-      }
-      var s = selSet();
-      if (s) { s.clear(); scenes.forEach(function (x) { s.add(x.id); }); }
+      if (!scenes.length) { toast('Nenhuma cena tem "' + core + '" como valor em jogo.', 'warn', 4200); return; }
+      var s = selSet(); if (s) { s.clear(); scenes.forEach(function (x) { s.add(x.id); }); }
       if (scenes.length === 1) call('openInspectorFor', scenes[0].id);
       else call('openMultiInspector');
       call('renderApp');
@@ -132,19 +114,15 @@
     })];
   }
 
-  // 📍 CENÁRIO — busca cenas cujo campo "location" bate com o título
+  // 📍 CENÁRIO
   function locationItems(node) {
     return [ITEM('fa-clapperboard', 'Ver cenas que acontecem aqui', function () {
       var needle = norm(node.title);
       var scenes = allNodes().filter(function (n) {
         return n.type === 'scene' && norm(n.typeData && n.typeData.location) === needle;
       });
-      if (!scenes.length) {
-        toast('Nenhuma cena acontece em "' + node.title + '".', 'warn', 4200);
-        return;
-      }
-      var s = selSet();
-      if (s) { s.clear(); scenes.forEach(function (x) { s.add(x.id); }); }
+      if (!scenes.length) { toast('Nenhuma cena acontece em "' + node.title + '".', 'warn', 4200); return; }
+      var s = selSet(); if (s) { s.clear(); scenes.forEach(function (x) { s.add(x.id); }); }
       if (scenes.length === 1) call('openInspectorFor', scenes[0].id);
       else call('openMultiInspector');
       call('renderApp');
@@ -152,11 +130,7 @@
     })];
   }
 
-  // 🧪 VARIANTE — promover / tornar canônico
-  //  As funções originais leem #edit-node-id do inspector.
-  //  Em vez de abrir o inspector (o que piscaria a UI), escrevemos
-  //  o id direto no input — ambas as ações terminam abrindo o inspector
-  //  por conta própria quando faz sentido.
+  // 🧪 VARIANTE
   function variantItems(node) {
     if (!node.isVariant) return [];
     function setInspectorId(id) {
@@ -175,7 +149,7 @@
     ];
   }
 
-  // 💬 DIÁLOGO — ir para falante / alvo (se existirem como personagens)
+  // 💬 DIÁLOGO
   function dialogueItems(node) {
     var td = node.typeData || {};
     var all = allNodes();
@@ -189,17 +163,9 @@
     }
     var out = [];
     var spk = findChar(td.speaker);
-    if (spk) {
-      out.push(ITEM('fa-comment', 'Ir para falante: ' + spk.title, function () {
-        call('jumpToNodeFromBible', spk.id);
-      }));
-    }
+    if (spk) out.push(ITEM('fa-comment', 'Ir para falante: ' + spk.title, function () { call('jumpToNodeFromBible', spk.id); }));
     var tgt = findChar(td.target);
-    if (tgt) {
-      out.push(ITEM('fa-ear-listen', 'Ir para alvo: ' + tgt.title, function () {
-        call('jumpToNodeFromBible', tgt.id);
-      }));
-    }
+    if (tgt) out.push(ITEM('fa-ear-listen', 'Ir para alvo: ' + tgt.title, function () { call('jumpToNodeFromBible', tgt.id); }));
     return out;
   }
 
@@ -219,22 +185,51 @@
   }
 
   /* ============================================================
-   *  HOOK — insere o bloco "Contexto · X" antes de "Mover para aba"
+   *  HOOK
    * ============================================================ */
   window.SM_CTX.extend('node', function (items, ctx) {
     if (!ctx || ctx.kind !== 'node') return items;
 
-    // Multi-seleção heterogênea: não faz sentido (cada nó tem seu tipo).
     var sel = selSet();
-    if (sel && sel.size > 1) return items;
+    var isMulti = !!(sel && sel.size > 1);
 
+    // ⚠️ MULTI-SELEÇÃO: garante "Abrir modo escrita" se TODOS forem cenas
+    if (isMulti) {
+      var selectedNodes = [];
+      if (sel) sel.forEach(function (id) { var n = getN(id); if (n) selectedNodes.push(n); });
+      var allScenes = selectedNodes.length > 0 && selectedNodes.every(function (n) { return n.type === 'scene'; });
+
+      if (window.SM_CTX_DEBUG) {
+        console.log('[CM-Fase4] multi =', true, '| total =', selectedNodes.length,
+                    '| só cenas =', allScenes);
+      }
+
+      if (allScenes) {
+        // Adiciona um bloco enxuto para lote de cenas
+        var block = [
+          HEAD('Contexto · ' + selectedNodes.length + ' cenas'),
+          ITEM('fa-feather-pointed', 'Abrir modo escrita (primeira cena)', function () {
+            call('openSceneWritingMode', selectedNodes[0].id);
+          })
+        ];
+        return items.concat([SEP()]).concat(block);
+      }
+      return items;   // multi heterogêneo: nada a adicionar
+    }
+
+    // SINGLE: caminho original
     var node = getN(ctx.id);
     if (!node) return items;
+
+    if (window.SM_CTX_DEBUG) {
+      console.log('[CM-Fase4] single | node.id =', node.id, '| node.type =', node.type,
+                  '| contextualItems =', buildContextual(node).length);
+    }
 
     var ctxItems = buildContextual(node);
     if (!ctxItems.length) return items;
 
-    // Localiza o "Mover para aba…" — ponto de inserção estável.
+    // Localiza "Mover para aba" para inserir antes
     var insertAt = -1;
     for (var i = 0; i < items.length; i++) {
       var it = items[i];
@@ -251,5 +246,5 @@
     return items.concat(block);
   });
 
-  console.log('[CM-Fase4] Extensão contextual carregada.');
+  console.log('[CM-Fase4] Extensão contextual carregada. Debug: window.SM_CTX_DEBUG = true');
 })();
