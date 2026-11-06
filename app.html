@@ -5121,7 +5121,7 @@ function startInlineEdit(nodeId, field) {
             const color = RELATIONSHIP_COLORS[rel.color] || RELATIONSHIP_COLORS.amber;
             const isSelected = selectedRelationshipId === rel.id;
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('d', d); path.setAttribute('fill', 'none');
+            path.setAttribute('d', d); path.setAttribute('fill', 'none'); path.setAttribute('data-rel-id', rel.id);
             path.setAttribute('stroke', color);
             path.setAttribute('stroke-width', isSelected ? '4' : '2');
             path.setAttribute('stroke-dasharray', '7 5');
@@ -6318,22 +6318,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
             }
             container.innerHTML = html;
         }
-        // EXPOR VARIÁVEIS PARA O ARQUIVO EXTERNO
-        // EXPOR VARIÁVEIS PARA O CONTEXT MENU (FASE 2)
-window.mindMapData = mindMapData;
 
-// ── NOVO (Fase 4): acesso completo ao array de nós, sem depender do DOM ──
-window.getAllNodes = () => mindMapData.nodes;
-        window.NODE_TYPES = NODE_TYPES;
-        window.selectedNodeIds = selectedNodeIds;
-        window.domCache = domCache;
-                // EXPOR VARIÁVEIS PARA O CONTEXT MENU (FASE 2)
-        window.mindMapData = mindMapData;
-        
-        Object.defineProperty(window, 'nodeClipboard', {
-            get: () => nodeClipboard,
-            set: (val) => { nodeClipboard = val; }
-        });
         window.onload = async function() {
     preloadFASvgPaths(); // ← NÃO await: roda em paralelo com o resto
     await SM_CLOUD.pull();
@@ -9235,6 +9220,8 @@ const mobileInfoBadgeHTML = hasMobileInfo
         }
 
         function onPointerDown(e) {
+            // Botão direito do mouse abre o menu de contexto (assets/context-menu.js); não é clique de seleção/arrasto.
+            if (e.pointerType === 'mouse' && e.button === 2) return;
             activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
             if (activePointers.size === 2) { cancelAllInteractions(); startPinch(); return; }
             const target = e.target;
