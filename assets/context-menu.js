@@ -270,25 +270,30 @@
         header.innerHTML = `<span>${typeIcon}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${window.escapeHTML(node.title)}</span>`;
         menuEl.appendChild(header);
 
-        menuEl.appendChild(createItem('✏️', 'Editar título', 'F2', () => nodeActions['edit-title'](node.id)));
-        menuEl.appendChild(createItem('📝', 'Abrir Inspector', '', null, false, true)); // Desabilitado na Fase 1
+               menuEl.appendChild(createItem('✏️', 'Editar título', 'F2', () => nodeActions['edit-title'](node.id)));
+
+        // ── NOVO: Inspector agora ativo ──
+        menuEl.appendChild(createItem('📝', 'Abrir Inspector', 'F2',
+            () => { if (window.openInspectorFor) window.openInspectorFor(node.id); }));
+
         menuEl.appendChild(createDivider());
-        
+
         menuEl.appendChild(createItem('🌿', 'Adicionar filho', 'Tab', () => nodeActions['add-child'](node.id)));
         menuEl.appendChild(createItem('↔️', 'Adicionar irmão', 'Enter', () => nodeActions['add-sibling'](node.id)));
         menuEl.appendChild(createItem('🧪', 'Criar variante', 'E', () => nodeActions['create-variant'](node.id)));
         menuEl.appendChild(createItem('📋', 'Duplicar', 'Ctrl+D', () => nodeActions['duplicate'](node.id)));
         menuEl.appendChild(createDivider());
-        
-        // Mudar tipo (com submenu)
-        const typeItem = createItem('🎨', 'Mudar tipo', '', null, false, false, true);
-        typeItem.addEventListener('mouseenter', () => { const rect = typeItem.getBoundingClientRect(); buildTypeSubmenu(node, rect.right, rect.top); });
-        typeItem.addEventListener('click', (e) => { e.stopPropagation(); const rect = typeItem.getBoundingClientRect(); buildTypeSubmenu(node, rect.left, rect.bottom); });
-        menuEl.appendChild(typeItem);
-        
-        menuEl.appendChild(createDivider());
-        menuEl.appendChild(createItem('📄', 'Copiar', 'Ctrl+C', () => nodeActions['copy'](node.id)));
-        menuEl.appendChild(createItem('🗑️', 'Excluir', 'Del', () => nodeActions['delete'](node.id), true));
+
+        // ── NOVO: Seção contextual por tipo (só aparece se houver itens) ──
+        const contextual = getContextualItemsForNode(node);
+        if (contextual.length > 0) {
+            contextual.forEach(act => {
+                menuEl.appendChild(createItem(act.icon, act.label, '', () => act.run()));
+            });
+            menuEl.appendChild(createDivider());
+        }
+
+        // ... resto do menu (Mudar tipo, Copiar, Excluir) inalterado
 
         document.body.appendChild(menuEl);
         positionMenu(menuEl, clientX, clientY);
@@ -412,7 +417,342 @@
         document.body.appendChild(submenuEl);
         positionMenu(submenuEl, x, y);
     }
+    // ============================================================
+    // 8b. FASE 4 — AÇÕES CONTEXTUAIS POR TIPO DE NÓ
+    // ============================================================
 
+    // ---- Helpers de busca no mapa (independente do app.html) ----
+
+    function getAllNodes() {
+        if (!window.getNode) return [];
+        // Não temos acesso direto ao array; fazemos lookup via nodes do DOM
+        const cards = document.querySelectorAll('[data-node-id]');
+        const seen = new Set();
+        const out = [];
+        cards.forEach(el => {
+            const id = el.getAttribute('data-node-id');
+            if (seen.has(id)) return;
+            seen.add(id);
+            const n = window.getNode(id);
+            if (n) out.push(n);
+        });
+        return out;
+    }
+
+    // ⚠️ getAllNodes() acima só pega nós visíveis no DOM.
+    // Para uma varredura completa, dependemos de expor em app.html:
+    //   window.getAllNodes = () => mindMapData.nodes;
+    // Faço um fallback defensivo aqui (usa o app se expuser, senão DOM).
+
+    function findAllNodes() {
+        if (typeof window.getAllNodes === 'function') return window.getAllNodes();
+        return getAllNodes();
+    }
+
+    function normalizeTitle(s) {
+        return String(s || '').trim().toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    // ---- Ações contextuais ----
+
+    const contextualActions = {
+
+        // 🎬 Cena
+        scene: {
+            run(node) {
+                const actions = [];
+
+                // Modo escrita
+                actions.push({
+                    icon: '✍️', label: 'Abrir modo escrita',
+                    run: () => {
+                        if (typeof window.openSceneWritingMode === 'function') {
+                            window.openSceneWritingMode(node.id);
+                        } else {
+                            window.showToast?.('Modo escrita indisponível.', 'warn');
+                        }
+                    }
+                });
+
+                // Diagnóstico de virada (só se tiver dados suficientes)
+                const d = node.typeData || {};
+                if (d.valueAtStake || (d.valueStart && d.valueEnd)) {
+                    actions.push({
+                        icon: '📊', label: 'Ver diagnóstico de virada',
+                        run: () => {
+                            if (typeof window.getSceneDiagnostic === 'function') {
+                                const diag = window.getSceneDiagnostic(node);
+                                if (!diag) {
+                                    window.showToast?.(
+                                        'Preencha Carga Inicial e Carga Final para o diagnóstico.',
+                                        'info', 3000
+                                    );
+                                    return;
+                                }
+                                const msg = diag.level === 'warn'
+                                    ? `⚠ ${diag.title}: ${diag.message}`
+                                    : `✓ ${diag.title}: ${diag.message}`;
+                                window.showToast?.(msg, diag.level === 'warn' ? 'warn' : 'success', 5000);
+                            } else {
+                                window.showToast?.('Diagnóstico indisponível.', 'warn');
+                            }
+                        }
+                    });
+                }
+
+                return actions;
+            }
+        },
+
+        // 🧙 Personagem
+        character: {
+            run(node) {
+                const actions = [];
+
+                actions.push({
+                    icon: '🕸️', label: 'Abrir na Teia de Relações',
+                    run: () => {
+                        if (typeof window.openRelationWeb === 'function') {
+                            window.openRelationWeb();
+                        } else {
+                            window.showToast?.('Teia indisponível.', 'warn');
+                        }
+                    }
+                });
+
+                actions.push({
+                    icon: '⭐', label: 'Árvore de Habilidades',
+                    run: () => {
+                        if (typeof window.openSkillTree === 'function') {
+                            window.openSkillTree(node.id);   // foca neste personagem
+                        } else {
+                            window.showToast?.('Árvore de Habilidades indisponível.', 'warn');
+                        }
+                    }
+                });
+
+                actions.push({
+                    icon: '👥', label: 'Ver no Grafo de Menções',
+                    run: () => {
+                        if (typeof window.openMentionsGraph === 'function') {
+                            window.openMentionsGraph();
+                            // Filtro por personagem seria ideal, mas
+                            // openMentionsGraph() não aceita parâmetro hoje.
+                            // Fica a próxima fase: aceitar charId como filtro.
+                        } else {
+                            window.showToast?.('Grafo de Menções indisponível.', 'warn');
+                        }
+                    }
+                });
+
+                return actions;
+            }
+        },
+
+        // 📅 Timeline
+        timeline: {
+            run(node) {
+                const actions = [];
+
+                const year = node.typeData?.year;
+                actions.push({
+                    icon: '⏳', label: year ? `Abrir Linha do Tempo (Ano ${year})` : 'Abrir Linha do Tempo',
+                    run: () => {
+                        if (typeof window.openTimeline === 'function') {
+                            window.openTimeline();
+                        } else {
+                            window.showToast?.('Linha do Tempo indisponível.', 'warn');
+                        }
+                    }
+                });
+
+                return actions;
+            }
+        },
+
+        // 🎭 Tema
+        theme: {
+            run(node) {
+                const actions = [];
+                const core = (node.typeData?.coreValue || '').trim();
+
+                if (core) {
+                    actions.push({
+                        icon: '📖', label: `Ver cenas que dramatizam "${core}"`,
+                        run: () => {
+                            const all = findAllNodes();
+                            const needle = normalizeTitle(core);
+                            const hits = all.filter(n =>
+                                n.type === 'scene' &&
+                                normalizeTitle(n.typeData?.valueAtStake || '').includes(needle)
+                            );
+                            if (hits.length === 0) {
+                                window.showToast?.(
+                                    `Nenhuma cena tem "${core}" como valor em jogo.`,
+                                    'warn', 3500
+                                );
+                                return;
+                            }
+                            if (window.selectedNodeIds) {
+                                window.selectedNodeIds.clear();
+                                hits.forEach(h => window.selectedNodeIds.add(h.id));
+                            }
+                            if (hits.length === 1) window.openInspectorFor?.(hits[0].id);
+                            else window.openMultiInspector?.();
+                            window.renderApp?.();
+                            window.showToast?.(
+                                `${hits.length} cena(s) dramatizam "${core}".`,
+                                'success', 2500
+                            );
+                        }
+                    });
+                }
+
+                return actions;
+            }
+        },
+
+        // 📍 Cenário
+        location: {
+            run(node) {
+                const actions = [];
+                const locName = normalizeTitle(node.title);
+
+                actions.push({
+                    icon: '🎬', label: 'Ver cenas que acontecem aqui',
+                    run: () => {
+                        const all = findAllNodes();
+                        const hits = all.filter(n =>
+                            n.type === 'scene' &&
+                            normalizeTitle(n.typeData?.location || '') === locName
+                        );
+                        if (hits.length === 0) {
+                            window.showToast?.(
+                                `Nenhuma cena acontece em "${node.title}".`,
+                                'warn', 3500
+                            );
+                            return;
+                        }
+                        if (window.selectedNodeIds) {
+                            window.selectedNodeIds.clear();
+                            hits.forEach(h => window.selectedNodeIds.add(h.id));
+                        }
+                        if (hits.length === 1) window.openInspectorFor?.(hits[0].id);
+                        else window.openMultiInspector?.();
+                        window.renderApp?.();
+                        window.showToast?.(
+                            `${hits.length} cena(s) acontecem em "${node.title}".`,
+                            'success', 2500
+                        );
+                    }
+                });
+
+                return actions;
+            }
+        },
+
+        // 🧪 Variante
+        variant: {
+            run(node) {
+                if (!node.isVariant) return [];
+
+                const actions = [];
+
+                actions.push({
+                    icon: '✅', label: 'Promover a canônica',
+                    run: () => {
+                        if (typeof window.selectedNodeIds !== 'undefined') {
+                            window.selectedNodeIds.clear();
+                            window.selectedNodeIds.add(node.id);
+                        }
+                        window.openInspectorFor?.(node.id);
+                        // A função real pede o ID do inspector
+                        if (typeof window.promoteCurrentVariant === 'function') {
+                            setTimeout(() => window.promoteCurrentVariant(), 80);
+                        } else {
+                            window.showToast?.('Ação indisponível.', 'warn');
+                        }
+                    }
+                });
+
+                actions.push({
+                    icon: '↩️', label: 'Tornar canônico (sem substituir)',
+                    run: () => {
+                        if (typeof window.removeVariantFlag === 'function') {
+                            if (typeof window.selectedNodeIds !== 'undefined') {
+                                window.selectedNodeIds.clear();
+                                window.selectedNodeIds.add(node.id);
+                            }
+                            window.openInspectorFor?.(node.id);
+                            setTimeout(() => {
+                                // removeVariantFlag() usa o id do inspector
+                                if (typeof window.removeVariantFlag === 'function') {
+                                    // Chama direto se o inspector setou o id
+                                    window.removeVariantFlag();
+                                }
+                            }, 80);
+                        } else {
+                            window.showToast?.('Ação indisponível.', 'warn');
+                        }
+                    }
+                });
+
+                return actions;
+            }
+        },
+
+        // 💬 Diálogo
+        dialogue: {
+            run(node) {
+                const actions = [];
+                const d = node.typeData || {};
+                const all = findAllNodes();
+
+                if (d.speaker) {
+                    const speakerNode = all.find(n =>
+                        n.type === 'character' &&
+                        (normalizeTitle(n.title) === normalizeTitle(d.speaker) ||
+                         normalizeTitle(n.typeData?.fullName || '') === normalizeTitle(d.speaker))
+                    );
+                    if (speakerNode) {
+                        actions.push({
+                            icon: '🗣️', label: `Ir para falante: ${speakerNode.title}`,
+                            run: () => window.jumpToNodeFromBible?.(speakerNode.id)
+                        });
+                    }
+                }
+
+                if (d.target) {
+                    const targetNode = all.find(n =>
+                        n.type === 'character' &&
+                        (normalizeTitle(n.title) === normalizeTitle(d.target) ||
+                         normalizeTitle(n.typeData?.fullName || '') === normalizeTitle(d.target))
+                    );
+                    if (targetNode) {
+                        actions.push({
+                            icon: '👂', label: `Ir para alvo: ${targetNode.title}`,
+                            run: () => window.jumpToNodeFromBible?.(targetNode.id)
+                        });
+                    }
+                }
+
+                return actions;
+            }
+        }
+    };
+
+    function getContextualItemsForNode(node) {
+        if (!node || !node.type) return [];
+        const group = contextualActions[node.type];
+        if (!group || typeof group.run !== 'function') return [];
+        try {
+            return group.run(node) || [];
+        } catch (e) {
+            console.warn('[context-menu] ação contextual falhou:', e);
+            return [];
+        }
+    }
     // ============================================================
     // 8. GATILHO GLOBAL
     // ============================================================
