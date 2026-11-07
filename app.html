@@ -3186,6 +3186,7 @@ body.app-theme-dark .sm-select-btn:hover { filter: brightness(1.15); }
                                 <option value="theme">🎭 Tema</option>
                                 <option value="note">📝 Nota</option>
                                 <option value="timeline">📅 Timeline</option>
+                                <option value="object">🏺 Objeto</option>
                             </select>
                         </div>
 
@@ -3486,6 +3487,7 @@ body.app-theme-dark .sm-select-btn:hover { filter: brightness(1.15); }
                     <option value="">Todos os tipos</option>
                     <option value="character">🧙 Personagens</option>
                     <option value="location">📍 Cenários</option>
+                    <option value="object">🏺 Objetos</option>
                     <option value="event">⚡ Eventos</option>
                     <option value="dialogue">💬 Diálogos</option>
                     <option value="theme">🎭 Temas</option>
@@ -4341,7 +4343,8 @@ function renderIcon(iconOrClass, extraClass = '') {
     dialogue:  { id: 'dialogue',  label: 'Diálogo',    icon: '💬', color: '#0ea5e9' },
     theme:     { id: 'theme',     label: 'Tema',       icon: '🎭', color: '#ec4899' },
     note:      { id: 'note',      label: 'Nota',       icon: '📝', color: '#64748b' },
-    timeline:  { id: 'timeline',  label: 'Timeline',   icon: '📅', color: '#0891b2' }
+    timeline:  { id: 'timeline',  label: 'Timeline',   icon: '📅', color: '#0891b2' },
+    object:    { id: 'object',    label: 'Objeto',     icon: '🏺', color: '#65a30d' }
 };
 
         const TYPE_FIELDS = {
@@ -4350,6 +4353,7 @@ function renderIcon(iconOrClass, extraClass = '') {
                 { key: 'location',    label: 'Local',        type: 'text' },
                 { key: 'timeOfDay',   label: 'Tempo',        type: 'select',   options: ['DIA', 'NOITE', 'AMANHECER', 'ANOITECER', 'CONTÍNUO'] },
                 { key: 'characters',  label: 'Personagens (separe por vírgula)', type: 'text' },
+                { key: 'objects',     label: '🏺 Objetos em cena (separe por vírgula)', type: 'text', placeholder: 'Ex: Katana de Kairyū, Carta de James' },
                 { key: 'objective',   label: 'Objetivo da cena', type: 'text' },
                 { key: 'conflict',    label: 'Conflito / obstáculo', type: 'textarea' },
                { key: 'valueAtStake', label: '🎯 Valor em Jogo', type: 'text', placeholder: 'Ex: Amor, Verdade, Justiça, Liberdade...' },
@@ -4403,6 +4407,26 @@ function renderIcon(iconOrClass, extraClass = '') {
                 { key: 'coreValue',  label: '💎 Valor Central', type: 'text', placeholder: 'Ex: Justiça, Amor, Verdade — o valor que a história afirma' }
             ],
                      note: [],
+            object: [
+                { key: 'category',         label: '🗂 Categoria', type: 'select', options: ['Arma', 'Armadura / Proteção', 'Artefato mágico', 'Relíquia ancestral', 'Ferramenta', 'Veículo', 'Documento / Carta', 'Joia / Adorno', 'Vestimenta', 'Símbolo / Totem', 'Tecnologia', 'Substância / Alimento', 'Outro'] },
+                { key: 'user',             label: '🧑 Usuário (quem porta / usa — separe por vírgula)', type: 'text', placeholder: 'Ex: Yumi, Sieke...' },
+                { key: 'originalOwner',    label: 'Dono / criador original', type: 'text' },
+                { key: 'status',           label: 'Estado atual', type: 'select', options: ['Intacto', 'Danificado', 'Selado / Dormente', 'Oculto', 'Perdido', 'Roubado', 'Transformado', 'Destruído'] },
+                { key: 'currentLocation',  label: 'Localização atual', type: 'text', placeholder: 'Cenário, personagem ou "desconhecida"' },
+                { key: 'dramaticFunction', label: '🎭 Função dramática', type: 'select', options: ['Objetivo da busca', 'Arma do conflito', 'Símbolo central', 'Prova / pista', 'Elo emocional (herança)', 'Catalisador', 'Chave / acesso', 'Fardo / maldição', 'Ameaça', 'Ferramenta de virada'] },
+                { key: 'description',      label: 'Aparência / descrição física', type: 'textarea' },
+                { key: 'origin',           label: 'Origem e história', type: 'textarea' },
+                { key: 'properties',       label: '⚙ Propriedades e regras (o que faz e o que NÃO faz)', type: 'textarea' },
+                { key: 'cost',             label: '⚖ Custo de usar (o que o usuário paga)', type: 'text', placeholder: 'Ex: exaustão física, confusão mental, memória...' },
+                { key: 'symbolicMeaning',  label: '🔮 Significado simbólico', type: 'textarea' },
+                { key: 'valueCharged',     label: '💎 Valor que carrega', type: 'text', placeholder: 'Ex: Honra, Herança, Liberdade, Vingança...' },
+                { key: 'chargeStart',      label: '⬅ Carga inicial do valor', type: 'select', options: ['Positivo (+)', 'Negativo (−)', 'Neutro'] },
+                { key: 'chargeEnd',        label: '➡ Carga final do valor', type: 'select', options: ['Positivo (+)', 'Negativo (−)', 'Neutro'] },
+                { key: 'expectation',      label: '🎯 Expectativa (o que todos esperam dele)', type: 'text' },
+                { key: 'reality',          label: '💥 Realidade (o que ele realmente causa)', type: 'text' },
+                { key: 'plant',            label: '🌱 Plantio (onde é apresentado)', type: 'text', placeholder: 'Ex: Livro 1, cap. 3' },
+                { key: 'payoff',           label: '🌾 Colheita (onde se paga)', type: 'text', placeholder: 'Ex: Livro 7, clímax' }
+            ],
             timeline: [
                 { key: 'year',       label: 'Ano do evento',                          type: 'text',     placeholder: 'Ex: -54, 0, 26, 34' },
                 { key: 'location',   label: 'Núcleo / Local',                         type: 'text',     placeholder: 'Japão, Europa, Trident, Hone...' },
@@ -5387,6 +5411,69 @@ function computeDramaticAnalysis(node) {
         }
     }
 
+    // ---------------- OBJETO ----------------
+    if (node.type === 'object') {
+        const fn = str(d.dramaticFunction), sym = str(d.symbolicMeaning), val = str(d.valueCharged);
+        const cs = str(d.chargeStart), ce = str(d.chargeEnd);
+        const exp = str(d.expectation), rea = str(d.reality);
+        const plant = str(d.plant), payoff = str(d.payoff);
+        const props = str(d.properties), cost = str(d.cost), usr = str(d.user);
+        const stripCharge = (x) => x.replace(/\s*\(.*\)\s*$/, '').trim();
+
+        if (!fn && !sym && !val) {
+            push('warn', '🏺', 'Objeto sem função dramática',
+                'Se ele só decora a cena, é cenário. Defina o que ele FAZ na história: ser buscado, ser usado como arma, provar algo, carregar um significado.');
+        }
+        if (val && cs && ce) {
+            if (stripCharge(cs) === stripCharge(ce)) {
+                push('warn', '🔁', 'Objeto estático',
+                    `O valor "${val}" que ele carrega começa e termina como ${stripCharge(cs)}. Um objeto cujo sentido nunca vira é só adereço — faça uma cena inverter o que ele representa.`);
+            } else {
+                push('ok', '🔄', 'Objeto que vira de sentido',
+                    `"${val}" muda de ${stripCharge(cs)} para ${stripCharge(ce)} por causa dele. Esse objeto tem arco próprio.`);
+            }
+        }
+        if (exp && rea) {
+            if (exp.toLowerCase() === rea.toLowerCase()) {
+                push('warn', '🎯', 'Sem lacuna',
+                    'Expectativa e realidade são iguais: o objeto faz exatamente o que todos esperam. Abra uma lacuna — ele deve entregar algo diferente (ou mais caro) do que prometia.');
+            } else {
+                push('ok', '💥', 'Lacuna aberta',
+                    'O que se espera do objeto difere do que ele causa. É daí que nascem as viradas — use uma cena para o personagem descobrir essa diferença.');
+            }
+        } else if (exp && !rea) {
+            push('info', '🎯', 'Expectativa sem realidade',
+                'Você definiu o que se espera do objeto, mas não o que ele realmente causa. Sem o contraste, não há surpresa.');
+        }
+        if (plant && !payoff) {
+            push('warn', '🌱', 'Plantado, sem colheita',
+                'Um objeto apresentado com destaque cria uma promessa ao leitor. Defina onde ele se paga — ou reduza o destaque.');
+        } else if (!plant && payoff) {
+            push('warn', '🌾', 'Colheita sem plantio',
+                'Se o objeto resolve algo sem ter sido apresentado antes, soa como solução caída do céu. Plante-o numa cena anterior.');
+        } else if (plant && payoff) {
+            push('ok', '✅', 'Plantio e colheita definidos',
+                'O objeto é apresentado e se paga depois. Garanta que haja cenas no intervalo lembrando dele.');
+        }
+        if (props && !cost) {
+            push('info', '⚖️', 'Poder sem custo',
+                'O objeto tem regras e propriedades, mas ninguém paga para usá-lo. Sem custo, não há escolha — e sem escolha, não há drama.');
+        }
+        if (!usr) {
+            push('info', '🧑', 'Sem usuário',
+                'Quem porta ou usa este objeto? Um objeto só gera conflito quando alguém precisa decidir se o usa.');
+        }
+        if (typeof mindMapData !== 'undefined' && mindMapData && str(node.title)) {
+            const me = normalizeName(node.title);
+            const appears = mindMapData.nodes.some(n => n.id !== node.id && !n.isVariant && n.typeData && n.typeData.objects &&
+                String(n.typeData.objects).split(/[,;·|]/).some(x => normalizeName(x) === me));
+            if (!appears) {
+                push('info', '👻', 'Objeto sem aparições',
+                    'Nenhuma cena lista este objeto. Adicione-o ao campo "Objetos em cena" para ele aparecer na Bíblia e no Grafo de Menções.');
+            }
+        }
+    }
+
     // ---------------- TEMA ----------------
     if (node.type === 'theme') {
         const core = str(d.coreValue);
@@ -5821,6 +5908,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
                 case 'event': if (d.eventType) parts.push(d.eventType); break;
                 case 'dialogue': if (d.speaker && d.target) parts.push(`${d.speaker} → ${d.target}`); else if (d.speaker) parts.push(d.speaker); else if (d.target) parts.push(`→ ${d.target}`); break;
                               case 'theme': if (d.statement) parts.push(d.statement); break;
+                case 'object': if (d.category) parts.push(d.category); if (d.user) parts.push('👤 ' + d.user); break;
                 case 'timeline':
                     if (d.year) parts.push('Ano ' + d.year);
                     if (d.location) parts.push(d.location);
@@ -6029,7 +6117,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
                 variantRootCache.set(id, result);
                 return result;
             }
-            const buckets = { character: [], location: [], event: [], dialogue: [], theme: [], scene: [], timeline: [] };
+            const buckets = { character: [], location: [], object: [], event: [], dialogue: [], theme: [], scene: [], timeline: [] };
             const beatCounts = new Map(); const povList = new Set();
                         mindMapData.nodes.forEach(n => {
                 const vr = getVarRoot(n.id); const isVar = !!vr;
@@ -6061,6 +6149,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
             const sections = [
                 { type: 'character', title: 'Personagens', icon: '🧙' },
                 { type: 'location',  title: 'Cenários',    icon: '📍' },
+                { type: 'object',    title: 'Objetos',     icon: '🏺' },
                 { type: 'event',     title: 'Eventos-chave', icon: '⚡' },
                 { type: 'theme',     title: 'Temas',       icon: '🎭' },
                 { type: 'timeline',  title: 'Linha do Tempo', icon: '📅' },
@@ -6096,6 +6185,13 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
                     const meta = [];
                     if (beatIcons.length > 0) meta.push(beatIcons.join(''));
                     if (povsHere.size > 0) meta.push('👁 ' + Array.from(povsHere).slice(0, 2).join(', '));
+                    if (type === 'object') {
+                        const od = mainNode.typeData || {};
+                        const om = [];
+                        if (od.category) om.push(escapeHTML(od.category));
+                        if (od.user) om.push('👤 ' + escapeHTML(od.user));
+                        if (om.length) meta.unshift(om.join(' · '));
+                    }
                     // Flag de rascunho (só para scenes)
                     let draftTag = '';
                     if (type === 'scene') {
@@ -6141,7 +6237,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
                 return result;
             }
             const sections = [
-                { type: 'character', title: '🧙 Personagens' }, { type: 'location', title: '📍 Cenários' },
+                { type: 'character', title: '🧙 Personagens' }, { type: 'location', title: '📍 Cenários' }, { type: 'object', title: '🏺 Objetos' },
                 { type: 'event', title: '⚡ Eventos-chave' }, { type: 'theme', title: '🎭 Temas' },
                 { type: 'scene', title: '🎬 Cenas' }, { type: 'dialogue', title: '💬 Diálogos' }
             ];
@@ -6200,43 +6296,135 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
         }
 
         function getCharacterMentions() {
-            const characters = mindMapData.nodes.filter(n => n.type === 'character' && !n.isVariant);
-            const byAlias = new Map();
-            characters.forEach(c => {
-                const aliases = getCharacterAliases(c);
-                aliases.forEach(a => {
-                    const key = normalizeName(a);
-                    if (!byAlias.has(key)) byAlias.set(key, []);
-                    byAlias.get(key).push({ character: c, alias: a });
-                });
-            });
-            const mentionsByCharId = new Map();
-            characters.forEach(c => mentionsByCharId.set(c.id, { character: c, aliases: getCharacterAliases(c), mentions: [] }));
-            mindMapData.nodes.forEach(n => {
-                if (n.isVariant) return;
-                const candidates = [];
-                if (n.typeData) {
-                    if (n.typeData.characters) candidates.push({ raw: n.typeData.characters, source: 'characters' });
-                    if (n.typeData.speaker) candidates.push({ raw: n.typeData.speaker, source: 'speaker' });
-                    if (n.typeData.target) candidates.push({ raw: n.typeData.target, source: 'target' });
-                }
-                candidates.forEach(({ raw, source }) => {
-                    String(raw).split(/[,;·|]/).forEach(part => {
-                        const name = part.trim();
-                        if (!name) return;
-                        const key = normalizeName(name);
-                        if (byAlias.has(key)) {
-                            byAlias.get(key).forEach(({ character }) => {
-                                const entry = mentionsByCharId.get(character.id);
-                                if (entry && !entry.mentions.some(m => m.node.id === n.id)) {
-                                    entry.mentions.push({ node: n, source, raw: name });
-                                }
-                            });
+    const characters = mindMapData.nodes.filter(n => n.type === 'character' && !n.isVariant);
+    const byAlias = new Map();
+    characters.forEach(c => {
+        const aliases = getCharacterAliases(c);
+        aliases.forEach(a => {
+            const key = normalizeName(a);
+            if (!byAlias.has(key)) byAlias.set(key, []);
+            byAlias.get(key).push({ character: c, alias: a });
+        });
+    });
+    const mentionsByCharId = new Map();
+    characters.forEach(c => mentionsByCharId.set(c.id, { character: c, aliases: getCharacterAliases(c), mentions: [] }));
+
+    mindMapData.nodes.forEach(n => {
+        if (n.isVariant) return;
+        const candidates = [];
+        if (n.typeData) {
+            if (n.typeData.characters) candidates.push({ raw: n.typeData.characters, source: 'characters' });
+            if (n.typeData.speaker) candidates.push({ raw: n.typeData.speaker, source: 'speaker' });
+            if (n.typeData.target) candidates.push({ raw: n.typeData.target, source: 'target' });
+
+            // ← FIX: objetos referenciam personagens
+            if (n.type === 'object') {
+                if (n.typeData.user)            candidates.push({ raw: n.typeData.user, source: 'object-user' });
+                if (n.typeData.originalOwner)   candidates.push({ raw: n.typeData.originalOwner, source: 'object-owner' });
+                if (n.typeData.currentLocation) candidates.push({ raw: n.typeData.currentLocation, source: 'object-location' });
+            }
+        }
+        // ← FIX extra: [[Nome]] no content do objeto também conta como menção
+        if (n.type === 'object' && n.content) {
+            const re = /\[\[([^\[\]\n]{1,100})\]\]/g;
+            let m;
+            while ((m = re.exec(n.content)) !== null) {
+                candidates.push({ raw: m[1].trim(), source: 'object-link' });
+            }
+        }
+
+        candidates.forEach(({ raw, source }) => {
+            String(raw).split(/[,;·|]/).forEach(part => {
+                const name = part.trim();
+                if (!name) return;
+                const key = normalizeName(name);
+                if (byAlias.has(key)) {
+                    byAlias.get(key).forEach(({ character }) => {
+                        const entry = mentionsByCharId.get(character.id);
+                        if (entry && !entry.mentions.some(m => m.node.id === n.id)) {
+                            entry.mentions.push({ node: n, source, raw: name });
                         }
                     });
-                });
+                }
             });
-            return mentionsByCharId;
+        });
+    });
+    return mentionsByCharId;
+}
+
+        function getObjectMentions() {
+            const objects = mindMapData.nodes.filter(n => n.type === 'object' && !n.isVariant);
+            const chars = mindMapData.nodes.filter(c => c.type === 'character' && !c.isVariant);
+            const out = objects.map(obj => {
+                const keys = new Set(getCharacterAliases(obj).map(normalizeName));
+                const mentions = [];
+                mindMapData.nodes.forEach(n => {
+                    if (n.isVariant || n.id === obj.id) return;
+                    let source = null;
+                    if (n.typeData && n.typeData.objects) {
+                        if (String(n.typeData.objects).split(/[,;·|]/).some(x => keys.has(normalizeName(x)))) source = 'objects';
+                    }
+                    if (!source && n.content) {
+                        const re = /\[\[([^\[\]\n]{1,100})\]\]/g; let m;
+                        while ((m = re.exec(n.content)) !== null) { if (keys.has(normalizeName(m[1]))) { source = 'link'; break; } }
+                    }
+                    if (source) mentions.push({ node: n, source });
+                });
+                const users = [];
+                String((obj.typeData && obj.typeData.user) || '').split(/[,;·|]/).forEach(raw => {
+                    const name = raw.trim(); if (!name) return;
+                    const k = normalizeName(name);
+                    const ch = chars.find(c => getCharacterAliases(c).some(a => normalizeName(a) === k)) || null;
+                    users.push({ name, character: ch });
+                });
+                return { object: obj, mentions, users };
+            });
+            return out.sort((a, b) => b.mentions.length - a.mentions.length);
+        }
+
+        function buildObjectsMentionsHTML() {
+            const list = getObjectMentions();
+            if (list.length === 0) return '';
+            const objColor = (NODE_TYPES.object && NODE_TYPES.object.color) || '#65a30d';
+            const orphans = list.filter(o => o.mentions.length === 0);
+            const noUser = list.filter(o => o.users.length === 0);
+            let html = `<div class="mm-section"><div class="mm-section-title"><span>🏺</span><span>Objetos — usuários e aparições</span></div>`;
+            if (orphans.length > 0) {
+                html += `<div class="mm-warn mb-4"><span class="mm-warn-icon">⚠️</span><div><b>${orphans.length} objeto(s) sem aparições:</b> ${orphans.map(o => escapeHTML(o.object.title)).join(', ')}.<div style="margin-top:4px;opacity:0.8;">Adicione-os ao campo <b>Objetos em cena</b> de uma cena (ou cite com [[Nome]] nas notas).</div></div></div>`;
+            }
+            if (noUser.length > 0) {
+                html += `<div class="mm-warn mb-4"><span class="mm-warn-icon">🧑</span><div><b>${noUser.length} objeto(s) sem usuário definido:</b> ${noUser.map(o => escapeHTML(o.object.title)).join(', ')}.</div></div>`;
+            }
+            html += `<div class="mm-grid">`;
+            list.forEach(({ object, mentions, users }) => {
+                const d = object.typeData || {};
+                const meta = [d.category, d.status].filter(Boolean).map(escapeHTML).join(' · ');
+                const userChips = users.map(u => u.character
+                    ? `<span onclick="event.stopPropagation(); jumpToNodeFromBible('${u.character.id}')" title="Ir para ${escapeHTML(u.character.title)}" style="cursor:pointer;display:inline-block;margin:2px 4px 2px 0;padding:1px 8px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-size:10.5px;font-weight:600;">👤 ${escapeHTML(u.name)}</span>`
+                    : `<span title="Sem personagem com esse nome" style="display:inline-block;margin:2px 4px 2px 0;padding:1px 8px;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:10.5px;">👤 ${escapeHTML(u.name)}</span>`
+                ).join('');
+                html += `<div class="mm-card" onclick="jumpToNodeFromBible('${object.id}')">
+                    <div class="mm-char-name"><span style="width:8px;height:8px;border-radius:50%;background:${objColor};display:inline-block;"></span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(object.title)}</span><span class="mm-char-count">${mentions.length}</span></div>
+                    ${meta ? `<div class="mm-char-meta">${meta}</div>` : ''}
+                    ${userChips ? `<div style="margin:2px 0 4px;">${userChips}</div>` : ''}
+                    <div class="mm-mention-list">`;
+                if (mentions.length === 0) {
+                    html += `<div style="font-size:10.5px;color:#94a3b8;font-style:italic;text-align:center;padding:6px 0;">Nenhuma aparição registrada.</div>`;
+                } else {
+                    mentions.slice(0, 20).forEach(m => {
+                        const n = m.node;
+                        const td = n.type ? NODE_TYPES[n.type] : null;
+                        const beat = n.beatId ? findBeatById(n.beatId) : null;
+                        const icon = td ? renderIcon(td.icon) : '·';
+                        const prefix = m.source === 'link' ? '🔗 ' : '';
+                        html += `<div class="mm-mention" onclick="event.stopPropagation(); jumpToNodeFromBible('${n.id}')"><span class="mm-m-icon">${prefix}${icon}</span><span class="mm-m-title" title="${escapeHTML(n.title)}">${escapeHTML(n.title)}</span>${beat ? `<span style="font-size:10px;">${renderIcon(beat.icon)}</span>` : ''}</div>`;
+                    });
+                    if (mentions.length > 20) html += `<div style="font-size:10px;color:#94a3b8;text-align:center;padding:4px 0;">+${mentions.length - 20} mais…</div>`;
+                }
+                html += `</div></div>`;
+            });
+            html += `</div></div>`;
+            return html;
         }
 
         function openMentionsGraph() {
@@ -6272,7 +6460,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
             }
             if (characters.length === 0) {
                 html += `<div style="text-align:center;padding:48px 16px;color:#94a3b8;font-style:italic;"><i class="fa-solid fa-users-slash" style="font-size:40px;display:block;margin-bottom:12px;opacity:0.4;"></i><p>Nenhum personagem encontrado.</p><p style="font-size:11px;margin-top:8px;">Adicione nós do tipo 🧙 Personagem ao mapa.</p></div>`;
-                container.innerHTML = html; return;
+                html += buildObjectsMentionsHTML(); container.innerHTML = html; return;
             }
             html += `<div class="mm-section"><div class="mm-section-title"><span>👥</span><span>Aparições por personagem</span></div><div class="mm-grid">`;
             characters.forEach(({ character, mentions }) => {
@@ -6316,6 +6504,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
                 });
                 html += `</tbody></table></div><p style="font-size:10.5px;color:#94a3b8;margin-top:6px;font-style:italic;">Mostrando até 30 personagens. Células mais escuras = mais aparições naquele beat.</p></div>`;
             }
+            html += buildObjectsMentionsHTML();
             container.innerHTML = html;
         }
 
@@ -14341,6 +14530,30 @@ function getBacklinksIndex() {
                 }
             });
         }
+        // 3. Objetos: campo "objects" nas cenas e campo "user" no objeto
+        if (source.type === 'scene' && source.typeData?.objects) {
+            String(source.typeData.objects).split(/[,;·|]/).forEach(name => {
+                const clean = name.trim();
+                if (!clean) return;
+                const targetId = titleIndex.get(normalizeName(clean));
+                if (!targetId || targetId === source.id) return;
+                if (!index.has(targetId)) index.set(targetId, []);
+                const list = index.get(targetId);
+                if (!list.some(e => e.sourceId === source.id)) list.push({ sourceId: source.id, snippet: '', via: 'chars' });
+            });
+        }
+        if (source.type === 'object' && source.typeData?.user) {
+            String(source.typeData.user).split(/[,;·|]/).forEach(name => {
+                const clean = name.trim();
+                if (!clean) return;
+                const targetId = titleIndex.get(normalizeName(clean));
+                if (!targetId || targetId === source.id) return;
+                if (!index.has(targetId)) index.set(targetId, []);
+                const list = index.get(targetId);
+                if (!list.some(e => e.sourceId === source.id)) list.push({ sourceId: source.id, snippet: '', via: 'user' });
+            });
+        }
+
     });
 
     _backlinksCache = { key, index };
@@ -14381,6 +14594,29 @@ function getOutgoingLinks(node) {
             if (targetId && targetId !== node.id && !seen.has(targetId)) {
                 seen.add(targetId);
                 out.push({ targetId, via: 'chars' });
+            }
+        });
+    }
+
+    if (node.type === 'scene' && node.typeData?.objects) {
+        String(node.typeData.objects).split(/[,;·|]/).forEach(name => {
+            const clean = name.trim();
+            if (!clean) return;
+            const targetId = titleIndex.get(normalizeName(clean));
+            if (targetId && targetId !== node.id && !seen.has(targetId)) {
+                seen.add(targetId);
+                out.push({ targetId, via: 'chars' });
+            }
+        });
+    }
+    if (node.type === 'object' && node.typeData?.user) {
+        String(node.typeData.user).split(/[,;·|]/).forEach(name => {
+            const clean = name.trim();
+            if (!clean) return;
+            const targetId = titleIndex.get(normalizeName(clean));
+            if (targetId && targetId !== node.id && !seen.has(targetId)) {
+                seen.add(targetId);
+                out.push({ targetId, via: 'user' });
             }
         });
     }
@@ -14436,9 +14672,7 @@ function renderBacklinksPanel(node) {
                         const snippetHTML = b.snippet
                             ? `<div class="sm-bl-item-snippet">${escapeHTML(b.snippet)}</div>`
                             : '';
-                        const viaHTML = b.via === 'chars'
-                            ? `<span class="sm-bl-item-via">cena</span>`
-                            : '';
+                        const viaHTML = b.via === 'chars' ? `<span class="sm-bl-item-via">cena</span>` : (b.via === 'user' ? `<span class="sm-bl-item-via">usa</span>` : '');
                         return `<a class="sm-bl-item${hiddenClass(i)}"
                                    href="#"
                                    onclick="event.preventDefault();event.stopPropagation();jumpToNodeFromBible('${src.id}');return false;"
@@ -14473,9 +14707,7 @@ function renderBacklinksPanel(node) {
                         if (!tgt) return '';
                         const td = tgt.type ? NODE_TYPES[tgt.type] : null;
                         const icon = td ? td.icon : '📄';
-                        const viaHTML = o.via === 'chars'
-                            ? `<span class="sm-bl-item-via">cena</span>`
-                            : '';
+                        const viaHTML = o.via === 'chars' ? `<span class="sm-bl-item-via">cena</span>` : (o.via === 'user' ? `<span class="sm-bl-item-via">usuário</span>` : '');
                         return `<a class="sm-bl-item out"
                                    href="#"
                                    onclick="event.preventDefault();event.stopPropagation();jumpToNodeFromBible('${tgt.id}');return false;"
@@ -15714,6 +15946,7 @@ window.addEventListener('resize', function () {
             { group: 'Criar', icon: '💬', label: 'Novo diálogo', hint: 'Alt+D', action: safe(() => createTypedNode('dialogue')), enabled: hasSel },
             { group: 'Criar', icon: '🎭', label: 'Novo tema', hint: 'Alt+T', action: safe(() => createTypedNode('theme')), enabled: hasSel },
             { group: 'Criar', icon: '📅', label: 'Novo evento timeline', hint: 'Alt+I', action: safe(() => createTypedNode('timeline')), enabled: hasSel },
+            { group: 'Criar', icon: '🏺', label: 'Novo objeto', hint: 'Alt+O', action: safe(() => createTypedNode('object')), enabled: hasSel },
 
             // ---- Abrir ----
             { group: 'Abrir', icon: '📚', label: 'Bíblia da História', hint: 'Ctrl+B', action: safe(() => openStoryBible()), enabled: true },
@@ -16046,6 +16279,7 @@ window.addEventListener('resize', function () {
                     case 'KeyD': nodeType = 'dialogue'; break;
                     case 'KeyT': nodeType = 'theme'; break;
                     case 'KeyI': nodeType = 'timeline'; break;
+                    case 'KeyO': nodeType = 'object'; break;
                 }
 
                 if (nodeType) {
