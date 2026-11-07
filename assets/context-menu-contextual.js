@@ -169,6 +169,39 @@
     return out;
   }
 
+  // 🏺 OBJETO
+  function objectItems(node) {
+    var td = node.typeData || {};
+    var out = [];
+    var needle = norm(node.title);
+
+    out.push(ITEM('fa-clapperboard', 'Ver cenas em que aparece', function () {
+      var scenes = allNodes().filter(function (n) {
+        if (n.type !== 'scene' || !n.typeData || !n.typeData.objects) return false;
+        return String(n.typeData.objects).split(/[,;·|]/).some(function (x) { return norm(x) === needle; });
+      });
+      if (!scenes.length) { toast('Nenhuma cena lista "' + node.title + '" em Objetos em cena.', 'warn', 4200); return; }
+      var s = selSet(); if (s) { s.clear(); scenes.forEach(function (x) { s.add(x.id); }); }
+      if (scenes.length === 1) call('openInspectorFor', scenes[0].id);
+      else call('openMultiInspector');
+      call('renderApp');
+      toast(scenes.length + ' cena(s) com "' + node.title + '".', 'success', 2600);
+    }));
+
+    String(td.user || '').split(/[,;·|]/).forEach(function (raw) {
+      var name = raw.trim(); if (!name) return;
+      var k = norm(name);
+      var ch = allNodes().find(function (n) {
+        return n.type === 'character' &&
+          (norm(n.title) === k || norm(n.typeData && n.typeData.fullName) === k);
+      });
+      if (ch) out.push(ITEM('fa-user', 'Ir para usuário: ' + ch.title, function () { call('jumpToNodeFromBible', ch.id); }));
+    });
+
+    out.push(ITEM('fa-users-viewfinder', 'Ver no Grafo de Menções', function () { call('openMentionsGraph'); }));
+    return out;
+  }
+
   function buildContextual(node) {
     if (!node || !node.type) return [];
     var out = [];
@@ -179,6 +212,7 @@
       case 'theme':     out = out.concat(themeItems(node));     break;
       case 'location':  out = out.concat(locationItems(node));  break;
       case 'dialogue':  out = out.concat(dialogueItems(node));  break;
+      case 'object':    out = out.concat(objectItems(node));    break;
     }
     if (node.isVariant) out = out.concat(variantItems(node));
     return out;
