@@ -5582,7 +5582,7 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
                 html += `</div>`;
             }
             // NEW: Links de referência
-            const refLinks = node.type === 'character' ? getReferenceLinks(node) : [];
+            const refLinks = (node.type === 'character' || node.type === 'location' || node.type === 'object') ? getReferenceLinks(node) : [];
             if (refLinks.length > 0) {
                 html += `<div class="tt-links"><div class="tt-links-title">🔗 Links de referência</div>`;
                 refLinks.forEach(link => {
@@ -5883,7 +5883,9 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
                 updateSceneDiagnosticBanner();
             }
             if (node.type === 'character') container.appendChild(buildBigFiveSection(node));
-            if (node.type === 'character') container.appendChild(buildReferenceLinksSection(node));
+if (node.type === 'character' || node.type === 'location' || node.type === 'object') {
+    container.appendChild(buildReferenceLinksSection(node));
+}
         }
 
         function onTypeFieldChange(key, value) {
@@ -9023,7 +9025,7 @@ el.className = `node-card absolute pointer-events-auto p-4 rounded-xl shadow-md 
                 let povBadgeHTML = '';
                 if (node.pov && node.pov.trim()) povBadgeHTML = `<div class="inline-flex items-center gap-1 bg-violet-100 border border-violet-300 text-violet-800 rounded-full px-2 py-0.5 text-[9px] font-semibold mb-1.5 pointer-events-none max-w-full self-start"><i class="fa-solid fa-eye text-[8px]"></i><span class="truncate">${escapeHTML(node.pov)}</span></div>`;
                 // NEW: reference links badge
-                const refLinksArr = (node.type === 'character') ? getReferenceLinks(node) : [];
+                const refLinksArr = (node.type === 'character' || node.type === 'location' || node.type === 'object') ? getReferenceLinks(node) : [];
                 const refBadgeHTML = refLinksArr.length > 0
                     ? `<div class="ref-badge" title="${refLinksArr.length} link(s) de referência"><i class="fa-solid fa-link text-[8px]"></i><span>${refLinksArr.length}</span></div>`
                     : '';
@@ -11012,9 +11014,9 @@ const typeHTML = typeDef ? `<span class="text-[10px] shrink-0" title="${escapeHT
                         md += BIG_FIVE_TRAITS.map(t => `${t.icon} ${t.short} ${bf[t.key] || 3}/5`).join(' · ');
                         md += '\n';
                     }
-                    if (n.type === 'character') {
-                        const refLinks = getReferenceLinks(n);
-                        if (refLinks.length > 0) {
+                    if (n.type === 'character' || n.type === 'location' || n.type === 'object') {
+    const refLinks = getReferenceLinks(n);
+    if (refLinks.length > 0) {
                             md += '  '.repeat(depth + 1) + `  - **Links de referência:**\n`;
                             refLinks.forEach(link => {
                                 const label = (link.label || '').trim() || link.url;
