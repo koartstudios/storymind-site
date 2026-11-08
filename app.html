@@ -16003,7 +16003,15 @@ window.addEventListener('resize', function () {
             { group: 'Modos', icon: '🧪', label: 'Mostrar/ocultar variantes', action: safe(() => toggleShowVariants()), enabled: true },
             { group: 'Modos', icon: '📈', label: 'Curva de tensão', hint: 'K', action: safe(() => toggleTensionStrip()), enabled: true },
             { group: 'Modos', icon: '🗺️', label: 'Minimapa', hint: 'M', action: safe(() => toggleMinimap()), enabled: true },
-
+                        // ---- Modos ----
+            { group: 'Modos', icon: '📊', label: 'Beat Sheet', hint: 'B', action: safe(() => onBeatSheetButtonClick()), enabled: hasFw },
+            { group: 'Modos', icon: '🎼', label: 'Modo Narrativo', hint: 'Shift+B', action: safe(() => toggleBeatSortMode()), enabled: hasFw },
+            { group: 'Modos', icon: '⏳', label: 'Modo Timeline', action: safe(() => toggleTimelineMode()), enabled: hasTimeline },
+            { group: 'Modos', icon: '🧪', label: 'Mostrar/ocultar variantes', action: safe(() => toggleShowVariants()), enabled: true },
+            { group: 'Modos', icon: '📈', label: 'Curva de tensão', hint: 'K', action: safe(() => toggleTensionStrip()), enabled: true },
+            { group: 'Modos', icon: '🗺️', label: 'Minimapa', hint: 'M', action: safe(() => toggleMinimap()), enabled: true },
+            // 👇 ADICIONE ESTA LINHA AQUI 👇
+            { group: 'Modos', icon: '🧘', label: 'Modo Zen (Tela Cheia)', hint: 'Ctrl+Shift+Z', action: () => window.toggleZenMode(), enabled: true },
             // ---- Layout ----
             { group: 'Layout', icon: '🌳', label: 'Layout árvore', action: safe(() => changeLayout('tree')), enabled: true },
             { group: 'Layout', icon: '🎯', label: 'Layout radial', action: safe(() => changeLayout('radial')), enabled: true },
@@ -16038,7 +16046,7 @@ window.addEventListener('resize', function () {
             { group: 'Aba', icon: '📄', label: 'Nova aba', hint: 'Shift+T', action: safe(() => addSheet()), enabled: true },
         ];
     }
-
+window.getStaticCommands = getStaticCommands;
     function getDynamicNodeCommands(query) {
         if (!query || query.length < 2) return [];
         const q = normalize(query);
@@ -16718,6 +16726,7 @@ window.addEventListener('resize', function () {
     }
 })();
 </script>
+<script src="assets/zen-themes.js"></script>
 <script src="assets/context-menu.js"></script>
 <script src="assets/context-menu-contextual.js"></script>
 </body>
