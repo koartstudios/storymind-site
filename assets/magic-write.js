@@ -1,452 +1,160 @@
 /* ============================================================
-   STORYMIND PRO — MÓDULO: MAGIC WRITE (Com Contexto Avançado)
-   ------------------------------------------------------------
-   Carregar DEPOIS do script principal do app:
-     <script src="assets/magic-write.js"></script>
+   StoryMind — proxy de IA (Vercel Serverless Function) · Google Gemini
+   Caminho no projeto:  api/magic-write.js   →  POST /api/magic-write
 
-   A chamada à IA passa pelo proxy /api/magic-write (pasta api/ do
-   projeto na Vercel). A chave da Groq fica SOMENTE na variável de
-   ambiente GROQ_API_KEY do servidor — nunca neste arquivo.
+   A chave NUNCA vai para o navegador. Configure na Vercel:
+     Project → Settings → Environment Variables
+       GEMINI_API_KEY   (obrigatória — gere em aistudio.google.com/apikey)
+       GEMINI_MODELS    (opcional — lista separada por vírgula, em ordem de preferência)
+   Depois de criar/alterar variáveis, faça um novo deploy.
 
-   Opcional (console ou outro script, antes de gerar):
-     window.SM_MAGIC_ENDPOINT = '/api/magic-write';
-     window.SM_MAGIC_MODEL    = 'openai/gpt-oss-20b';  // ou 'openai/gpt-oss-120b'
+   O modelo é escolhido AQUI (servidor), não no navegador. Se o Google
+   aposentar um modelo, basta trocar GEMINI_MODELS na Vercel — sem mexer
+   no site. Se um modelo falhar (não existe mais, cota estourada,
+   instabilidade), o proxy tenta o próximo da lista.
+
+   Resposta: devolve no formato { choices: [{ message: { content }, finish_reason }] }
+   para o front-end (magic-write.js) não depender do formato do Google.
    ============================================================ */
-(function () {
-    'use strict';
-    if (window.SM_MAGIC_WRITE_LOADED) return;
-    window.SM_MAGIC_WRITE_LOADED = true;
 
-    const DEFAULT_ENDPOINT = '/api/magic-write';
-    const DEFAULT_MODEL = 'openai/gpt-oss-20b';
-    const MAX_NOTES_CHARS = 6000;
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/';
 
-    function injectCSS() {
-        if (document.getElementById('sm-magic-css')) return;
-        const style = document.createElement('style');
-        style.id = 'sm-magic-css';
-        style.textContent = `
-            #sm-magic-modal {
-                position: fixed; inset: 0; z-index: 9999;
-                background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px);
-                display: none; align-items: center; justify-content: center; padding: 20px;
-            }
-            #sm-magic-modal.active { display: flex; }
+// Ordem de preferência padrão (verificado em nov/2026; sobrescreva com GEMINI_MODELS)
+const DEFAULT_MODELS = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.6-flash'];
 
-            .sm-magic-panel {
-                background: white; width: 100%; max-width: 650px; border-radius: 16px;
-                box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); overflow: hidden;
-                display: flex; flex-direction: column;
-                animation: sm-magic-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-                max-height: 90vh;
-            }
-            @keyframes sm-magic-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+const MAX_MESSAGES = 6;
+const MAX_TOTAL_CHARS = 30000;   // tamanho máximo somado das mensagens
+const MAX_OUTPUT_TOKENS = 6000;  // teto (os modelos 3.x "pensam" e isso conta no limite)
+const REQUEST_TIMEOUT_MS = 22000;
+const TIME_BUDGET_MS = 40000;    // não inicia nova tentativa depois disso
 
-            body.app-theme-dark .sm-magic-panel { background: #1e293b; border: 1px solid #334155; }
+// Ficção tem violência e temas sombrios; o filtro padrão do Google bloqueia demais.
+const SAFETY_SETTINGS = [
+    'HARM_CATEGORY_HARASSMENT',
+    'HARM_CATEGORY_HATE_SPEECH',
+    'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+    'HARM_CATEGORY_DANGEROUS_CONTENT'
+].map(category => ({ category, threshold: 'BLOCK_ONLY_HIGH' }));
 
-            .sm-magic-header {
-                padding: 16px 20px; border-bottom: 1px solid #e2e8f0;
-                display: flex; justify-content: space-between; align-items: center;
-                background: linear-gradient(135deg, #f0fdf4, #dcfce7); flex-shrink: 0;
-            }
-            body.app-theme-dark .sm-magic-header { background: #064e3b; border-bottom-color: #334155; }
+function fail(res, status, message) {
+    return res.status(status).json({ error: { message } });
+}
 
-            .sm-magic-title {
-                font-weight: 800; font-size: 14px; color: #166534;
-                display: flex; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: 0.05em;
-            }
-            body.app-theme-dark .sm-magic-title { color: #6ee7b7; }
-            .sm-magic-title i { font-size: 18px; animation: sm-magic-pulse 2s infinite; }
-            @keyframes sm-magic-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.1); } }
+function getModels() {
+    const env = (process.env.GEMINI_MODELS || process.env.GEMINI_MODEL || '')
+        .split(',').map(s => s.trim()).filter(m => /^[a-z0-9][a-z0-9.\-_]*$/i.test(m));
+    return env.length ? env : DEFAULT_MODELS;
+}
 
-            .sm-magic-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
+async function callGemini(model, payload, apiKey) {
+    const upstream = await fetch(GEMINI_BASE + encodeURIComponent(model) + ':generateContent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+    });
+    const text = await upstream.text();
+    let data = null;
+    try { data = JSON.parse(text); } catch (_) { data = null; }
+    return { ok: upstream.ok, status: upstream.status, data };
+}
 
-            /* Painel de Contexto */
-            .sm-magic-context-box {
-                background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 12px;
-                font-size: 11px; color: #475569; max-height: 120px; overflow-y: auto;
-            }
-            body.app-theme-dark .sm-magic-context-box { background: #0f172a; border-color: #475569; color: #cbd5e1; }
-            .sm-magic-context-title { font-weight: 700; color: #3b82f6; margin-bottom: 6px; display: flex; align-items: center; gap: 4px; text-transform: uppercase; letter-spacing: 0.05em;}
-            .sm-magic-context-item { margin-bottom: 3px; }
-            .sm-magic-context-item b { color: #1e293b; }
-            body.app-theme-dark .sm-magic-context-item b { color: #f1f5f9; }
+// Converte a resposta do Gemini para o formato que o front-end espera
+function toClientShape(data, model) {
+    const cand = data && data.candidates && data.candidates[0];
+    const parts = (cand && cand.content && cand.content.parts) || [];
+    const content = parts.filter(p => p && typeof p.text === 'string' && !p.thought).map(p => p.text).join('').trim();
 
-            .sm-magic-field label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 6px; letter-spacing: 0.05em; }
-            .sm-magic-field input, .sm-magic-field select {
-                width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid #cbd5e1;
-                font-size: 13px; outline: none; background: #f8fafc; color: #1e293b;
-            }
-            .sm-magic-field input:focus, .sm-magic-field select:focus { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.15); }
+    const blocked = !!(data && data.promptFeedback && data.promptFeedback.blockReason) ||
+        (cand && ['SAFETY', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII', 'RECITATION'].includes(cand.finishReason));
 
-            .sm-magic-result {
-                width: 100%; min-height: 150px; padding: 14px;
-                border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc;
-                font-size: 13px; line-height: 1.6; color: #1e293b; resize: vertical; outline: none;
-            }
-            .sm-magic-result.is-error { border-color: #fca5a5; background: #fef2f2; color: #991b1b; }
-            body.app-theme-dark .sm-magic-result { background: #0f172a; border-color: #475569; color: #e2e8f0; }
-            body.app-theme-dark .sm-magic-result.is-error { background: #450a0a; border-color: #7f1d1d; color: #fecaca; }
+    let finish = 'stop';
+    if (blocked) finish = 'content_filter';
+    else if (cand && cand.finishReason === 'MAX_TOKENS') finish = 'length';
 
-            .sm-magic-footer {
-                padding: 16px 20px; border-top: 1px solid #e2e8f0;
-                display: flex; justify-content: flex-end; gap: 10px; background: #f8fafc; flex-shrink: 0;
-            }
-            body.app-theme-dark .sm-magic-footer { background: #0f172a; border-top-color: #334155; }
+    return { model, choices: [{ message: { role: 'assistant', content }, finish_reason: finish }] };
+}
 
-            .sm-magic-btn {
-                padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s;
-            }
-            .sm-magic-btn.primary { background: #10b981; color: white; display: flex; align-items: center; gap: 6px; }
-            .sm-magic-btn.primary:hover { background: #059669; }
-            .sm-magic-btn.primary:disabled { background: #a7f3d0; cursor: wait; }
-            .sm-magic-btn.secondary { background: #e2e8f0; color: #475569; }
-            .sm-magic-btn.secondary:hover { background: #cbd5e1; }
-            body.app-theme-dark .sm-magic-btn.secondary { background: #334155; color: #cbd5e1; }
-
-            #sm-magic-trigger-btn {
-                width: 100%; margin-top: 8px; padding: 8px; border-radius: 8px;
-                background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1px solid #a7f3d0;
-                color: #047857; font-size: 12px; font-weight: 700; cursor: pointer;
-                display: flex; align-items: center; justify-content: center; gap: 8px;
-                transition: all 0.2s;
-            }
-            #sm-magic-trigger-btn:hover { background: #a7f3d0; box-shadow: 0 2px 8px rgba(16,185,129,0.2); }
-            body.app-theme-dark #sm-magic-trigger-btn { background: #064e3b; border-color: #065f46; color: #6ee7b7; }
-        `;
-        document.head.appendChild(style);
+module.exports = async function handler(req, res) {
+    if (req.method !== 'POST') {
+        res.setHeader('Allow', 'POST');
+        return fail(res, 405, 'Método não permitido.');
     }
 
-    function closeModal() {
-        const m = document.getElementById('sm-magic-modal');
-        if (m) m.classList.remove('active');
+    // Barreira simples: só aceita chamadas vindas do próprio site
+    const origin = req.headers.origin;
+    if (origin) {
+        let originHost = '';
+        try { originHost = new URL(origin).host; } catch (_) { /* ignora */ }
+        if (originHost !== req.headers.host) return fail(res, 403, 'Origem não permitida.');
     }
 
-    function injectModal() {
-        if (document.getElementById('sm-magic-modal')) return;
-        const modal = document.createElement('div');
-        modal.id = 'sm-magic-modal';
-        modal.innerHTML = `
-            <div class="sm-magic-panel">
-                <div class="sm-magic-header">
-                    <div class="sm-magic-title"><i class="fa-solid fa-wand-magic-sparkles"></i> Magic Write</div>
-                    <button type="button" id="sm-magic-close" style="background:none;border:none;font-size:18px;color:#166534;cursor:pointer;" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <div class="sm-magic-body">
-
-                    <div class="sm-magic-context-box">
-                        <div class="sm-magic-context-title"><i class="fa-solid fa-brain"></i> Contexto detectado no nó:</div>
-                        <div id="sm-magic-context-content"></div>
-                    </div>
-
-                    <div class="sm-magic-field">
-                        <label>O que você quer gerar?</label>
-                        <select id="sm-magic-type">
-                            <option value="description">Descrição expandida do nó</option>
-                            <option value="scene">Desenvolver a Cena (com base nos campos)</option>
-                            <option value="character">Aprofundar o Personagem (Arco)</option>
-                            <option value="dialogue">Criar Diálogo (baseado no subtexto)</option>
-                            <option value="worldbuilding">Expandir Cenário / Atmosfera</option>
-                            <option value="object">Desenvolver o Objeto (história, regras e custo)</option>
-                        </select>
-                    </div>
-                    <div class="sm-magic-field">
-                        <label>Instruções extras (opcional)</label>
-                        <input type="text" id="sm-magic-prompt" placeholder="Ex: Foque em um tom sombrio e misterioso...">
-                    </div>
-                    <div class="sm-magic-field">
-                        <label>Resultado gerado</label>
-                        <textarea id="sm-magic-result" class="sm-magic-result" placeholder="O texto gerado pela IA aparecerá aqui..."></textarea>
-                    </div>
-                </div>
-                <div class="sm-magic-footer">
-                    <button type="button" class="sm-magic-btn secondary" id="sm-magic-cancel-btn">Cancelar</button>
-                    <button type="button" class="sm-magic-btn primary" id="sm-magic-generate-btn"><i class="fa-solid fa-bolt"></i> Gerar Texto</button>
-                    <button type="button" class="sm-magic-btn primary" id="sm-magic-apply-btn" style="background:#4f46e5; display:none;"><i class="fa-solid fa-check"></i> Aplicar no Nó</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-
-        document.getElementById('sm-magic-close').addEventListener('click', closeModal);
-        document.getElementById('sm-magic-cancel-btn').addEventListener('click', closeModal);
-        document.getElementById('sm-magic-generate-btn').addEventListener('click', () => window.executeMagicWrite());
-        document.getElementById('sm-magic-apply-btn').addEventListener('click', () => window.applyMagicWrite());
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && modal.classList.contains('active')) { e.stopPropagation(); closeModal(); }
-        }, true);
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (!apiKey) {
+        return fail(res, 500, 'GEMINI_API_KEY não está configurada no servidor (Vercel → Settings → Environment Variables).');
     }
 
-    // --- Lógica ---
-    let activeMagicNodeId = null;
+    let body = req.body;
+    if (typeof body === 'string') {
+        try { body = JSON.parse(body); } catch (_) { body = null; }
+    }
+    if (!body || !Array.isArray(body.messages) || body.messages.length === 0 || body.messages.length > MAX_MESSAGES) {
+        return fail(res, 400, 'Requisição inválida: "messages" ausente ou grande demais.');
+    }
 
-    const GEN_BTN_HTML = '<i class="fa-solid fa-bolt"></i> Gerar Texto';
-    const REGEN_BTN_HTML = '<i class="fa-solid fa-rotate"></i> Gerar novamente';
+    // OpenAI-style → Gemini
+    const systemParts = [];
+    const contents = [];
+    let total = 0;
+    for (const m of body.messages) {
+        if (!m || !['system', 'user', 'assistant'].includes(m.role) || typeof m.content !== 'string') {
+            return fail(res, 400, 'Requisição inválida: formato de mensagem incorreto.');
+        }
+        total += m.content.length;
+        if (m.role === 'system') systemParts.push({ text: m.content });
+        else contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] });
+    }
+    if (total > MAX_TOTAL_CHARS) return fail(res, 413, 'Contexto grande demais. Reduza as notas do nó.');
+    if (contents.length === 0) return fail(res, 400, 'Requisição inválida: nenhuma mensagem do usuário.');
 
-    // Instruções específicas por tipo de geração (o valor do <select>)
-    const TYPE_INSTRUCTIONS = {
-        description:   { label: 'Descrição expandida', how: 'Escreva uma descrição expandida e evocativa deste elemento da história, em 2 a 4 parágrafos curtos, sem contradizer os dados fornecidos.' },
-        scene:         { label: 'Desenvolvimento de cena', how: 'Desenvolva esta cena como um tratamento dramático: o que o protagonista da cena quer, o que o impede, como o valor em jogo vira de uma carga para outra e como a cena termina. Mostre ações e escolhas, não apenas descrição. Use parágrafos curtos.' },
-        character:     { label: 'Aprofundamento de personagem', how: 'Aprofunde o personagem: a tensão entre o desejo externo e a necessidade interna, a falha ou ferida que o move, o que ele teme perder e como o arco de transformação aparece em ações concretas, não em explicações.' },
-        dialogue:      { label: 'Diálogo', how: 'Escreva um diálogo curto e natural entre falante e alvo. O que é dito deve diferir do que cada um realmente quer (subtexto); respeite a emoção dominante e a ação da fala. Formato: NOME: fala, uma por linha, com rubricas mínimas entre parênteses.' },
-        worldbuilding: { label: 'Expansão de cenário', how: 'Expanda o cenário e a atmosfera: detalhes sensoriais, a época, o clima e, principalmente, as pressões do ambiente que forçam os personagens a escolher. Mostre como o lugar afeta a história.' },
-        object:        { label: 'Desenvolvimento de objeto', how: 'Desenvolva o objeto: sua história, as regras e os limites do que ele faz, o custo que o usuário paga para usá-lo, seu simbolismo e a diferença entre o que se espera dele e o que ele realmente causa. Sugira uma situação em que essa diferença vire uma cena.' }
+    const requested = Number(body.max_tokens);
+    const maxOutputTokens = Math.min(Number.isFinite(requested) && requested > 0 ? requested : 4096, MAX_OUTPUT_TOKENS);
+    const temperature = Math.min(Math.max(Number(body.temperature) || 0.7, 0), 1.5);
+
+    const basePayload = {
+        contents,
+        generationConfig: { temperature, maxOutputTokens },
+        safetySettings: SAFETY_SETTINGS
     };
+    if (systemParts.length) basePayload.systemInstruction = { parts: systemParts };
 
-    const SYSTEM_PROMPT = 'Você é um roteirista e escritor profissional. Sua tarefa é ajudar o autor a expandir seu mapa mental de histórias. ' +
-        'Use os dados fornecidos, seja criativo, direto e escreva em português do Brasil. ' +
-        'Responda em texto corrido, SEM Markdown (sem #, **, listas com hífen ou tabelas), porque o texto será colado em notas de texto simples. ' +
-        'Não repita os dados fornecidos nem explique o que está fazendo: entregue apenas o texto pedido. ' +
-        'Se faltar informação, invente com coerência em vez de perguntar.';
+    // 1ª tentativa pede raciocínio curto (mais rápido); se o modelo não aceitar, repete sem isso
+    const withThinking = Object.assign({}, basePayload, {
+        generationConfig: Object.assign({}, basePayload.generationConfig, { thinkingConfig: { thinkingLevel: 'low' } })
+    });
 
-    // Extrai todos os campos preenchidos do nó
-    function buildNodeContext(node) {
-        const context = [];
+    const started = Date.now();
+    let last = null;
 
-        context.push({ label: 'Título', value: node.title });
-        if (node.type && typeof NODE_TYPES !== 'undefined' && NODE_TYPES[node.type]) context.push({ label: 'Tipo', value: NODE_TYPES[node.type].label });
-        if (node.pov) context.push({ label: 'POV', value: node.pov });
-        if (node.tension > 0) context.push({ label: 'Tensão', value: node.tension + '/10' });
-
-        if (node.beatId && typeof findBeatById === 'function') {
-            const beat = findBeatById(node.beatId);
-            if (beat) context.push({ label: 'Beat', value: beat.name });
-        }
-
-        if (node.type && node.typeData && typeof TYPE_FIELDS !== 'undefined') {
-            const fields = TYPE_FIELDS[node.type] || [];
-            fields.forEach(f => {
-                const val = node.typeData[f.key];
-                if (val && String(val).trim() !== '') {
-                    context.push({ label: f.label, value: val });
-                }
-            });
-        }
-
-        if (node.content && node.content.trim()) {
-            let notes = node.content.trim();
-            if (notes.length > MAX_NOTES_CHARS) notes = notes.slice(-MAX_NOTES_CHARS); // mantém o trecho mais recente
-            context.push({ label: 'Notas atuais', value: notes });
-        }
-
-        return context;
-    }
-
-    function esc(s) {
-        return (typeof escapeHTML === 'function') ? escapeHTML(String(s)) :
-            String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    }
-
-    function setResult(text, isError) {
-        const el = document.getElementById('sm-magic-result');
-        el.value = text;
-        el.classList.toggle('is-error', !!isError);
-    }
-
-    window.openMagicWrite = function (nodeId) {
-        if (!nodeId) {
-            const hid = document.getElementById('edit-node-id');
-            nodeId = hid && hid.value;
-        }
-        const node = nodeId ? getNode(nodeId) : null;
-        if (!node) return;
-        activeMagicNodeId = nodeId;
-
-        const modal = document.getElementById('sm-magic-modal');
-        if (!modal) return;
-        setResult('', false);
-        document.getElementById('sm-magic-prompt').value = '';
-        document.getElementById('sm-magic-apply-btn').style.display = 'none';
-        const genBtn = document.getElementById('sm-magic-generate-btn');
-        genBtn.style.display = 'flex';
-        genBtn.disabled = false;
-        genBtn.innerHTML = GEN_BTN_HTML;
-
-        // Painel de contexto visual
-        const ctx = buildNodeContext(node);
-        const ctxContainer = document.getElementById('sm-magic-context-content');
-        if (ctx.length <= 1) {
-            ctxContainer.innerHTML = '<em style="color:#94a3b8">Poucos dados preenchidos. O resultado pode ser genérico.</em>';
-        } else {
-            ctxContainer.innerHTML = ctx.map(c => `<div class="sm-magic-context-item"><b>${esc(c.label)}:</b> ${esc(c.value)}</div>`).join('');
-        }
-
-        // Pré-seleciona o tipo de geração baseado no nó
-        const typeSelect = document.getElementById('sm-magic-type');
-        const map = { scene: 'scene', character: 'character', location: 'worldbuilding', dialogue: 'dialogue', object: 'object' };
-        typeSelect.value = map[node.type] || 'description';
-
-        modal.classList.add('active');
-    };
-
-    // Traduz falhas de rede/HTTP em mensagens que o autor consiga agir
-    function explainError(status, apiMessage) {
-        if (status === 404) return 'O endpoint de IA não foi encontrado (/api/magic-write). Confirme que a pasta api/ foi publicada na Vercel — ela não funciona abrindo o arquivo direto no navegador.';
-        if (status === 401 || status === 403) return 'A chave da IA foi recusada. Gere uma nova em console.groq.com e atualize GROQ_API_KEY na Vercel (depois, faça um novo deploy).';
-        if (status === 429) return 'Limite de uso da IA atingido. Aguarde alguns instantes e tente de novo.';
-        if (status === 500 && /GROQ_API_KEY/.test(apiMessage || '')) return apiMessage;
-        if (status === 400 && /model/i.test(apiMessage || '')) return 'O modelo de IA configurado não está mais disponível. Detalhe: ' + apiMessage;
-        return apiMessage || ('Erro ' + status + ' ao chamar a IA.');
-    }
-
-    window.executeMagicWrite = async function () {
-        const node = getNode(activeMagicNodeId);
-        if (!node) return;
-
-        const type = document.getElementById('sm-magic-type').value;
-        const extraPrompt = document.getElementById('sm-magic-prompt').value.trim();
-        const genBtn = document.getElementById('sm-magic-generate-btn');
-        const applyBtn = document.getElementById('sm-magic-apply-btn');
-
-        genBtn.disabled = true;
-        genBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Lendo contexto e gerando...';
-        applyBtn.style.display = 'none';
-        setResult('', false);
-
-        let ok = false;
+    for (const model of getModels()) {
+        if (last && Date.now() - started > TIME_BUDGET_MS) break;
         try {
-            const ctx = buildNodeContext(node);
-            const dict = {};
-            ctx.forEach(c => { dict[c.label] = c.value; });
+            let r = await callGemini(model, withThinking, apiKey);
+            if (r.status === 400) r = await callGemini(model, basePayload, apiKey);
 
-            const instr = TYPE_INSTRUCTIONS[type] || TYPE_INSTRUCTIONS.description;
-            const storyTitle = (typeof currentStory !== 'undefined' && currentStory && currentStory.title) ? currentStory.title : '';
+            if (r.ok) return res.status(200).json(toClientShape(r.data, model));
 
-            const userPrompt =
-`${storyTitle ? 'História: ' + storyTitle + '\n\n' : ''}Dados do nó atual:
-${JSON.stringify(dict, null, 2)}
+            const msg = r.data && r.data.error && r.data.error.message ? r.data.error.message : 'Erro ' + r.status + ' na API de IA.';
+            last = { status: r.status, msg: msg + ' [' + model + ']' };
 
-Tarefa: ${instr.label}.
-${instr.how}
-
-Instruções adicionais do autor: ${extraPrompt || 'Nenhuma.'}`;
-
-            const response = await fetch(window.SM_MAGIC_ENDPOINT || DEFAULT_ENDPOINT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model: window.SM_MAGIC_MODEL || DEFAULT_MODEL,
-                    messages: [
-                        { role: 'system', content: SYSTEM_PROMPT },
-                        { role: 'user', content: userPrompt }
-                    ],
-                    temperature: 0.7,
-                    max_tokens: 2048
-                })
-            });
-
-            // O corpo pode não ser JSON (ex.: página 404 da Vercel)
-            let data = null;
-            try { data = await response.json(); } catch (_) { data = null; }
-
-            if (!response.ok) {
-                throw new Error(explainError(response.status, data && data.error && data.error.message));
-            }
-
-            const choice = data && data.choices && data.choices[0];
-            const text = choice && choice.message && typeof choice.message.content === 'string' ? choice.message.content.trim() : '';
-            if (!text) {
-                const cut = choice && choice.finish_reason === 'length';
-                throw new Error(cut
-                    ? 'A IA gastou todo o limite de tokens "pensando" e não chegou a escrever. Tente de novo, ou reduza as instruções extras.'
-                    : 'A IA respondeu vazio. Tente gerar novamente.');
-            }
-
-            setResult(text, false);
-            ok = true;
-        } catch (error) {
-            console.error('[Magic Write] Erro na geração:', error);
-            // fetch() lança TypeError quando não consegue nem chegar ao servidor (sem internet, bloqueio etc.)
-            const isNetworkError = !!error && error.name === 'TypeError';
-            const msg = isNetworkError ? 'Não foi possível conectar. Verifique sua internet.' : error.message;
-            setResult('❌ Não foi possível gerar o texto.\n\n' + msg, true);
-        } finally {
-            genBtn.disabled = false;
-            genBtn.style.display = 'flex';
-            genBtn.innerHTML = ok ? REGEN_BTN_HTML : GEN_BTN_HTML;
-            // "Aplicar" só aparece quando há texto gerado de verdade (nunca com mensagem de erro)
-            applyBtn.style.display = ok ? 'flex' : 'none';
-        }
-    };
-
-    window.applyMagicWrite = function () {
-        const node = getNode(activeMagicNodeId);
-        if (!node) return;
-
-        const resultEl = document.getElementById('sm-magic-result');
-        const resultText = resultEl.value.trim();
-        if (!resultText || resultEl.classList.contains('is-error')) return;
-
-        pushHistory();
-        node.content = (node.content ? node.content + '\n\n' : '') + resultText;
-        if (typeof domCache !== 'undefined' && domCache && typeof domCache.invalidateHeight === 'function') domCache.invalidateHeight(node.id);
-
-        closeModal();
-
-        const textarea = document.getElementById('edit-node-content');
-        if (textarea) textarea.value = node.content;
-
-        saveStoriesStorage();
-        renderApp();
-
-        setTimeout(() => {
-            if (typeof openInspectorFor === 'function') openInspectorFor(node.id);
-        }, 30);
-
-        if (typeof showToast === 'function') showToast('Texto gerado aplicado ao nó!', 'success', 2500);
-    };
-
-    // --- Integração com o Inspector ---
-    // O botão é criado uma única vez, mas seu nó-alvo é atualizado a cada abertura
-    // (antes, o clique ficava preso ao primeiro nó aberto).
-    function syncTriggerButton(nodeId) {
-        const contentArea = document.getElementById('edit-node-content');
-        if (!contentArea) return;
-        const node = nodeId ? getNode(nodeId) : null;
-        const show = !!(node && node.type);   // só para nós com tipo (cena, personagem, objeto...)
-
-        let btn = document.getElementById('sm-magic-trigger-btn');
-        if (!btn && show) {
-            btn = document.createElement('button');
-            btn.type = 'button';
-            btn.id = 'sm-magic-trigger-btn';
-            btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Gerar com IA (Magic Write)';
-            btn.addEventListener('click', () => {
-                const hid = document.getElementById('edit-node-id');
-                window.openMagicWrite((hid && hid.value) || btn.dataset.nodeId);
-            });
-            contentArea.parentNode.insertBefore(btn, contentArea.nextSibling);
-        }
-        if (btn) {
-            btn.dataset.nodeId = nodeId || '';
-            btn.style.display = show ? 'flex' : 'none';
+            // Chave inválida/sem permissão ou pedido inválido: outro modelo não resolve
+            if (r.status === 400 || r.status === 401 || r.status === 403) break;
+            // 404 (modelo não existe mais), 429 (cota), 5xx: tenta o próximo modelo da lista
+        } catch (err) {
+            const timeout = err && (err.name === 'TimeoutError' || err.name === 'AbortError');
+            last = { status: timeout ? 504 : 502, msg: (timeout ? 'A IA demorou demais para responder' : 'Falha ao contatar a API de IA') + ' [' + model + ']' };
         }
     }
 
-    const originalOpenInspector = window.openInspectorFor;
-    if (typeof originalOpenInspector === 'function' && !originalOpenInspector.__smMagic) {
-        const wrapped = function (nodeId) {
-            const result = originalOpenInspector.apply(this, arguments);
-            try { syncTriggerButton(nodeId); } catch (e) { console.warn('[Magic Write] botão não instalado:', e); }
-            return result;
-        };
-        wrapped.__smMagic = true;
-        window.openInspectorFor = wrapped;
-    } else if (typeof originalOpenInspector !== 'function') {
-        console.warn('[Magic Write] openInspectorFor não encontrado — carregue este script depois do script principal do app.');
-    }
-
-    function init() {
-        injectCSS();
-        injectModal();
-        // Se o inspetor já estiver aberto quando o módulo carregar, instala o botão agora
-        const hid = document.getElementById('edit-node-id');
-        if (hid && hid.value) syncTriggerButton(hid.value);
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
-})();
+    return fail(res, (last && last.status) || 502, (last && last.msg) || 'Falha ao contatar a API de IA.');
+};
