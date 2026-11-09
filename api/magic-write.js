@@ -1,5 +1,5 @@
 /* ============================================================
-   STORYMIND PRO — MÓDULO: MAGIC WRITE (Com Contexto Avançado)
+   StoryMind — proxy de IA (Vercel Serverless Function) · Google Gemini
    ------------------------------------------------------------
    Carregar DEPOIS do script principal do app:
      <script src="assets/magic-write.js"></script>
