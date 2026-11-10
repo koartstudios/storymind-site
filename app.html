@@ -4369,6 +4369,29 @@ function renderIcon(iconOrClass, extraClass = '') {
     object:    { id: 'object',    label: 'Objeto',     icon: '🏺', color: '#65a30d' }
 };
 
+        const ARCHETYPES = [
+            { name: 'Inocente', desc: 'Busca felicidade, pureza e harmonia. Otimista, confiante e fiel às regras do bem.', desire: 'Ser feliz e viver em segurança', fear: 'Ser punido por fazer algo errado; perder a pureza', gift: 'Fé, otimismo, honestidade', shadow: 'Ingenuidade, negação da realidade, dependência', role: 'Lembra o mundo do que vale proteger; costuma ser quebrado pela jornada.' },
+            { name: 'Órfão (Cara Comum)', desc: 'Pessoa comum, realista e solidária, que quer pertencer. Conhece a dor e a perda.', desire: 'Pertencer, conectar-se', fear: 'Ser excluído, destacar-se, ser abandonado', gift: 'Empatia, realismo, resiliência', shadow: 'Cinismo, vitimismo, perda de identidade para se encaixar', role: 'Âncora emocional do leitor; ponto de vista identificável.' },
+            { name: 'Herói', desc: 'Corajoso e determinado, prova seu valor por meio de ações difíceis e superação.', desire: 'Provar seu valor pela coragem e maestria', fear: 'Fraqueza, vulnerabilidade, covardia', gift: 'Coragem, disciplina, competência', shadow: 'Arrogância, necessidade de inimigos, obsessão por vencer', role: 'Protagonista de ação; enfrenta o mal e restaura a ordem.' },
+            { name: 'Cuidador', desc: 'Altruísta, protege e serve aos outros. Generoso e compassivo.', desire: 'Proteger e cuidar dos outros', fear: 'Egoísmo, ingratidão, ver os outros sofrerem', gift: 'Compaixão, generosidade, abnegação', shadow: 'Martírio, controle por culpa, autoanulação', role: 'Coração moral do grupo; seu sacrifício comove.' },
+            { name: 'Explorador', desc: 'Independente e inquieto, busca liberdade e autenticidade em novos territórios.', desire: 'Liberdade para descobrir quem é', fear: 'Aprisionamento, conformismo, vazio interior', gift: 'Autonomia, ambição, curiosidade', shadow: 'Fuga constante, isolamento, inquietude sem rumo', role: 'Abre o mundo da história; catalisa a jornada.' },
+            { name: 'Rebelde', desc: 'Rompe regras e desafia o sistema. Quer revolução ou mudança radical.', desire: 'Vingança ou revolução; derrubar o que não funciona', fear: 'Impotência, ser insignificante', gift: 'Coragem de romper, radicalidade, liberdade', shadow: 'Destruição pela destruição, crime, autossabotagem', role: 'Força de ruptura; questiona o status quo.' },
+            { name: 'Amante', desc: 'Movido por paixão, intimidade e beleza. Entrega-se a vínculos profundos.', desire: 'Intimidade, conexão e experiência sensorial', fear: 'Solidão, não ser desejado', gift: 'Paixão, gratidão, comprometimento', shadow: 'Obsessão, ciúme, perda de si no outro', role: 'Motor emocional e romântico; aprofunda os vínculos.' },
+            { name: 'Criador', desc: 'Imagina e constrói algo duradouro. Visionário e inventivo.', desire: 'Criar obras de valor duradouro', fear: 'Mediocridade, visão fracassada', gift: 'Imaginação, expressão, visão', shadow: 'Perfeccionismo, egocentrismo, obsessão pela obra', role: 'Transforma o mundo da trama por meio de invenção ou arte.' },
+            { name: 'Bobo da Corte', desc: 'Vive o momento com humor e leveza; desmascara pretensões.', desire: 'Viver o presente e divertir-se', fear: 'Tédio, ser ignorado', gift: 'Alegria, humor, espontaneidade', shadow: 'Irresponsabilidade, crueldade disfarçada de piada', role: 'Alívio cômico e voz crítica que diz verdades incômodas.' },
+            { name: 'Sábio', desc: 'Busca a verdade e o conhecimento. Analítico, reflexivo e distante.', desire: 'Descobrir a verdade e compreender o mundo', fear: 'Ignorância, ser enganado', gift: 'Sabedoria, inteligência, análise', shadow: 'Frieza, paralisia por análise, arrogância intelectual', role: 'Mentor ou fonte de informação que guia os demais.' },
+            { name: 'Mago', desc: 'Transforma realidades; faz o impossível acontecer. Carismático e visionário.', desire: 'Entender e dominar as leis da transformação', fear: 'Consequências indesejadas, manipular sem querer', gift: 'Catalisar mudança, visão, carisma', shadow: 'Manipulação, trapaça, hubris', role: 'Agente da transformação; realiza viradas na trama.' },
+            { name: 'Governante', desc: 'Líder que busca ordem, controle e prosperidade. Responsável e autoritário.', desire: 'Controle, ordem e estabilidade', fear: 'Caos, perder o poder', gift: 'Liderança, responsabilidade, organização', shadow: 'Tirania, rigidez, medo de delegar', role: 'Figura de autoridade; estabelece ou ameaça a ordem do mundo.' }
+        ];
+        const ARCHETYPE_NAMES = ARCHETYPES.map(a => a.name);
+        function getArchetypeInfo(name) { return ARCHETYPES.find(a => a.name === name) || null; }
+        function buildArchetypePanelHTML(name) {
+            const a = getArchetypeInfo(name);
+            if (!a) return '';
+            const row = (l, v) => `<div><span class="font-bold text-slate-500 uppercase tracking-wider text-[9px]">${l}</span><div>${escapeHTML(v)}</div></div>`;
+            return `<div class="bg-indigo-50 border border-indigo-200 rounded-lg p-2 text-[11px] text-slate-700 space-y-1.5"><div class="font-semibold text-indigo-700">${escapeHTML(a.name)}</div><div>${escapeHTML(a.desc)}</div>${row('Desejo central', a.desire)}${row('Maior medo', a.fear)}${row('Dom / força', a.gift)}${row('Sombra / falha', a.shadow)}${row('Função narrativa', a.role)}</div>`;
+        }
+
         const TYPE_FIELDS = {
             scene: [
                 { key: 'intExt',      label: 'INT / EXT',    type: 'select',   options: ['INT', 'EXT', 'INT/EXT'] },
@@ -4389,6 +4412,7 @@ function renderIcon(iconOrClass, extraClass = '') {
                 { key: 'want',           label: 'Desejo externo (want)', type: 'text' },
                 { key: 'need',           label: 'Necessidade interna (need)', type: 'text' },
                 { key: 'arc',            label: 'Arco de transformação', type: 'textarea' },
+                { key: 'dominantArchetype', label: 'Arquétipo dominante', type: 'select', options: ARCHETYPE_NAMES },
                 { key: 'firstAppearance',label: 'Primeira aparição', type: 'text' },
                 { key: 'lastAppearance', label: 'Última aparição',   type: 'text' },
                 { key: 'conflictValue',  label: '⚔ Valor em Conflito', type: 'textarea', placeholder: 'Ex: Honra vs. Sobrevivência · Amor vs. Liberdade' }
@@ -5897,6 +5921,13 @@ if (insights.length > 0) html += buildInsightsHTML(insights);
                 }
                 wrapper.innerHTML = `<label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">${escapeHTML(f.label)}</label>${inputHTML}`;
                 container.appendChild(wrapper);
+                if (f.key === 'dominantArchetype') {
+                    const panel = document.createElement('div');
+                    panel.id = 'archetype-desc-panel';
+                    panel.innerHTML = buildArchetypePanelHTML(value);
+                    panel.style.display = value ? '' : 'none';
+                    container.appendChild(panel);
+                }
             });
             if (node.type === 'scene') {
                 const wrapper = document.createElement('div');
@@ -5916,6 +5947,10 @@ if (node.type === 'character' || node.type === 'location' || node.type === 'obje
             if (!node) return;
             if (!node.typeData) node.typeData = {};
             node.typeData[key] = value;
+            if (key === 'dominantArchetype') {
+                const p = document.getElementById('archetype-desc-panel');
+                if (p) { p.innerHTML = buildArchetypePanelHTML(value); p.style.display = value ? '' : 'none'; }
+            }
             domCache.invalidateHeight(node.id);
             if (node.type === 'scene') updateSceneDiagnosticBanner();
             scheduleSave(); renderApp();
