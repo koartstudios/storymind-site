@@ -187,7 +187,7 @@
     const TYPE_INSTRUCTIONS = {
         description:   { label: 'Descrição expandida', how: 'Escreva uma descrição expandida e evocativa deste elemento da história, em 2 a 4 parágrafos curtos, sem contradizer os dados fornecidos.' },
         scene:         { label: 'Desenvolvimento de cena', how: 'Desenvolva esta cena como um tratamento dramático: o que o protagonista da cena quer, o que o impede, como o valor em jogo vira de uma carga para outra e como a cena termina. Mostre ações e escolhas, não apenas descrição. Use parágrafos curtos.' },
-        character:     { label: 'Aprofundamento de personagem', how: 'Aprofunde o personagem: a tensão entre o desejo externo e a necessidade interna, a falha ou ferida que o move, o que ele teme perder e como o arco de transformação aparece em ações concretas, não em explicações.' },
+        character:     { label: 'Aprofundamento de personagem', how: 'Aprofunde o personagem: a tensão entre o desejo externo e a necessidade interna, a falha ou ferida que o move, o que ele teme perder e como o arco de transformação aparece em ações concretas, não em explicações. Se houver arquétipo dominante e traços Big Five, use-os para explicar como ele reage sob pressão (inclusive a sombra do arquétipo).' },
         dialogue:      { label: 'Diálogo', how: 'Escreva um diálogo curto e natural entre falante e alvo. O que é dito deve diferir do que cada um realmente quer (subtexto); respeite a emoção dominante e a ação da fala. Formato: NOME: fala, uma por linha, com rubricas mínimas entre parênteses.' },
         worldbuilding: { label: 'Expansão de cenário', how: 'Expanda o cenário e a atmosfera: detalhes sensoriais, a época, o clima e, principalmente, as pressões do ambiente que forçam os personagens a escolher. Mostre como o lugar afeta a história.' },
         object:        { label: 'Desenvolvimento de objeto', how: 'Desenvolva o objeto: sua história, as regras e os limites do que ele faz, o custo que o usuário paga para usá-lo, seu simbolismo e a diferença entre o que se espera dele e o que ele realmente causa. Sugira uma situação em que essa diferença vire uma cena.' }
@@ -197,7 +197,8 @@
         'Use os dados fornecidos, seja criativo, direto e escreva em português do Brasil. ' +
         'Responda em texto corrido, SEM Markdown (sem #, **, listas com hífen ou tabelas), porque o texto será colado em notas de texto simples. ' +
         'Não repita os dados fornecidos nem explique o que está fazendo: entregue apenas o texto pedido. ' +
-        'Se faltar informação, invente com coerência em vez de perguntar.';
+        'Se faltar informação, invente com coerência em vez de perguntar. ' +
+        'Se houver "Arquétipo dominante", "Detalhes do Arquétipo" ou "Big Five (Personalidade)", respeite-os: reflita desejo, medo, sombra e traços de personalidade nas ações, falas e emoções do personagem, mostrando-os em comportamento concreto e não os citando por nome.';
 
     // Extrai todos os campos preenchidos do nó
     function buildNodeContext(node) {
@@ -221,6 +222,32 @@
                     context.push({ label: f.label, value: val });
                 }
             });
+        }
+
+        // Arquétipo dominante (detalhes) e Big Five — apenas personagens
+        if (node.type === 'character' && node.typeData) {
+            if (node.typeData.dominantArchetype && typeof getArchetypeInfo === 'function') {
+                const a = getArchetypeInfo(node.typeData.dominantArchetype);
+                if (a) {
+                    context.push({
+                        label: 'Detalhes do Arquétipo (' + a.name + ')',
+                        value: a.desc + ' Desejo: ' + a.desire + '. Medo: ' + a.fear + '. Dom: ' + a.gift + '. Sombra: ' + a.shadow + '. Função narrativa: ' + a.role
+                    });
+                }
+            }
+            if (typeof BIG_FIVE_TRAITS !== 'undefined' && typeof getBigFive === 'function') {
+                const bf = getBigFive(node);
+                if (bf) {
+                    const lines = [];
+                    BIG_FIVE_TRAITS.forEach(t => {
+                        const v = bf[t.key];
+                        if (typeof v !== 'number') return;
+                        const tendency = v <= 2 ? t.low : (v >= 4 ? t.high : 'moderado/equilibrado');
+                        lines.push(t.name + ' ' + v + '/5 (' + tendency + ')');
+                    });
+                    if (lines.length) context.push({ label: 'Big Five (Personalidade)', value: lines.join('; ') });
+                }
+            }
         }
 
         if (node.content && node.content.trim()) {
