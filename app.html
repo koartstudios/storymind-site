@@ -2812,6 +2812,9 @@ body.app-theme-dark .sm-select-btn:hover { filter: brightness(1.15); }
         <button type="button" data-sm-action="expand" title="Expandir tudo"><i class="fa-solid fa-expand"></i></button>
         <button type="button" data-sm-action="layout" title="Organizar automaticamente"><i class="fa-solid fa-sitemap"></i><span>Organizar</span></button>
         <button type="button" data-sm-action="fit" title="Centralizar mapa"><i class="fa-solid fa-crosshairs"></i></button>
+        <button type="button" data-sm-action="zoom-out" title="Diminuir zoom"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+        <button type="button" data-sm-action="zoom-in" title="Aumentar zoom"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+        <button type="button" data-sm-action="multi" id="sm-multi-btn" title="Seleção em área (arrastar no fundo seleciona vários nós)"><i class="fa-solid fa-vector-square"></i></button>
         <button type="button" data-sm-action="focus" title="Foco no ramo"><i class="fa-solid fa-eye"></i></button>
     </div>
       <button id="sm-mobile-zoom-selected" type="button"
@@ -4051,6 +4054,19 @@ body.app-theme-dark .sm-select-btn:hover { filter: brightness(1.15); }
     <button type="button" data-sm-action="variants" class="sm-mode-btn" data-mode="variants" aria-pressed="false">
         <i class="fa-solid fa-flask"></i>Variantes
     </button>
+
+    <!-- ==================== (NOVO) APARÊNCIA E EXTRAS ==================== -->
+    <div class="sm-section-divider"></div>
+    <div class="sm-full-width">
+        <label class="sm-label">🎨 Tema visual</label>
+        <div id="sm-theme-grid" class="sm-layout-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));"></div>
+    </div>
+    <div class="sm-section-divider"></div>
+    <div class="sm-full-width"><label class="sm-label">✨ Extras</label></div>
+    <button type="button" data-sm-action="zen"><i class="fa-solid fa-expand"></i>Modo Zen</button>
+    <button type="button" data-sm-action="gallery"><i class="fa-solid fa-images"></i>Galeria Visual</button>
+    <button type="button" data-sm-action="settings"><i class="fa-solid fa-gear"></i>Configurações</button>
+    <button type="button" data-sm-action="lite-toggle" id="sm-lite-btn"><i class="fa-solid fa-feather-pointed"></i><span id="sm-lite-label">Modo leve: ligado</span></button>
 </div>
 
     <div id="sm-mobile-tools" role="dialog" aria-label="Ferramentas" aria-modal="false">
@@ -4064,6 +4080,12 @@ body.app-theme-dark .sm-select-btn:hover { filter: brightness(1.15); }
     <button type="button" data-sm-action="mentions"><i class="fa-solid fa-users-viewfinder"></i>Grafo de Menções</button>
     <button type="button" data-sm-action="skilltree"><i class="fa-solid fa-sitemap"></i>Árvore de Habilidades</button>
     <button type="button" data-sm-action="write-scene"><i class="fa-solid fa-pen-nib"></i>Escrever cena</button>
+    <button type="button" data-sm-action="timeline"><i class="fa-solid fa-timeline"></i>Linha do Tempo</button>
+    <button type="button" data-sm-action="tension"><i class="fa-solid fa-chart-line"></i>Curva de Tensão</button>
+    <button type="button" data-sm-action="focus"><i class="fa-solid fa-eye"></i>Focar no ramo</button>
+    <button type="button" data-sm-action="gallery"><i class="fa-solid fa-images"></i>Galeria Visual</button>
+    <button type="button" data-sm-action="zen"><i class="fa-solid fa-expand"></i>Modo Zen</button>
+    <button type="button" data-sm-action="settings"><i class="fa-solid fa-gear"></i>Configurações</button>
 </div>
 <div id="mobile-info-backdrop" onclick="closeMobileNodeInfo()"></div>
     <div id="toast-container"></div>
@@ -16731,5 +16753,375 @@ window.getStaticCommands = getStaticCommands;
 <script src="assets/magic-write.js"></script> <!-- NOVO -->
 <script src="assets/context-menu.js"></script>
 <script src="assets/context-menu-contextual.js"></script>
+<!-- ============================================================
+     StoryMind — MOBILE: paridade com o desktop + MODO LEVE
+     Camada aditiva: não remove nem reescreve nada do app. Tudo é
+     "embrulhado" por cima das funções existentes e só atua em
+     celular/tablet. No desktop, nada muda.
+     Desligar o modo leve: Menu ☰ > Extras > "Modo leve".
+     ============================================================ -->
+<style id="sm-mobile-lite-css">
+@media (hover: none) and (max-width: 640px) {
+    /* --- itens novos do menu --- */
+    #sm-header-menu-panel .sm-theme-opt { padding: 10px 6px; font-size: 11px; line-height: 1.2; }
+    #sm-header-menu-panel > button.sm-on,
+    #sm-mobile-toolbar button.sm-on { background: #eef2ff; border-color: #6366f1; color: #4338ca; }
+    #sm-mobile-toolbar button.sm-on i { color: #4338ca; }
+    body.app-theme-dark #sm-header-menu-panel > button.sm-on,
+    body.app-theme-dark #sm-mobile-toolbar button.sm-on { background: #312e81; border-color: #6366f1; color: #c7d2fe; }
+    body.app-theme-dark #sm-mobile-toolbar button.sm-on i { color: #c7d2fe; }
+    #sm-header-menu-panel > button#sm-lite-btn { grid-column: 1 / -1; flex-direction: row; min-height: 48px; gap: 8px; }
+    #sm-mobile-toolbar { scrollbar-width: none; }
+    #sm-mobile-toolbar::-webkit-scrollbar { display: none; }
+
+    /* --- leveza visual: menos custo de pintura por nó --- */
+    body.sm-lite .node-card { transition: none !important; }
+    body.sm-lite .node-card:not(.is-selected):not(.drop-target):not(.rel-source) { box-shadow: 0 1px 2px rgba(15,23,42,.16) !important; }
+    body.sm-lite .node-card:hover { box-shadow: none; }
+    body.sm-lite .connection,
+    body.sm-lite .relationship-path { transition: none !important; }
+    body.sm-lite #connections-svg path { shape-rendering: optimizeSpeed; }
+    body.sm-lite #sm-mobile-nav,
+    body.sm-lite #sm-mobile-toolbar { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+    body.sm-lite #sm-mobile-nav { background: #fff; }
+    body.sm-lite.app-theme-dark #sm-mobile-nav { background: #1e293b; }
+
+    /* --- zoom afastado: some o que é pesado de pintar (o tamanho dos cartões não muda) --- */
+    body.sm-lite.sm-lod .node-card p,
+    body.sm-lite.sm-lod .node-card img,
+    body.sm-lite.sm-lod .node-card .mobile-info-badge,
+    body.sm-lite.sm-lod .node-card .writing-badge,
+    body.sm-lite.sm-lod .node-card .ref-badge,
+    body.sm-lite.sm-lod .node-card button { visibility: hidden; }
+    body.sm-lite.sm-lod .node-card { box-shadow: none !important; }
+}
+</style>
+
+<script id="sm-mobile-lite-js">
+(function () {
+    'use strict';
+    if (window.SM_MOBILE_LITE_LOADED) return;
+    window.SM_MOBILE_LITE_LOADED = true;
+
+    var LITE_KEY = 'sm_lite_mode';
+    var CULL_MIN_NODES = 45;      // abaixo disso o mapa é desenhado inteiro, como sempre
+    var VIEW_MARGIN = 0.5;        // folga (em telas) desenhada além da área visível
+    var LOD_ON = 0.5, LOD_OFF = 0.56;
+
+    function byId(id) { return document.getElementById(id); }
+    function isSmall() { return !!(window.DEVICE && (window.DEVICE.isMobile || window.DEVICE.isTablet)); }
+    function liteOn() { try { return localStorage.getItem(LITE_KEY) !== '0'; } catch (e) { return true; } }
+    function active() { return isSmall() && liteOn(); }
+    function toast(msg, type) { if (typeof showToast === 'function') showToast(msg, type || 'info', 1800); }
+
+    function applyBodyClasses() {
+        document.body.classList.toggle('sm-lite', active());
+        if (!active()) document.body.classList.remove('sm-lod');
+        var lbl = byId('sm-lite-label'), btn = byId('sm-lite-btn');
+        if (lbl) lbl.textContent = 'Modo leve: ' + (liteOn() ? 'ligado' : 'desligado');
+        if (btn) btn.classList.toggle('sm-on', liteOn());
+    }
+
+    /* ---------------------------------------------------------------
+       1) DESENHO PARCIAL (só o que está na tela + vizinhos imediatos)
+       --------------------------------------------------------------- */
+    var cullThisRender = false, consumed = false, lastRect = null, lastWasCulled = false;
+    var measuredRecently = false, noCull = false;
+
+    function viewRect(margin) {
+        var c = byId('canvas-container');
+        var cw = c ? c.clientWidth : window.innerWidth, ch = c ? c.clientHeight : window.innerHeight;
+        var x0 = (-panX) / scale, y0 = (-panY) / scale;
+        var x1 = (cw - panX) / scale, y1 = (ch - panY) / scale;
+        var mx = (x1 - x0) * margin, my = (y1 - y0) * margin;
+        return { x0: x0 - mx, y0: y0 - my, x1: x1 + mx, y1: y1 + my };
+    }
+    function nodeInRect(n, r) {
+        var h = domCache.heights.get(n.id) || 300;   // altura desconhecida = ser generoso
+        return n.x < r.x1 && n.x + NODE_W > r.x0 && n.y < r.y1 && n.y + h > r.y0;
+    }
+    function heightsReady() {
+        var nodes = mindMapData.nodes, have = 0;
+        for (var i = 0; i < nodes.length; i++) if (domCache.heights.has(nodes[i].id)) have++;
+        return have >= nodes.length * 0.7;
+    }
+    function computeCulled(full) {
+        var r = viewRect(VIEW_MARGIN), inView = new Set(), out;
+        mindMapData.nodes.forEach(function (n) { if (full.has(n.id) && nodeInRect(n, r)) inView.add(n.id); });
+        out = new Set(inView);
+        mindMapData.nodes.forEach(function (n) {
+            if (!full.has(n.id)) return;
+            if (n.parentId && full.has(n.parentId)) {
+                if (inView.has(n.parentId)) out.add(n.id);
+                if (inView.has(n.id)) out.add(n.parentId);
+            }
+            if (n.isVariant && n.variantOf && full.has(n.variantOf)) {
+                if (inView.has(n.variantOf)) out.add(n.id);
+                if (inView.has(n.id)) out.add(n.variantOf);
+            }
+        });
+        (mindMapData.relationships || []).forEach(function (rel) {
+            if (inView.has(rel.from) && full.has(rel.to)) out.add(rel.to);
+            if (inView.has(rel.to) && full.has(rel.from)) out.add(rel.from);
+        });
+        lastRect = r;
+        return out;
+    }
+
+    var _gvn = window.getVisibleNodes;
+    if (typeof _gvn === 'function') {
+        window.getVisibleNodes = function () {
+            var full = _gvn.apply(this, arguments);
+            if (cullThisRender && !consumed) { consumed = true; return computeCulled(full); }
+            return full;
+        };
+    }
+
+    function measureRenderedHeights() {
+        mindMapData.nodes.forEach(function (n) {
+            if (domCache.nodes.has(n.id) && !domCache.heights.has(n.id)) { try { getNodeHeight(n.id); } catch (e) {} }
+        });
+    }
+    function lazyImages() {
+        var imgs = document.querySelectorAll('#nodes-layer img:not([data-sm-lazy])');
+        for (var i = 0; i < imgs.length; i++) { imgs[i].loading = 'lazy'; imgs[i].decoding = 'async'; imgs[i].setAttribute('data-sm-lazy', '1'); }
+    }
+
+    var _render = window.renderApp;
+    if (typeof _render === 'function') {
+        window.renderApp = function () {
+            if (!active() || !mindMapData || !mindMapData.nodes) { lastWasCulled = false; return _render.apply(this, arguments); }
+            var total = mindMapData.nodes.length;
+            var cull = total >= CULL_MIN_NODES && !noCull && heightsReady();
+            cullThisRender = cull; consumed = false;
+            var res;
+            try { res = _render.apply(this, arguments); } finally { cullThisRender = false; }
+            lastWasCulled = cull;
+            try {
+                measureRenderedHeights();
+                lazyImages();
+                // 1ª vez (alturas ainda desconhecidas): desenhou tudo para medir; agora refaz só com o necessário.
+                if (!cull && total >= CULL_MIN_NODES && !noCull && !measuredRecently) {
+                    measuredRecently = true;
+                    setTimeout(function () { measuredRecently = false; }, 1500);
+                    if (heightsReady()) setTimeout(function () { if (typeof scheduleRender === 'function') scheduleRender(); }, 30);
+                }
+            } catch (e) { console.warn('[StoryMind leve]', e); }
+            return res;
+        };
+    }
+
+    /* Ao arrastar o mapa / dar zoom: redesenha só quando a vista saiu da área já desenhada. */
+    var viewTimer = 0;
+    function viewCheck() {
+        viewTimer = 0;
+        if (!active() || !mindMapData || !mindMapData.nodes) return;
+        if (draggedNodeId !== null && dragMoved) return;
+        var total = mindMapData.nodes.length;
+        if (total < CULL_MIN_NODES || noCull) return;
+        if (lastWasCulled && lastRect) {
+            var cur = viewRect(0.1);
+            if (cur.x0 < lastRect.x0 || cur.y0 < lastRect.y0 || cur.x1 > lastRect.x1 || cur.y1 > lastRect.y1) scheduleRender();
+        } else if (heightsReady()) {
+            var r = viewRect(VIEW_MARGIN), n = 0;
+            mindMapData.nodes.forEach(function (nd) { if (nodeInRect(nd, r)) n++; });
+            if (n < total * 0.6) scheduleRender();
+        }
+    }
+    function updateLod() {
+        var want = active() && scale < (document.body.classList.contains('sm-lod') ? LOD_OFF : LOD_ON);
+        document.body.classList.toggle('sm-lod', !!want);
+    }
+    var _uct = window.updateCanvasTransform;
+    if (typeof _uct === 'function') {
+        window.updateCanvasTransform = function () {
+            var r = _uct.apply(this, arguments);
+            if (active()) { updateLod(); clearTimeout(viewTimer); viewTimer = setTimeout(viewCheck, 140); }
+            return r;
+        };
+    }
+
+    /* ---------------------------------------------------------------
+       2) ARRASTAR NÓ: o cartão segue o dedo na hora; o mapa todo
+          (linhas, vizinhos) é redesenhado em intervalos curtos
+       --------------------------------------------------------------- */
+    var _sched = window.scheduleRender, lastDragRender = 0, dragTimer = 0;
+    if (typeof _sched === 'function') {
+        window.scheduleRender = function () {
+            if (active() && draggedNodeId !== null && dragMoved && mindMapData.nodes.length >= 30) {
+                selectedNodeIds.forEach(function (id) {
+                    var n = getNode(id), el = domCache.get(id);
+                    if (n && el) { el.style.left = n.x + 'px'; el.style.top = n.y + 'px'; }
+                });
+                var now = performance.now();
+                if (now - lastDragRender >= 140) { lastDragRender = now; return _sched.apply(this, arguments); }
+                if (!dragTimer) dragTimer = setTimeout(function () { dragTimer = 0; lastDragRender = performance.now(); _sched(); }, 140);
+                return;
+            }
+            return _sched.apply(this, arguments);
+        };
+    }
+
+    /* ---------------------------------------------------------------
+       3) TRABALHO QUE NÃO PRECISA ACONTECER NO CELULAR
+       --------------------------------------------------------------- */
+    var outlineDirty = false;
+    var _ro = window.renderOutline;
+    if (typeof _ro === 'function') {
+        window.renderOutline = function () {
+            if (active()) {
+                var p = byId('outline-panel');
+                if (p && p.classList.contains('-ml-64')) { outlineDirty = true; return; }   // painel fechado
+                outlineDirty = false;
+            }
+            return _ro.apply(this, arguments);
+        };
+        var _to = window.toggleOutline;
+        if (typeof _to === 'function') {
+            window.toggleOutline = function () {
+                var r = _to.apply(this, arguments);
+                var p = byId('outline-panel');
+                if (outlineDirty && p && !p.classList.contains('-ml-64')) { outlineDirty = false; _ro.call(window); }
+                return r;
+            };
+        }
+    }
+    var _rm = window.renderMinimap;   // o minimapa fica oculto no celular: não gastar tempo desenhando-o
+    if (typeof _rm === 'function') {
+        window.renderMinimap = function () { if (active()) return; return _rm.apply(this, arguments); };
+    }
+
+    /* Exportar imagem precisa do mapa inteiro no DOM: desliga o desenho parcial enquanto exporta. */
+    ['exportPNG', 'exportSVG'].forEach(function (name) {
+        var orig = window[name];
+        if (typeof orig !== 'function') return;
+        window[name] = function () {
+            var self = this, args = arguments, restored = false;
+            function restore() { if (restored) return; restored = true; noCull = false; if (active() && typeof scheduleRender === 'function') scheduleRender(); }
+            if (active()) {
+                noCull = true;
+                try { _render.call(window); } catch (e) {}
+            }
+            var out;
+            try { out = orig.apply(self, args); } catch (e) { restore(); throw e; }
+            if (out && typeof out.then === 'function') out.then(function () { setTimeout(restore, 300); }, restore);
+            else setTimeout(restore, 4000);
+            setTimeout(restore, 20000);
+            return out;
+        };
+    });
+
+    /* ---------------------------------------------------------------
+       4) UM DEDO NO FUNDO = MOVER O MAPA (antes virava seleção em área)
+          Seleção em área continua disponível no botão da barra rápida.
+       --------------------------------------------------------------- */
+    var multiSel = false, tap = null;
+    var _ocmd = window.onCanvasMouseDown;
+    if (typeof _ocmd === 'function') {
+        window.onCanvasMouseDown = function (event) {
+            if (isSmall() && event && event.pointerType === 'touch' && activeTool === 'select' && !multiSel && !isDraggingControlPoint) {
+                isPanning = true; panStartX = event.clientX - panX; panStartY = event.clientY - panY;
+                tap = { x: event.clientX, y: event.clientY, moved: false };
+                return;
+            }
+            return _ocmd.apply(this, arguments);
+        };
+        window.addEventListener('pointermove', function (e) {
+            if (tap && !tap.moved && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 8) tap.moved = true;
+        }, { passive: true });
+        window.addEventListener('pointerup', function () {
+            if (!tap) return;
+            var wasTap = !tap.moved; tap = null;
+            if (wasTap) {   // toque simples no fundo: limpa a seleção, como no desktop
+                try {
+                    selectedNodeIds.clear();
+                    if (typeof closeInspector === 'function') closeInspector();
+                    if (selectedRelationshipId && typeof closeRelationshipEditor === 'function') closeRelationshipEditor();
+                    renderApp();
+                } catch (e) {}
+            }
+        }, { passive: true });
+        window.addEventListener('pointercancel', function () { tap = null; }, { passive: true });
+    }
+
+    /* ---------------------------------------------------------------
+       5) BOTÕES NOVOS (zen, galeria, modo leve, seleção em área, temas)
+       --------------------------------------------------------------- */
+    function closePanels() {
+        var t = byId('sm-mobile-tools'), m = byId('sm-header-menu-panel');
+        if (t) t.classList.remove('open');
+        if (m) m.classList.remove('open');
+    }
+    function setLite(on) {
+        try { localStorage.setItem(LITE_KEY, on ? '1' : '0'); } catch (e) {}
+        applyBodyClasses();
+        if (typeof renderApp === 'function') renderApp();
+        toast(on ? 'Modo leve ligado: mapas grandes ficam mais fluidos.' : 'Modo leve desligado: o mapa completo é desenhado sempre.', 'success');
+    }
+    function setMulti(on) {
+        multiSel = !!on;
+        var b = byId('sm-multi-btn'); if (b) b.classList.toggle('sm-on', multiSel);
+        toast(multiSel ? 'Seleção em área: arraste no fundo para marcar vários nós.' : 'Arrastar no fundo move o mapa.', 'info');
+    }
+
+    document.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-sm-action]');
+        if (b) {
+            var a = b.dataset.smAction;
+            if (a === 'zen') { closePanels(); if (typeof window.toggleZenMode === 'function') window.toggleZenMode(); }
+            else if (a === 'gallery') { closePanels(); if (typeof window.openStoryboardMode === 'function') window.openStoryboardMode(); }
+            else if (a === 'lite-toggle') { setLite(!liteOn()); }
+            else if (a === 'multi') { setMulti(!multiSel); }
+            else if (b.closest('#sm-mobile-tools') && a !== 'tools' && a !== 'tools-close') { closePanels(); }
+            return;
+        }
+        var th = e.target.closest('.sm-theme-opt');
+        if (th) {
+            var v = th.getAttribute('data-theme');
+            if (typeof changeTheme === 'function') changeTheme(v);
+            var sel = byId('theme-select'); if (sel) sel.value = v;
+            markTheme();
+        }
+    });
+
+    function markTheme() {
+        var cur = (typeof mindMapData !== 'undefined' && mindMapData && mindMapData.theme) || 'default';
+        document.querySelectorAll('#sm-theme-grid .sm-theme-opt').forEach(function (b) {
+            b.classList.toggle('active', b.getAttribute('data-theme') === cur);
+        });
+    }
+    function buildThemeGrid() {
+        var grid = byId('sm-theme-grid'), sel = byId('theme-select');
+        if (!grid || !sel) return;
+        grid.innerHTML = '';
+        Array.prototype.forEach.call(sel.options, function (o) {
+            var b = document.createElement('button');
+            b.type = 'button'; b.className = 'sm-layout-btn sm-theme-opt';
+            b.setAttribute('data-theme', o.value);
+            b.textContent = o.textContent;   // textContent: seguro contra HTML
+            grid.appendChild(b);
+        });
+        markTheme();
+    }
+    var panel = byId('sm-header-menu-panel');
+    if (panel && window.MutationObserver) {
+        new MutationObserver(function () {
+            if (panel.classList.contains('open')) { buildThemeGrid(); applyBodyClasses(); }
+        }).observe(panel, { attributes: true, attributeFilter: ['class'] });
+    }
+
+    /* ---------------------------------------------------------------
+       6) INÍCIO
+       --------------------------------------------------------------- */
+    applyBodyClasses();
+    updateLod();
+    var mq = window.matchMedia('(hover: none) and (max-width: 640px)');
+    if (mq.addEventListener) mq.addEventListener('change', function () { applyBodyClasses(); });
+    window.addEventListener('resize', function () { applyBodyClasses(); clearTimeout(viewTimer); viewTimer = setTimeout(viewCheck, 200); }, { passive: true });
+    // Primeira passada: se o mapa já está na tela, refaz uma vez com as novas regras.
+    setTimeout(function () { if (active() && typeof renderApp === 'function') renderApp(); }, 400);
+})();
+</script>
+
 </body>
 </html>
