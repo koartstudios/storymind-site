@@ -6,7 +6,15 @@
      Project → Settings → Environment Variables
        GEMINI_API_KEY   (obrigatória — gere em aistudio.google.com/apikey)
        GEMINI_MODELS    (opcional — lista separada por vírgula, em ordem de preferência)
+       AI_DAILY_LIMIT   (opcional — máx. de gerações por usuário por dia; padrão 60)
+       AI_BURST_LIMIT   (opcional — máx. de gerações por usuário por minuto; padrão 6)
+       SUPABASE_URL / SUPABASE_ANON_KEY (opcionais — por padrão usa os mesmos valores públicos do config.js)
    Depois de criar/alterar variáveis, faça um novo deploy.
+
+   SEGURANÇA: só atende usuários logados (token do Supabase no cabeçalho Authorization)
+   e aplica limite por usuário. Para o limite diário ser durável, rode uma vez o arquivo
+   supabase-ai-usage.sql no SQL Editor do Supabase; sem ele, o limite diário vale só por
+   instância do servidor (menos preciso).
 
    O modelo é escolhido AQUI (servidor), não no navegador. Se o Google
    aposentar um modelo, basta trocar GEMINI_MODELS na Vercel — sem mexer
@@ -22,6 +30,15 @@ const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/';
 // Ordem de preferência padrão (verificado em nov/2026; sobrescreva com GEMINI_MODELS)
 const DEFAULT_MODELS = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.6-flash'];
 
+const SUPABASE_URL = (process.env.SUPABASE_URL || 'https://pinndyuwryhybccdqxqt.supabase.co').replace(/\/+$/, '');
+// Chave "publishable/anon" é pública por natureza (a proteção vem do RLS), a mesma do assets/config.js
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_7zAjIH1S_V-vb6DnBKJZ8g_nBFWEkws';
+
+const DAILY_LIMIT = Math.max(1, Number(process.env.AI_DAILY_LIMIT) || 60);
+const BURST_LIMIT = Math.max(1, Number(process.env.AI_BURST_LIMIT) || 6);
+const BURST_WINDOW_MS = 60000;
+const AUTH_TIMEOUT_MS = 6000;
+
 const MAX_MESSAGES = 6;
 const MAX_TOTAL_CHARS = 30000;   // tamanho máximo somado das mensagens
 const MAX_OUTPUT_TOKENS = 6000;  // teto (os modelos 3.x "pensam" e isso conta no limite)
@@ -36,8 +53,68 @@ const SAFETY_SETTINGS = [
     'HARM_CATEGORY_DANGEROUS_CONTENT'
 ].map(category => ({ category, threshold: 'BLOCK_ONLY_HIGH' }));
 
-function fail(res, status, message) {
-    return res.status(status).json({ error: { message } });
+function fail(res, status, message, code) {
+    return res.status(status).json({ error: { message, code: code || 'error' } });
+}
+
+// ---------- Autenticação (valida o token do Supabase) ----------
+function getBearer(req) {
+    const h = req.headers.authorization || req.headers.Authorization || '';
+    const m = /^Bearer\s+(.+)$/i.exec(h);
+    return m ? m[1].trim() : '';
+}
+
+async function verifyUser(token) {
+    try {
+        const r = await fetch(SUPABASE_URL + '/auth/v1/user', {
+            headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token },
+            signal: AbortSignal.timeout(AUTH_TIMEOUT_MS)
+        });
+        if (!r.ok) return null;
+        const u = await r.json();
+        return u && u.id ? u : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+// ---------- Limites de uso por usuário ----------
+// Rajada (por minuto): em memória, por instância — barra cliques repetidos/scripts simples.
+const burstHits = new Map();   // userId -> [timestamps]
+function burstExceeded(userId) {
+    const now = Date.now();
+    const arr = (burstHits.get(userId) || []).filter(t => now - t < BURST_WINDOW_MS);
+    if (arr.length >= BURST_LIMIT) { burstHits.set(userId, arr); return true; }
+    arr.push(now);
+    burstHits.set(userId, arr);
+    if (burstHits.size > 5000) {            // evita crescer sem fim
+        for (const [k, v] of burstHits) if (!v.some(t => now - t < BURST_WINDOW_MS)) burstHits.delete(k);
+    }
+    return false;
+}
+
+// Diário: durável no Supabase (função sm_ai_hit). Se ainda não foi criada, cai para memória.
+const dailyMem = new Map();    // "userId|YYYY-MM-DD" -> contagem (por instância)
+let warnedNoRpc = false;
+async function dailyExceeded(userId, token) {
+    try {
+        const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/sm_ai_hit', {
+            method: 'POST',
+            headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ max_per_day: DAILY_LIMIT }),
+            signal: AbortSignal.timeout(AUTH_TIMEOUT_MS)
+        });
+        if (r.ok) return (await r.json()) === false;
+    } catch (_) { /* cai para memória */ }
+    if (!warnedNoRpc) {
+        warnedNoRpc = true;
+        console.warn('[magic-write] sm_ai_hit indisponível — usando limite diário em memória. Rode supabase-ai-usage.sql no Supabase.');
+    }
+    const key = userId + '|' + new Date().toISOString().slice(0, 10);
+    const n = (dailyMem.get(key) || 0) + 1;
+    dailyMem.set(key, n);
+    if (dailyMem.size > 5000) dailyMem.clear();
+    return n > DAILY_LIMIT;
 }
 
 function getModels() {
@@ -89,9 +166,16 @@ module.exports = async function handler(req, res) {
         if (originHost !== req.headers.host) return fail(res, 403, 'Origem não permitida.');
     }
 
+    // Só usuários logados: o front-end manda o token da sessão do Supabase
+    const token = getBearer(req);
+    if (!token) return fail(res, 401, 'Entre na sua conta para usar a IA.', 'auth');
+    const user = await verifyUser(token);
+    if (!user) return fail(res, 401, 'Sua sessão expirou. Entre novamente para usar a IA.', 'auth');
+
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     if (!apiKey) {
-        return fail(res, 500, 'GEMINI_API_KEY não está configurada no servidor (Vercel → Settings → Environment Variables).');
+        console.error('[magic-write] GEMINI_API_KEY não configurada (Vercel → Settings → Environment Variables).');
+        return fail(res, 500, 'A IA não está configurada no servidor (GEMINI_API_KEY).', 'config');
     }
 
     let body = req.body;
@@ -116,6 +200,14 @@ module.exports = async function handler(req, res) {
     }
     if (total > MAX_TOTAL_CHARS) return fail(res, 413, 'Contexto grande demais. Reduza as notas do nó.');
     if (contents.length === 0) return fail(res, 400, 'Requisição inválida: nenhuma mensagem do usuário.');
+
+    // Limites por usuário (só depois de validar o pedido, para erros de formato não gastarem a cota)
+    if (burstExceeded(user.id)) {
+        return fail(res, 429, 'Muitas gerações em sequência. Aguarde um minuto e tente de novo.', 'rate_limit');
+    }
+    if (await dailyExceeded(user.id, token)) {
+        return fail(res, 429, 'Você atingiu o limite diário de gerações com IA. Volte amanhã.', 'rate_limit');
+    }
 
     const requested = Number(body.max_tokens);
     const maxOutputTokens = Math.min(Number.isFinite(requested) && requested > 0 ? requested : 4096, MAX_OUTPUT_TOKENS);
@@ -156,5 +248,10 @@ module.exports = async function handler(req, res) {
         }
     }
 
-    return fail(res, (last && last.status) || 502, (last && last.msg) || 'Falha ao contatar a API de IA.');
+    const st = (last && last.status) || 502;
+    if (st === 401 || st === 403) {
+        console.error('[magic-write] Google recusou a chave:', last && last.msg);
+        return fail(res, 502, 'O servidor de IA recusou a chave do Google. Avise o administrador do site.', 'upstream_auth');
+    }
+    return fail(res, st, (last && last.msg) || 'Falha ao contatar a API de IA.', 'upstream');
 };
