@@ -6,6 +6,8 @@ const SM_CLOUD = {
   timers: {},
   queue: {},
   synced: {},
+  lastPushTs: {},
+  revive: {},          // chaves que o store.js está restaurando (precisam sair do estado "excluída" na nuvem)
   _token: null,
   _channel: null,
   _tabChannel: null,
@@ -111,6 +113,7 @@ const SM_CLOUD = {
             // 1. Aplicar exclusões vindas da nuvem (deleted = true)
             (data || []).forEach(row => {
                 if (row.deleted) {
+                    try { if (window.SM_STORE) SM_STORE.noteDeleted(row.key); } catch (_) {}   // guarda cópia antes de sumir
                     delete db[row.key];
                     if (!tombstoneSet.has(row.key)) {
                         tombstones.push(row.key);
@@ -124,6 +127,7 @@ const SM_CLOUD = {
 
             // 3. Merge: só aplica da nuvem o que é mais recente que o local
             const take = {};
+            const takeTs = {};
             (data || []).forEach(row => {
                 if (row.deleted) return;
                 if (tombstoneSet.has(row.key)) return;          // respeita tombstone local
@@ -137,9 +141,9 @@ const SM_CLOUD = {
 
                 // Se não há local, ou o local está limpo, aplica o da nuvem
                 if (!db[row.key] || localTs === 0) {
-                    take[row.key] = row.data;
+                    take[row.key] = row.data; takeTs[row.key] = cloudTs;
                 } else if (localTs < cloudTs) {
-                    take[row.key] = row.data;
+                    take[row.key] = row.data; takeTs[row.key] = cloudTs;
                 }
             });
 
@@ -151,6 +155,9 @@ const SM_CLOUD = {
                 if (localStory && typeof localStory.isFavorite !== 'undefined') {
                     cloudStory.isFavorite = localStory.isFavorite;
                 }
+                try {
+                    if (localStory && window.SM_STORE && this.lastPushTs[k] !== takeTs[k]) SM_STORE.beforeOverwrite(k, localStory);
+                } catch (_) {}
                 db[k] = cloudStory;
             });
 
@@ -199,11 +206,14 @@ const SM_CLOUD = {
       if (!user) throw new Error('Usuário não autenticado');
 
       const { error } = await sb.from('stories').upsert({ 
-  key, data: story, updated_at: new Date(ts).toISOString(), user_id: user.id
+  key, data: story, updated_at: new Date(ts).toISOString(), user_id: user.id,
+  ...(this.revive[key] ? { deleted: false } : {})   // só ao RESTAURAR uma história excluída (store.js)
 });
       if (error) throw error;
       
       this.synced[key] = json;
+      this.lastPushTs[key] = ts;
+      delete this.revive[key];
       if (this.clearDirty(key, ts)) delete this.queue[key];
       
        window.dispatchEvent(new CustomEvent('cloud:save:done', { detail: { key } }));
@@ -221,6 +231,7 @@ const SM_CLOUD = {
   },
 
     async remove(key) {
+    try { if (window.SM_STORE) SM_STORE.noteDeleted(key); } catch (_) {}   // snapshot "antes de excluir"
     clearTimeout(this.timers[key]);
     delete this.timers[key]; delete this.queue[key]; delete this.synced[key];
     this.clearDirty(key);
