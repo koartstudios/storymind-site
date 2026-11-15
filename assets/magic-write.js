@@ -307,14 +307,29 @@
     };
 
     // Traduz falhas de rede/HTTP em mensagens que o autor consiga agir
-    function explainError(status, apiMessage) {
+    function explainError(status, apiMessage, code) {
+        if (code === 'auth' || status === 401) return apiMessage || 'Sua sessão expirou. Entre novamente para usar a IA.';
+        if (code === 'rate_limit' || status === 429) return apiMessage || 'Limite de uso da IA atingido (por minuto ou por dia). Aguarde um pouco e tente de novo.';
+        if (code === 'upstream_auth') return apiMessage || 'O servidor de IA recusou a chave do Google. Avise o administrador do site.';
+        if (code === 'config') return apiMessage || 'A IA não está configurada no servidor.';
         if (status === 404) return 'O endpoint de IA não foi encontrado (/api/magic-write). Confirme que a pasta api/ foi publicada na Vercel — ela não funciona abrindo o arquivo direto no navegador.';
-        if (status === 401 || status === 403) return 'A chave do Google foi recusada. Gere uma nova em aistudio.google.com/apikey, atualize GEMINI_API_KEY na Vercel e faça um novo deploy.' + (apiMessage ? ' Detalhe: ' + apiMessage : '');
-        if (status === 429) return 'Limite gratuito de uso da IA atingido (por minuto ou por dia). Aguarde um pouco e tente de novo.';
-        if (status === 500 && /GEMINI_API_KEY/.test(apiMessage || '')) return apiMessage;
         if (status === 504) return 'A IA demorou demais para responder. Tente novamente.';
-        if (status === 400 || status === 404) return 'O Google recusou o pedido ou o modelo não existe mais. Confira GEMINI_MODELS na Vercel. Detalhe: ' + (apiMessage || 'sem detalhe');
+        if (status === 400) return 'O Google recusou o pedido ou o modelo não existe mais. Confira GEMINI_MODELS na Vercel. Detalhe: ' + (apiMessage || 'sem detalhe');
         return apiMessage || ('Erro ' + status + ' ao chamar a IA.');
+    }
+
+    // Token da sessão do Supabase (o servidor só atende usuários logados)
+    async function getAuthHeaders() {
+        const headers = { 'Content-Type': 'application/json' };
+        try {
+            if (typeof sb !== 'undefined' && sb && sb.auth) {
+                const { data } = await sb.auth.getSession();
+                if (data && data.session && data.session.access_token) {
+                    headers['Authorization'] = 'Bearer ' + data.session.access_token;
+                }
+            }
+        } catch (_) { /* segue sem token; o servidor responde 401 com mensagem clara */ }
+        return headers;
     }
 
     window.executeMagicWrite = async function () {
@@ -351,7 +366,7 @@ Instruções adicionais do autor: ${extraPrompt || 'Nenhuma.'}`;
 
             const response = await fetch(window.SM_MAGIC_ENDPOINT || DEFAULT_ENDPOINT, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getAuthHeaders(),
                 body: JSON.stringify({
                     messages: [
                         { role: 'system', content: SYSTEM_PROMPT },
@@ -367,7 +382,7 @@ Instruções adicionais do autor: ${extraPrompt || 'Nenhuma.'}`;
             try { data = await response.json(); } catch (_) { data = null; }
 
             if (!response.ok) {
-                throw new Error(explainError(response.status, data && data.error && data.error.message));
+                throw new Error(explainError(response.status, data && data.error && data.error.message, data && data.error && data.error.code));
             }
 
             const choice = data && data.choices && data.choices[0];
