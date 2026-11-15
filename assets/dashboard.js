@@ -38,6 +38,11 @@ function render() {
   let keys = Object.keys(db).filter(k => (db[k].title || '').toLowerCase().includes(q) && (!onlyFav || db[k].isFavorite));
   const t = (k, f) => {
     const m = meta[k] || {};
+    // Datas confiáveis (assets/story-dates.js): gravadas na própria história ou reconstruídas dos ids
+    if (window.SM_DATES && (f === 'created' || f === 'modified')) {
+      const v = f === 'created' ? SM_DATES.created(k, db[k], m) : SM_DATES.modified(k, db[k], m);
+      if (v) return v;
+    }
     if (f === 'created') return m.created || m.modified || m.opened || 0;
     return m[f] || 0;
   };
@@ -150,6 +155,7 @@ $('list').onclick = e => {
             const copy = JSON.parse(JSON.stringify(original));
             const newK = 'story_' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
             copy.title = (original.title || 'Sem título') + ' (Cópia)';
+            try { if (window.SM_DATES) SM_DATES.resetForCopy(copy); } catch (_) {}   // cópia = história nova (datas novas)
             db[newK] = copy;
             save(db);
             const m = loadMeta();
@@ -223,9 +229,12 @@ SM_AUTH.user().then(u => { if (u) { owner = u.email; $('who').textContent = u.em
 // Baixa da nuvem e pega as datas de modificação
 SM_CLOUD.pull().then(async () => {
   try { 
-    const { data } = await sb.from('stories').select('key,updated_at'), m = loadMeta();
+    let res = await sb.from('stories').select('key,created_at,updated_at');
+    if (res.error) res = await sb.from('stories').select('key,updated_at');   // tabela sem created_at: segue como antes
+    const data = res.data, m = loadMeta();
     (data || []).forEach(r => { 
-        m[r.key] = { ...m[r.key], modified: new Date(r.updated_at).getTime() }; 
+        m[r.key] = { ...m[r.key], modified: new Date(r.updated_at).getTime() };
+        if (r.created_at) m[r.key].cloudCreated = new Date(r.created_at).getTime();
     });
     Object.keys(load()).forEach(k => { 
       const old = m[k] || {};
