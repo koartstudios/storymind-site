@@ -769,6 +769,7 @@
     <div id="list"></div>
 </div>
 
+<script src="assets/story-dates.js"></script>
 <script src="assets/dashboard.js"></script>
 
 <!-- Enriquecimento de UI (opcional, mas recomendado) -->
@@ -1131,6 +1132,7 @@
         const db = loadDB();
         if (!db[key]) return { ok: false, error: 'Projeto não encontrado' };
         db[key].title = trimmed;
+        try { if (window.SM_DATES) SM_DATES.touch(db[key]); } catch (_) {}   // renomear conta como modificação
         saveDB(db);
         if (window.SM_CLOUD && typeof SM_CLOUD.push === 'function') {
             try { SM_CLOUD.push(key, db[key]); } catch (_) {}
