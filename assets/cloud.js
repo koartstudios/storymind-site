@@ -92,8 +92,8 @@ const SM_CLOUD = {
             if (!user) throw new Error('Usuário não autenticado');
 
             const { data, error } = await sb.from('stories')
-                .select('key,data,updated_at,deleted')
-                .eq('user_id', user.id);
+  .select('key,data,updated_at,deleted,user_id')
+  .or(`user_id.eq.${user.id},key.in.(select story_key from public.story_members where member_id = '${user.id}')`);
             if (error) throw error;
 
             const db = this.local();
@@ -205,10 +205,15 @@ const SM_CLOUD = {
       const { data: { user } } = await sb.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
-      const { error } = await sb.from('stories').upsert({ 
-  key, data: story, updated_at: new Date(ts).toISOString(), user_id: user.id,
-  ...(this.revive[key] ? { deleted: false } : {})   // só ao RESTAURAR uma história excluída (store.js)
-});
+       // ⬇️ CÓDIGO NOVO (RPC) ⬇️
+    const { error } = await sb.rpc('sm_save_story', { 
+      p_key: key, 
+      p_data: story, 
+      p_updated_at: new Date(ts).toISOString(),
+      p_revive: this.revive[key] ? true : false
+    });
+    // ⬆️ FIM DO CÓDIGO NOVO ⬆️
+    
       if (error) throw error;
       
       this.synced[key] = json;

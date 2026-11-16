@@ -174,42 +174,74 @@
         } catch (_) {}
     }
 
-    // ---------- UI: presença ----------
+         // ---------- UI: presença ----------
     function ensureBar() {
         let bar = document.getElementById('sm-collab-bar');
         if (bar) return bar;
+
+        // Cria uma barra integrada ao layout (não flutuante)
         bar = document.createElement('div');
         bar.id = 'sm-collab-bar';
-        bar.style.cssText =
-            'position:fixed;top:8px;right:12px;z-index:80;display:flex;align-items:center;gap:6px;' +
-            'background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border:1px solid #e2e8f0;' +
-            'border-radius:999px;padding:4px 10px;font:11px Inter,sans-serif;color:#475569;' +
-            'box-shadow:0 4px 12px rgba(0,0,0,.08);transition:opacity .2s';
-        bar.innerHTML =
-            '<i class="fa-solid fa-circle-nodes" style="color:#6366f1;font-size:10px"></i>' +
-            '<span id="sm-collab-label">só você</span>' +
-            '<div id="sm-collab-avatars" style="display:flex;margin-left:4px"></div>';
-        document.body.appendChild(bar);
+        bar.className = 'sm-collab-bar flex items-center justify-between px-4 py-1.5 bg-slate-50 border-b border-slate-200 z-20 shrink-0';
+        bar.style.cssText = 'font-family: Inter, sans-serif; font-size: 11px; color: #475569;';
+        
+        bar.innerHTML = `
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-circle-nodes" style="color:#6366f1;font-size:11px"></i>
+                <span class="font-semibold text-slate-600">online</span>
+                <span id="sm-collab-label" class="bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-medium" style="font-size:10px">só você</span>
+            </div>
+            <div id="sm-collab-avatars" class="flex items-center gap-1"></div>
+        `;
+
+        // Insere logo após o header principal
+        const header = document.querySelector('body > header');
+        if (header) {
+            header.insertAdjacentElement('afterend', bar);
+        } else {
+            // Fallback caso não ache o header (ex: dashboard)
+            document.body.prepend(bar);
+        }
+
+        // Injeta CSS para Dark Mode e Mobile
+        const style = document.createElement('style');
+        style.textContent = `
+            body.app-theme-dark .sm-collab-bar { background: #1e293b !important; border-color: #334155 !important; color: #94a3b8; }
+            body.app-theme-dark .sm-collab-bar span#sm-collab-label { background: #334155; color: #cbd5e1; }
+            @media (max-width: 640px) {
+                .sm-collab-bar { display: none !important; } /* Esconde no mobile para não roubar tela */
+            }
+        `;
+        document.head.appendChild(style);
+
         return bar;
     }
-    function renderPresence() {
+        function renderPresence() {
         const bar = ensureBar();
+        if (!bar) return;
         const label = bar.querySelector('#sm-collab-label');
         const avatars = bar.querySelector('#sm-collab-avatars');
+        
         const state = channel && channel.presenceState ? channel.presenceState() : {};
         const ids = Object.keys(state || {});
         const others = ids.filter(id => id !== myDeviceId);
+
         if (others.length === 0) {
             label.textContent = 'só você';
+            label.className = 'bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full font-medium';
             avatars.innerHTML = '';
             return;
         }
+
         label.textContent = others.length + ' online';
+        label.className = 'bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold';
+        
         avatars.innerHTML = others.map(id => {
             const meta = (state[id] && state[id][0]) || {};
             const color = meta.color || '#6366f1';
             const initials = (meta.name || '?').slice(0, 2).toUpperCase();
-            return `<span title="${(meta.name || '').replace(/"/g, '')}" style="width:20px;height:20px;border-radius:50%;background:${color};color:#fff;font-weight:700;font-size:9px;display:inline-flex;align-items:center;justify-content:center;margin-left:-4px;border:2px solid #fff">${initials}</span>`;
+            // Avatar circular compacto com a inicial do nome
+            return `<span title="${(meta.name || '').replace(/"/g, '')}" style="width:22px;height:22px;border-radius:50%;background:${color};color:#fff;font-weight:700;font-size:10px;display:inline-flex;align-items:center;justify-content:center;margin-left:-4px;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.1)">${initials}</span>`;
         }).join('');
     }
 
