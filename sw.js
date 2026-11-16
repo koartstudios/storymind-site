@@ -16,7 +16,7 @@ const abs = p => new URL(p, SCOPE).href;
 const PAGES = ['./', 'login', 'dashboard', 'app'];
 // Arquivos do site
 const ASSETS = [
-  'assets/style.css', 'assets/config.js', 'assets/auth.js', 'assets/store.js', 'assets/story-dates.js', 'assets/cloud.js',
+  'assets/style.css', 'assets/config.js', 'assets/auth.js', 'assets/store.js', 'assets/story-dates.js', 'assets/cloud.js', 'assets/collab.js',
   'assets/dashboard.js', 'assets/pwa.js', 'manifest.webmanifest',
   'assets/icons/icon-192.png', 'assets/icons/icon-512.png',
   'assets/icons/apple-touch-icon.png', 'assets/icons/favicon-32.png'
