@@ -7,6 +7,10 @@ const SM_CLOUD = {
   queue: {},
   synced: {},
   lastPushTs: {},
+  knownTs: {},         // key -> updated_at (ms) da versão da nuvem que ESTE aparelho já conhece
+  lastError: null,     // último erro de sync (para diagnóstico: digite SM_CLOUD.lastError no console)
+  _lastCheck: 0,
+  _triggersBound: false,
   revive: {},          // chaves que o store.js está restaurando (precisam sair do estado "excluída" na nuvem)
   _token: null,
   _channel: null,
@@ -70,6 +74,17 @@ const SM_CLOUD = {
         .subscribe();
     });
 
+    // 1b. Rede de segurança: se o Realtime não avisar (não habilitado no Supabase,
+    //     ou história compartilhada cujo dono é outro), confere a nuvem ao voltar
+    //     para o app, ao reconectar e a cada 30s com a aba visível.
+    if (!this._triggersBound) {
+      this._triggersBound = true;
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') this.checkRemote(true); });
+      window.addEventListener('focus', () => this.checkRemote());
+      window.addEventListener('online', () => { this.flush(); this.checkRemote(true); });
+      setInterval(() => this.checkRemote(), 30000);
+    }
+
     // 2. BroadcastChannel (outras abas no mesmo navegador)
     if ('BroadcastChannel' in window) {
       this._tabChannel = new BroadcastChannel('storymind_sync');
@@ -79,6 +94,28 @@ const SM_CLOUD = {
         }
       };
     }
+  },
+
+  // Consulta LEVE (só chave + data de atualização). Só faz o pull completo se algo mudou.
+  async checkRemote(force) {
+    if (!this._token || this._isPulling) return;
+    if (document.visibilityState === 'hidden') return;
+    if (Object.keys(this.queue).length) return;             // há edição local ainda não enviada: não mexe
+    const now = Date.now();
+    if (!force && now - this._lastCheck < 5000) return;
+    this._lastCheck = now;
+    try {
+      const { data, error } = await sb.from('stories').select('key,updated_at,deleted');
+      if (error) throw error;
+      const tomb = new Set(this.tombstones());
+      const local = this.local();
+      const changed = (data || []).some(r => {
+        if (r.deleted) return !!local[r.key];               // excluída em outro aparelho e ainda existe aqui
+        if (tomb.has(r.key)) return false;
+        return new Date(r.updated_at).getTime() > (this.knownTs[r.key] || 0);
+      });
+      if (changed) this.pull();
+    } catch (e) { this.lastError = 'checkRemote: ' + (e && e.message || e); }
   },
 
     async pull() {
@@ -158,6 +195,7 @@ const SM_CLOUD = {
             const takeTs = {};
             (data || []).forEach(row => {
                 if (row.deleted) return;
+                this.knownTs[row.key] = new Date(row.updated_at).getTime();
                 if (tombstoneSet.has(row.key)) return;          // respeita tombstone local
                 if (!row.data) return;
 
@@ -197,6 +235,7 @@ const SM_CLOUD = {
 
             window.dispatchEvent(new CustomEvent('cloud:pull:done'));
         } catch (e) {
+            this.lastError = 'pull: ' + (e && e.message || e);
             console.warn('Sincronização (pull) falhou, usando dados locais:', e);
         } finally {
             this._isPulling = false;
@@ -246,11 +285,14 @@ const SM_CLOUD = {
       
       this.synced[key] = json;
       this.lastPushTs[key] = ts;
+      this.knownTs[key] = ts;
+      this.lastError = null;
       delete this.revive[key];
       if (this.clearDirty(key, ts)) delete this.queue[key];
       
        window.dispatchEvent(new CustomEvent('cloud:save:done', { detail: { key } }));
     } catch (e) {
+      this.lastError = 'save: ' + (e && e.message || e);
       console.warn('Falha ao salvar na nuvem, tentando novamente em 5s:', e);
       // Retry automático
       setTimeout(() => this._send(key), 5000);
