@@ -2513,6 +2513,9 @@ body.app-theme-dark .node-card .mobile-info-badge {
             <button onclick="openStorySettings()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition" title="Configurações">
                 <i class="fa-solid fa-gear"></i>
             </button>
+            <button onclick="shareStory()" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-2.5 py-1.5 rounded-lg text-xs font-medium transition" title="Compartilhar">
+    <i class="fa-solid fa-share-nodes"></i>
+</button>
 
             <div class="h-6 w-px bg-slate-200 mx-0.5 hidden md:block"></div>
 
@@ -17167,6 +17170,34 @@ window.getStaticCommands = getStaticCommands;
     // Primeira passada: se o mapa já está na tela, refaz uma vez com as novas regras.
     setTimeout(function () { if (active() && typeof renderApp === 'function') renderApp(); }, 400);
 })();
+</script>
+<script>
+async function shareStory() {
+    const key = currentStoryKey;
+    if (!key) return;
+    const email = prompt('E-mail da pessoa que você quer convidar para editar esta história:');
+    if (!email) return;
+
+    // Precisamos do UUID da pessoa pelo email. 
+    // (Para simplificar, o convidado precisa informar o UUID dele se você não tiver uma tabela de perfis).
+    // Vou usar um RPC que você deve criar no Supabase para buscar o ID pelo email.
+    const { data: memberId, error: errId } = await sb.rpc('get_user_id_by_email', { p_email: email });
+    
+    if (errId || !memberId) {
+        alert('Usuário não encontrado. Certifique-se de que ele já criou conta no StoryMind.');
+        return;
+    }
+
+    const { error } = await sb.from('story_members').insert({
+        story_key: key,
+        owner_id: (await sb.auth.getUser()).data.user.id,
+        member_id: memberId,
+        role: 'editor'
+    });
+
+    if (error) alert('Erro ao compartilhar: ' + error.message);
+    else alert('História compartilhada com sucesso! Peça para a pessoa recarregar o dashboard.');
+}
 </script>
 
 </body>
