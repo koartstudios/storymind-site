@@ -91,10 +91,38 @@ const SM_CLOUD = {
             const { data: { user } } = await sb.auth.getUser();
             if (!user) throw new Error('Usuário não autenticado');
 
-            const { data, error } = await sb.from('stories')
-  .select('key,data,updated_at,deleted,user_id')
-  .or(`user_id.eq.${user.id},key.in.(select story_key from public.story_members where member_id = '${user.id}')`);
-            if (error) throw error;
+            // 1) Histórias PRÓPRIAS — é o que sempre funcionou. Se isto falhar, o pull falha.
+            const own = await sb.from('stories')
+                .select('key,data,updated_at,deleted,user_id')
+                .eq('user_id', user.id);
+            if (own.error) throw own.error;
+            const data = own.data || [];
+
+            // 2) Histórias COMPARTILHADAS comigo — opcional.
+            //    (O PostgREST não aceita subconsulta "select ..." dentro de .or()/.in(),
+            //     por isso busco as chaves em story_members primeiro e depois uso .in('key', [...]).
+            //     Se qualquer parte falhar, o compartilhamento é ignorado e a sync pessoal segue normal.)
+            try {
+                const mem = await sb.from('story_members')
+                    .select('story_key')
+                    .eq('member_id', user.id);
+                if (!mem.error && mem.data && mem.data.length) {
+                    const keys = mem.data.map(m => m.story_key).filter(Boolean);
+                    const shared = await sb.from('stories')
+                        .select('key,data,updated_at,deleted,user_id')
+                        .in('key', keys);
+                    if (!shared.error && shared.data) {
+                        const have = new Set(data.map(r => r.key));
+                        shared.data.forEach(r => { if (!have.has(r.key)) data.push(r); });
+                    } else if (shared.error) {
+                        console.warn('Histórias compartilhadas indisponíveis:', shared.error.message);
+                    }
+                } else if (mem.error) {
+                    console.warn('story_members indisponível:', mem.error.message);
+                }
+            } catch (e) {
+                console.warn('Falha ao buscar histórias compartilhadas (ignorado):', e);
+            }
 
             const db = this.local();
             const dirty = this.dirty();
