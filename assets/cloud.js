@@ -10,6 +10,11 @@ const SM_CLOUD = {
   knownTs: {},         // key -> updated_at (ms) da versão da nuvem que ESTE aparelho já conhece
   lastError: null,     // último erro de sync (para diagnóstico: digite SM_CLOUD.lastError no console)
   _lastCheck: 0,
+  _inflightTs: {},      // key -> ts da gravação em andamento (para ignorar o "eco" do Realtime)
+  _rtTimer: null,
+  _channelPending: false,
+  realtimeStatus: null,  // diagnóstico: SM_CLOUD.realtimeStatus deve ser 'SUBSCRIBED'
+  lastRealtimeEvent: 0,  // diagnóstico: hora do último aviso recebido do Realtime
   _triggersBound: false,
   revive: {},          // chaves que o store.js está restaurando (precisam sair do estado "excluída" na nuvem)
   _token: null,
@@ -17,6 +22,15 @@ const SM_CLOUD = {
   _tabChannel: null,
   _isPulling: false,
    _pullingPromise: null,
+
+  _canon(v) {
+    if (Array.isArray(v)) return '[' + v.map(x => this._canon(x)).join(',') + ']';
+    if (v && typeof v === 'object') {
+      return '{' + Object.keys(v).filter(k => v[k] !== undefined).sort()
+        .map(k => JSON.stringify(k) + ':' + this._canon(v[k])).join(',') + '}';
+    }
+    return JSON.stringify(v === undefined ? null : v);
+  },
 
   local() { try { return JSON.parse(localStorage.getItem(this.DB_KEY)) || {}; } catch (e) { return {}; } },
   tombstones() { try { return JSON.parse(localStorage.getItem(this.TOMBSTONE_KEY)) || []; } catch (e) { return []; } },
@@ -62,17 +76,19 @@ const SM_CLOUD = {
   initSync() {
     if (!this._token) return;
 
-    // 1. Supabase Realtime (outros dispositivos)
-    const userId = sb.auth.getUser().then(({ data }) => data.user?.id);
-    userId.then(id => {
-      if (!id) return;
-      this._channel = sb.channel('public:stories')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'stories', filter: `user_id=eq.${id}` }, () => {
-          // Quando qualquer dispositivo alterar, este dispositivo faz um pull
-          this.pull();
-        })
-        .subscribe();
-    });
+    // 1. Supabase Realtime (outros dispositivos) — um único canal por sessão
+    if (!this._channel && !this._channelPending) {
+      this._channelPending = true;
+      sb.auth.getUser().then(({ data }) => {
+        const id = data && data.user && data.user.id;
+        if (!id || this._channel) { this._channelPending = false; return; }
+        this._channel = sb.channel('stories:' + id)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'stories', filter: `user_id=eq.${id}` },
+              (payload) => this._onRealtime(payload))
+          .subscribe((status) => { this.realtimeStatus = status; });
+        this._channelPending = false;
+      }).catch(() => { this._channelPending = false; });
+    }
 
     // 1b. Rede de segurança: se o Realtime não avisar (não habilitado no Supabase,
     //     ou história compartilhada cujo dono é outro), confere a nuvem ao voltar
@@ -86,7 +102,7 @@ const SM_CLOUD = {
     }
 
     // 2. BroadcastChannel (outras abas no mesmo navegador)
-    if ('BroadcastChannel' in window) {
+    if ('BroadcastChannel' in window && !this._tabChannel) {
       this._tabChannel = new BroadcastChannel('storymind_sync');
       this._tabChannel.onmessage = (event) => {
         if (event.data === 'refresh') {
@@ -94,6 +110,18 @@ const SM_CLOUD = {
         }
       };
     }
+  },
+
+  // Chegou um aviso do Realtime. Ignora o eco das nossas próprias gravações e agrupa avisos seguidos.
+  _onRealtime(payload) {
+    this.lastRealtimeEvent = Date.now();
+    const r = payload && payload.new;
+    if (r && r.key && r.updated_at && !r.deleted) {
+      const ts = new Date(r.updated_at).getTime();
+      if (ts === this.knownTs[r.key] || ts === this._inflightTs[r.key]) return;   // já temos essa versão
+    }
+    clearTimeout(this._rtTimer);
+    this._rtTimer = setTimeout(() => this.pull(), 250);
   },
 
   // Consulta LEVE (só chave + data de atualização). Só faz o pull completo se algo mudou.
@@ -176,8 +204,10 @@ const SM_CLOUD = {
             const tombstoneSet = new Set(tombstones);
 
             // 1. Aplicar exclusões vindas da nuvem (deleted = true)
+            const deletedKeys = [];
             (data || []).forEach(row => {
                 if (row.deleted) {
+                    if (db[row.key]) deletedKeys.push(row.key);
                     try { if (window.SM_STORE) SM_STORE.noteDeleted(row.key); } catch (_) {}   // guarda cópia antes de sumir
                     delete db[row.key];
                     if (!tombstoneSet.has(row.key)) {
@@ -215,15 +245,25 @@ const SM_CLOUD = {
 
             // 4. Aplicar o que veio da nuvem — PRESERVANDO isFavorite local
             Object.keys(take).forEach(k => { delete dirty[k]; });
+            const changedKeys = [];
             Object.keys(take).forEach(k => {
                 const cloudStory = take[k];
                 const localStory = db[k];
                 if (localStory && typeof localStory.isFavorite !== 'undefined') {
                     cloudStory.isFavorite = localStory.isFavorite;
                 }
-                try {
-                    if (localStory && window.SM_STORE && this.lastPushTs[k] !== takeTs[k]) SM_STORE.beforeOverwrite(k, localStory);
-                } catch (_) {}
+                // Só conta como "mudou" se o CONTEÚDO for diferente (a ordem das chaves não importa)
+                // (activeSheetId e isFavorite são estado de tela/local: não contam como mudança)
+                const strip = (x) => { const c = Object.assign({}, x); delete c.activeSheetId; delete c.isFavorite; return c; };
+                const same = !!localStory && this._canon(strip(localStory)) === this._canon(strip(cloudStory));
+                if (!same) {
+                    changedKeys.push(k);
+                    try {
+                        if (localStory && window.SM_STORE && this.lastPushTs[k] !== takeTs[k]) SM_STORE.beforeOverwrite(k, localStory);
+                    } catch (_) {}
+                }
+                // A versão da nuvem venceu: cancela envio local pendente desta história (a cópia local fica no histórico de versões)
+                clearTimeout(this.timers[k]); delete this.timers[k]; delete this.queue[k];
                 db[k] = cloudStory;
             });
 
@@ -233,7 +273,7 @@ const SM_CLOUD = {
             localStorage.setItem(this.TOMBSTONE_KEY, JSON.stringify(tombstones));
             Object.keys(take).forEach(k => { this.synced[k] = JSON.stringify(db[k]); });
 
-            window.dispatchEvent(new CustomEvent('cloud:pull:done'));
+            window.dispatchEvent(new CustomEvent('cloud:pull:done', { detail: { changed: changedKeys, deleted: deletedKeys } }));
         } catch (e) {
             this.lastError = 'pull: ' + (e && e.message || e);
             console.warn('Sincronização (pull) falhou, usando dados locais:', e);
@@ -267,6 +307,7 @@ const SM_CLOUD = {
     if (!story || this.tombstones().includes(key)) return;
     const ts = this.dirty()[key] || Date.now();
     const json = JSON.stringify(story);
+    this._inflightTs[key] = ts;
 
     try {
       const { data: { user } } = await sb.auth.getUser();
@@ -287,11 +328,13 @@ const SM_CLOUD = {
       this.lastPushTs[key] = ts;
       this.knownTs[key] = ts;
       this.lastError = null;
+      delete this._inflightTs[key];
       delete this.revive[key];
       if (this.clearDirty(key, ts)) delete this.queue[key];
       
        window.dispatchEvent(new CustomEvent('cloud:save:done', { detail: { key } }));
     } catch (e) {
+      delete this._inflightTs[key];
       this.lastError = 'save: ' + (e && e.message || e);
       console.warn('Falha ao salvar na nuvem, tentando novamente em 5s:', e);
       // Retry automático
@@ -329,5 +372,6 @@ const SM_CLOUD = {
   }
 };
 
+window.SM_CLOUD = SM_CLOUD;   // store.js/dashboard.js usam window.SM_CLOUD (const global não vira propriedade de window)
 SM_CLOUD._initAuth();
 
