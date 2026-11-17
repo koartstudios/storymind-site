@@ -3,7 +3,7 @@
  * >>> A CADA PUBLICAÇÃO, MUDE O NÚMERO ABAIXO (v1 -> v2 -> v3...) <<<
  * É isso que faz os aparelhos baixarem a versão nova e apagarem o cache antigo.
  */
-const SM_VERSION = 'v5';
+const SM_VERSION = 'v6';
 
 const SHELL_CACHE = 'sm-shell-' + SM_VERSION;   // páginas e arquivos do próprio site (trocam a cada versão)
 const LIB_CACHE = 'sm-libs-v1';                  // bibliotecas de CDN (a versão já vai na URL; só mude se trocar a lista)
@@ -16,7 +16,7 @@ const abs = p => new URL(p, SCOPE).href;
 const PAGES = ['./', 'login', 'dashboard', 'app'];
 // Arquivos do site
 const ASSETS = [
-  'assets/style.css', 'assets/config.js', 'assets/auth.js', 'assets/store.js', 'assets/story-dates.js', 'assets/cloud.js', 'assets/collab.js', 'assets/live-sync.js',
+  'assets/style.css', 'assets/config.js', 'assets/auth.js', 'assets/store.js', 'assets/story-dates.js', 'assets/merge.js', 'assets/cloud.js', 'assets/collab.js', 'assets/live-sync.js',
   'assets/dashboard.js', 'assets/pwa.js', 'manifest.webmanifest',
   'assets/icons/icon-192.png', 'assets/icons/icon-512.png',
   'assets/icons/apple-touch-icon.png', 'assets/icons/favicon-32.png'
