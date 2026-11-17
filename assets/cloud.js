@@ -16,6 +16,10 @@ const SM_CLOUD = {
   realtimeStatus: null,  // diagnóstico: SM_CLOUD.realtimeStatus deve ser 'SUBSCRIBED'
   lastRealtimeEvent: 0,  // diagnóstico: hora do último aviso recebido do Realtime
   _triggersBound: false,
+  cloudCopy: {},        // key -> { data, ts }: última versão que sabemos estar na nuvem (base das mesclagens)
+  _maxSeen: 0,          // maior carimbo visto em qualquer versão da nuvem: o relógio deste aparelho nunca fica atrás
+  _casSupported: true,  // false se o SQL novo (p_expected) ainda não foi rodado no Supabase
+  _sending: {}, _resend: {},
   revive: {},          // chaves que o store.js está restaurando (precisam sair do estado "excluída" na nuvem)
   _token: null,
   _channel: null,
@@ -30,6 +34,39 @@ const SM_CLOUD = {
         .map(k => JSON.stringify(k) + ':' + this._canon(v[k])).join(',') + '}';
     }
     return JSON.stringify(v === undefined ? null : v);
+  },
+
+  // Etapa 2 (mesclagem por item). Desligar: localStorage.setItem('sm_merge_off','1') e recarregar.
+  mergeOn() { try { return !!window.SM_MERGE && localStorage.getItem('sm_merge_off') !== '1'; } catch (_) { return false; } },
+
+  // Relógio "híbrido": nunca menor que qualquer carimbo já visto, mesmo que a hora deste aparelho esteja atrasada.
+  _clock() { return Math.max(Date.now(), this._maxSeen + 1); },
+
+  _seen(story, ts) {
+    let m = ts || 0;
+    const it = story && story._sync && story._sync.items;
+    if (it) for (const k in it) { if (it[k].ts > m) m = it[k].ts; }
+    if (m > this._maxSeen) this._maxSeen = m;
+  },
+  _remember(key, data, ts) { this.cloudCopy[key] = { data: data, ts: ts }; this._seen(data, ts); },
+  _isMissingFn(err) {
+    return !!err && (err.code === 'PGRST202' || err.code === '42883' || /could not find the function/i.test(err.message || ''));
+  },
+
+  // Busca UMA linha na nuvem (para mesclar antes de gravar). Devolve { none:true } se não existir.
+  async _fetchRow(key) {
+    const { data, error } = await sb.from('stories')
+      .select('key,data,updated_at,deleted,user_id').eq('key', key)
+      .order('updated_at', { ascending: false }).limit(1);
+    if (error) throw error;
+    const row = data && data[0];
+    if (!row) return { none: true, ts: 0 };
+    const ts = new Date(row.updated_at).getTime();
+    if (row.data && this.mergeOn() && Array.isArray(row.data.sheets) && !(row.data._sync && row.data._sync.items)) {
+      SM_MERGE.stamp(row.data, { now: ts, fallbackTs: ts });      // história antiga da nuvem, sem carimbos
+    }
+    if (!row.deleted && row.data) this._remember(key, row.data, ts);
+    return { data: row.data, ts: ts, deleted: !!row.deleted };
   },
 
   local() { try { return JSON.parse(localStorage.getItem(this.DB_KEY)) || {}; } catch (e) { return {}; } },
@@ -223,6 +260,8 @@ const SM_CLOUD = {
             // 3. Merge: só aplica da nuvem o que é mais recente que o local
             const take = {};
             const takeTs = {};
+            const changedKeys = [];
+            const mergeRows = [];     // Etapa 2: histórias com edições locais ainda não enviadas
             (data || []).forEach(row => {
                 if (row.deleted) return;
                 this.knownTs[row.key] = new Date(row.updated_at).getTime();
@@ -231,6 +270,12 @@ const SM_CLOUD = {
 
                 const cloudTs = new Date(row.updated_at).getTime();
                 const localTs = dirty[row.key] || 0;
+
+                if (this.mergeOn() && row.data && Array.isArray(row.data.sheets)) {
+                    if (!(row.data._sync && row.data._sync.items)) SM_MERGE.stamp(row.data, { now: cloudTs, fallbackTs: cloudTs });   // nuvem antiga, sem carimbos
+                    this._remember(row.key, row.data, cloudTs);
+                    if (localTs > 0 && db[row.key]) { mergeRows.push({ row: row, cloudTs: cloudTs, localTs: localTs }); return; }
+                }
 
                 // Se o local está sujo (não sincronizado) e é mais novo, não sobrescreve
                 if (localTs > 0 && localTs > cloudTs) return;
@@ -243,9 +288,29 @@ const SM_CLOUD = {
                 }
             });
 
+            // 3b. Etapa 2: local com edições não enviadas + nuvem com versão nova => mescla item a item
+            const mergedKeys = [];
+            mergeRows.forEach(({ row, cloudTs, localTs }) => {
+                const k = row.key, localStory = db[k];
+                let merged = null;
+                try { merged = SM_MERGE.merge(localStory, row.data, { now: this._clock(), localFallbackTs: localTs, remoteFallbackTs: cloudTs }); }
+                catch (e) { this.lastError = 'merge: ' + (e && e.message || e); }
+                if (!merged) {                                   // formato antigo: regra antiga (o mais novo vence)
+                    if (localTs <= cloudTs) { take[k] = row.data; takeTs[k] = cloudTs; }
+                    return;
+                }
+                if (localStory.isFavorite !== undefined) merged.isFavorite = localStory.isFavorite;
+                if (SM_MERGE.same(merged, row.data)) { take[k] = row.data; takeTs[k] = cloudTs; return; }   // nada local a enviar
+                if (!SM_MERGE.same(merged, localStory)) {
+                    changedKeys.push(k);
+                    try { if (window.SM_STORE) SM_STORE.beforeOverwrite(k, localStory); } catch (_) {}   // seguro extra
+                }
+                db[k] = merged;
+                mergedKeys.push(k);
+            });
+
             // 4. Aplicar o que veio da nuvem — PRESERVANDO isFavorite local
             Object.keys(take).forEach(k => { delete dirty[k]; });
-            const changedKeys = [];
             Object.keys(take).forEach(k => {
                 const cloudStory = take[k];
                 const localStory = db[k];
@@ -272,6 +337,11 @@ const SM_CLOUD = {
             localStorage.setItem(this.DIRTY_KEY, JSON.stringify(dirty));
             localStorage.setItem(this.TOMBSTONE_KEY, JSON.stringify(tombstones));
             Object.keys(take).forEach(k => { this.synced[k] = JSON.stringify(db[k]); });
+            mergedKeys.forEach(k => {                      // a mescla ainda tem edições locais: envia
+                this.queue[k] = db[k];
+                clearTimeout(this.timers[k]);
+                this.timers[k] = setTimeout(() => this._send(k), 300);
+            });
 
             window.dispatchEvent(new CustomEvent('cloud:pull:done', { detail: { changed: changedKeys, deleted: deletedKeys } }));
         } catch (e) {
@@ -288,6 +358,12 @@ const SM_CLOUD = {
 
   push(key, story) {
     if (this.tombstones().includes(key)) return;
+    if (this.mergeOn() && story && Array.isArray(story.sheets)) {
+      try {
+        const legacy = !(story._sync && story._sync.items);
+        SM_MERGE.stamp(story, { now: this._clock(), fallbackTs: legacy ? (this.knownTs[key] || undefined) : undefined });
+      } catch (e) { this.lastError = 'stamp: ' + (e && e.message || e); }
+    }
     const json = JSON.stringify(story);
     if (this.synced[key] === json) return;
 
@@ -301,7 +377,91 @@ const SM_CLOUD = {
     this.timers[key] = setTimeout(() => this._send(key), this.DEBOUNCE_MS);
   },
 
-  async _send(key) {
+  _send(key) { return this.mergeOn() ? this._sendMerged(key) : this._sendLegacy(key); },
+
+  // Etapa 2: antes de gravar, junta a versão local com a da nuvem (item a item) e só grava se a nuvem
+  // ainda for a que conhecemos (p_expected). Se alguém gravou no meio, busca, mescla de novo e tenta outra vez.
+  async _sendMerged(key) {
+    delete this.timers[key];
+    if (this._sending[key]) { this._resend[key] = true; return; }
+    const first = this.queue[key];
+    if (!first || this.tombstones().includes(key)) return;
+    this._sending[key] = true;
+    const ts = this.dirty()[key] || Date.now();
+    try {
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      let base = this.cloudCopy[key] || null;
+      let done = false;
+      for (let attempt = 0; attempt < 4 && !done; attempt++) {
+        const story = this.queue[key] || first;                 // sempre a versão local mais recente
+        if (!base) base = await this._fetchRow(key);
+        const revive = !!this.revive[key];
+        if (base.deleted && !revive) { delete this._inflightTs[key]; this.pull(); return; }   // excluída em outro aparelho
+
+        let payload = story;
+        if (base.data && !revive) {
+          const merged = SM_MERGE.merge(story, base.data, { now: this._clock(), remoteFallbackTs: base.ts });
+          if (merged) payload = merged;                         // null = formato antigo: vale a versão local
+          if (SM_MERGE.same(payload, base.data)) {              // a nuvem já tem tudo: não precisa gravar
+            this.synced[key] = JSON.stringify(story);
+            if (this.clearDirty(key, ts)) delete this.queue[key];
+            delete this._inflightTs[key];
+            done = true; break;
+          }
+        }
+
+        const newTs = Math.max(this._clock(), (base.ts || 0) + 1);
+        const args = { p_key: key, p_data: payload, p_updated_at: new Date(newTs).toISOString(), p_revive: revive };
+        if (this._casSupported) args.p_expected = new Date(base.ts || 0).toISOString();
+        this._inflightTs[key] = newTs;
+
+        const { data: res, error } = await sb.rpc('sm_save_story', args);
+        if (error) {
+          if (this._casSupported && this._isMissingFn(error)) {   // o SQL novo ainda não foi rodado: segue sem a conferência
+            this._casSupported = false; this.lastError = 'SQL da Etapa 2 ausente (rodando sem p_expected)'; base = null; continue;
+          }
+          throw error;
+        }
+        const status = typeof res === 'string' ? res : 'ok';
+        if (status === 'conflict') { base = null; continue; }    // alguém gravou no meio: busca de novo e mescla
+        if (status === 'deleted') { delete this._inflightTs[key]; this.pull(); return; }
+
+        // gravado
+        this.knownTs[key] = newTs;
+        this.lastPushTs[key] = newTs;
+        this._remember(key, JSON.parse(JSON.stringify(payload)), newTs);   // cópia independente: o app continua editando o objeto original
+        this.synced[key] = JSON.stringify(story);
+        this.lastError = null;
+        delete this._inflightTs[key];
+        delete this.revive[key];
+        if (this.clearDirty(key, ts)) delete this.queue[key];
+
+        if (payload !== story && !SM_MERGE.same(payload, story)) {
+          // a mescla trouxe mudanças de outros aparelhos: guarda no banco local e avisa o app
+          const db = this.local();
+          if (db[key] && db[key].isFavorite !== undefined) payload.isFavorite = db[key].isFavorite;
+          db[key] = payload;
+          localStorage.setItem(this.DB_KEY, JSON.stringify(db));
+          window.dispatchEvent(new CustomEvent('cloud:pull:done', { detail: { changed: [key], deleted: [], merged: true } }));
+        }
+        window.dispatchEvent(new CustomEvent('cloud:save:done', { detail: { key } }));
+        done = true;
+      }
+      if (!done) throw new Error('conflito repetido ao salvar');
+    } catch (e) {
+      delete this._inflightTs[key];
+      this.lastError = 'save: ' + (e && e.message || e);
+      console.warn('Falha ao salvar na nuvem, tentando novamente em 5s:', e);
+      setTimeout(() => this._send(key), 5000);
+    } finally {
+      delete this._sending[key];
+      if (this._resend[key]) { delete this._resend[key]; this._send(key); }
+    }
+  },
+
+  async _sendLegacy(key) {
     delete this.timers[key];
     const story = this.queue[key];
     if (!story || this.tombstones().includes(key)) return;

@@ -22,6 +22,9 @@
   var pending = null;      // { key, arrivedAt, remote }
   var retryTimer = null;
 
+  // Etapa 2 ligada? (mesclagem por item: edições de dois aparelhos se somam em vez de uma sobrescrever a outra)
+  function mergeMode() { try { return !!(window.SM_MERGE && window.SM_CLOUD && window.SM_CLOUD.mergeOn()); } catch (_) { return false; } }
+
   function off() { try { return localStorage.getItem('sm_live_off') === '1'; } catch (_) { return false; } }
 
   function visible(el) {
@@ -81,6 +84,17 @@
     var fresh = storiesDatabase[key];
     if (!fresh) return false;
 
+    // Etapa 2: o que está na tela (inclusive edições ainda não enviadas) é mesclado com o que chegou.
+    var base = fresh, mergedLocal = false;
+    if (mergeMode() && currentStory && Array.isArray(currentStory.sheets) && Array.isArray(fresh.sheets)) {
+      try {
+        var clock = window.SM_CLOUD._clock();
+        SM_MERGE.stamp(currentStory, { now: clock });
+        var m = SM_MERGE.merge(currentStory, fresh, { now: clock });
+        if (m) { base = m; mergedLocal = !SM_MERGE.same(m, fresh); }
+      } catch (e) { console.warn('[SM_LIVE] mesclagem falhou; usando a versão da nuvem:', e); }
+    }
+
     var prevSheetId = mindMapData && mindMapData.id;
     var prevSelected = Array.from(selectedNodeIds);
     var inspectorId = null;
@@ -92,7 +106,7 @@
       }
     } catch (_) {}
 
-    currentStory = migrateStoryToSheets(deepClone(fresh));
+    currentStory = migrateStoryToSheets(deepClone(base));
     var sheet = currentStory.sheets.find(function (s) { return s.id === prevSheetId; })
       || currentStory.sheets.find(function (s) { return s.id === currentStory.activeSheetId; })
       || currentStory.sheets[0];
@@ -129,7 +143,9 @@
       if (mindMapData.nodes.some(function (n) { return n.id === inspectorId; })) openInspectorFor(inspectorId);
       else closeInspector();
     }
-    return true;
+    // Havia edições locais que a nuvem ainda não tem: salva para elas subirem junto.
+    if (mergedLocal) { try { saveStoriesStorage(); } catch (_) {} }
+    return mergedLocal ? 'merged' : 'applied';
   }
 
   function tryApply() {
@@ -137,7 +153,7 @@
     if (!pending) return;
     if (typeof currentStoryKey === 'undefined' || pending.key !== currentStoryKey) { pending = null; return; }
 
-    if (editedLocallySince(pending)) {          // sua edição é mais nova: ela vence
+    if (!mergeMode() && editedLocallySince(pending)) {   // (sem a Etapa 2) sua edição é mais nova: ela vence
       keepRemoteCopy(pending);
       pending = null;
       return;
@@ -146,7 +162,10 @@
 
     var p = pending; pending = null;
     try {
-      if (applyRemote(p.key) && !document.hidden) showToast('Atualizado em outro aparelho.', 'success', 1500);
+      var res = applyRemote(p.key);
+      if (res && !document.hidden) {
+        showToast(res === 'merged' ? 'Mudanças de outro aparelho foram combinadas com as suas.' : 'Atualizado em outro aparelho.', 'success', 2200);
+      }
     } catch (e) {
       console.warn('[SM_LIVE] falha ao aplicar atualização; recarregue a página:', e);
     }
