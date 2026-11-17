@@ -14,7 +14,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="assets/config.js"></script><script src="assets/auth.js"></script><script src="assets/store.js"></script>
 <script src="assets/cloud.js"></script>
-<script src="assets/collab.js" defer></script> 
+<script src="assets/collab.js" defer></script>
+<script src="assets/live-sync.js" defer></script> 
     <script>SM_AUTH.require();</script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -6591,7 +6592,10 @@ if (node.type === 'character' || node.type === 'location' || node.type === 'obje
                 clickTracker.nodeId = null; clickTracker.time = 0;
                 cancelAllInteractions();
             });
-            window.addEventListener('cloud:pull:done', () => {
+            window.addEventListener('cloud:pull:done', (e) => {
+    // Etapa 1: o live-sync.js aplica a atualização na história aberta sem atrapalhar a edição.
+    // (Se ele estiver desligado ou ausente, cai no comportamento antigo abaixo.)
+    if (window.SM_LIVE && window.SM_LIVE.onPullDone(e)) return;
     // Se o usuário está com uma edição inline aberta, NÃO destrói o DOM.
     // Agenda o reload para acontecer assim que a edição terminar.
     if (editingNodeId) {
@@ -6617,6 +6621,7 @@ function processPendingCloudPullIfAny() {
         showToast('Sincronizado com a nuvem.', 'success', 2000);
     }, 150);
 }
+window.processPendingCloudPullIfAny = processPendingCloudPullIfAny;   // era local ao onload e quebrava as chamadas de fora
 window.addEventListener('cloud:save:done', () => {
                 setSaveStatus('saved');
             });
