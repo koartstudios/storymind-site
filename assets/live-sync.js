@@ -86,7 +86,9 @@
 
     // Etapa 2: o que está na tela (inclusive edições ainda não enviadas) é mesclado com o que chegou.
     var base = fresh, mergedLocal = false;
-    if (mergeMode() && currentStory && Array.isArray(currentStory.sheets) && Array.isArray(fresh.sheets)) {
+    var viewer = false;
+    try { viewer = window.SM_CLOUD && window.SM_CLOUD.roleOf(key) === 'viewer'; } catch (_) {}
+    if (!viewer && mergeMode() && currentStory && Array.isArray(currentStory.sheets) && Array.isArray(fresh.sheets)) {
       try {
         var clock = window.SM_CLOUD._clock();
         SM_MERGE.stamp(currentStory, { now: clock });
@@ -173,14 +175,21 @@
 
   function onPullDone(ev) {
     var d = (ev && ev.detail) || {};
-    var changed = d.changed || [], deleted = d.deleted || [];
-    if (!changed.length && !deleted.length) return;          // nada mudou de verdade: não mexe em nada
+    var changed = d.changed || [], deleted = d.deleted || [], revoked = d.revoked || [];
+    if (!changed.length && !deleted.length && !revoked.length) return;          // nada mudou de verdade: não mexe em nada
 
     // Mantém o banco em memória fresco, para que um salvamento antigo não apague o que acabou de chegar.
     loadStoriesStorage();
 
     var key = typeof currentStoryKey !== 'undefined' ? currentStoryKey : null;
 
+    if (key && revoked.indexOf(key) !== -1) {                // a dona removeu o seu acesso
+      pending = null;
+      var ks = Object.keys(storiesDatabase);
+      try { showToast('Seu acesso a esta história foi removido pela dona. Uma cópia ficou no histórico de versões.', 'warn', 7000); } catch (_) {}
+      if (ks.length) switchStory(ks[0]);
+      return;
+    }
     if (key && deleted.indexOf(key) !== -1) {                 // a história aberta foi excluída em outro aparelho
       pending = null;
       var keys = Object.keys(storiesDatabase);

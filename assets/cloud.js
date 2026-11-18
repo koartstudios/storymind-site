@@ -37,6 +37,14 @@ const SM_CLOUD = {
   },
 
   // Etapa 2 (mesclagem por item). Desligar: localStorage.setItem('sm_merge_off','1') e recarregar.
+  // Histórias compartilhadas COMIGO (de outra pessoa): { chave: { owner, role } } — guardado no aparelho
+  SHARED_KEY: 'storymind_shared_v1',
+  sharedMap() { try { return JSON.parse(localStorage.getItem(this.SHARED_KEY) || '{}') || {}; } catch (_) { return {}; } },
+  setSharedMap(m) { try { localStorage.setItem(this.SHARED_KEY, JSON.stringify(m || {})); } catch (_) {} },
+  // 'owner' (minha ou ainda desconhecida) | 'editor' | 'viewer'
+  roleOf(key) { const s = this.sharedMap()[key]; return s ? (s.role === 'viewer' ? 'viewer' : 'editor') : 'owner'; },
+  isShared(key) { return !!this.sharedMap()[key]; },
+
   mergeOn() { try { return !!window.SM_MERGE && localStorage.getItem('sm_merge_off') !== '1'; } catch (_) { return false; } },
 
   // Relógio "híbrido": nunca menor que qualquer carimbo já visto, mesmo que a hora deste aparelho esteja atrasada.
@@ -120,7 +128,7 @@ const SM_CLOUD = {
         const id = data && data.user && data.user.id;
         if (!id || this._channel) { this._channelPending = false; return; }
         this._channel = sb.channel('stories:' + id)
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'stories', filter: `user_id=eq.${id}` },
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'stories' },   // sem filtro: o banco só envia o que esta conta pode ler (próprias + compartilhadas)
               (payload) => this._onRealtime(payload))
           .subscribe((status) => { this.realtimeStatus = status; });
         this._channelPending = false;
@@ -204,25 +212,37 @@ const SM_CLOUD = {
             //    (O PostgREST não aceita subconsulta "select ..." dentro de .or()/.in(),
             //     por isso busco as chaves em story_members primeiro e depois uso .in('key', [...]).
             //     Se qualquer parte falhar, o compartilhamento é ignorado e a sync pessoal segue normal.)
+            let memOk = false, sharedOk = true;
+            const sharedNow = {};
             try {
                 const mem = await sb.from('story_members')
-                    .select('story_key')
+                    .select('story_key,role')
                     .eq('member_id', user.id);
-                if (!mem.error && mem.data && mem.data.length) {
-                    const keys = mem.data.map(m => m.story_key).filter(Boolean);
-                    const shared = await sb.from('stories')
-                        .select('key,data,updated_at,deleted,user_id')
-                        .in('key', keys);
-                    if (!shared.error && shared.data) {
-                        const have = new Set(data.map(r => r.key));
-                        shared.data.forEach(r => { if (!have.has(r.key)) data.push(r); });
-                    } else if (shared.error) {
-                        console.warn('Histórias compartilhadas indisponíveis:', shared.error.message);
+                if (!mem.error) {
+                    memOk = true;
+                    const roleByKey = {};
+                    (mem.data || []).forEach(m => { if (m.story_key) roleByKey[m.story_key] = m.role === 'viewer' ? 'viewer' : 'editor'; });
+                    const keys = Object.keys(roleByKey);
+                    if (keys.length) {
+                        const shared = await sb.from('stories')
+                            .select('key,data,updated_at,deleted,user_id')
+                            .in('key', keys);
+                        if (!shared.error && shared.data) {
+                            const have = new Set(data.map(r => r.key));
+                            shared.data.forEach(r => {
+                                if (!have.has(r.key)) data.push(r);
+                                if (r.user_id !== user.id && !r.deleted) sharedNow[r.key] = { owner: r.user_id, role: roleByKey[r.key] };
+                            });
+                        } else {
+                            sharedOk = false;
+                            console.warn('Histórias compartilhadas indisponíveis:', shared.error && shared.error.message);
+                        }
                     }
-                } else if (mem.error) {
+                } else {
                     console.warn('story_members indisponível:', mem.error.message);
                 }
             } catch (e) {
+                memOk = false;
                 console.warn('Falha ao buscar histórias compartilhadas (ignorado):', e);
             }
 
@@ -253,6 +273,24 @@ const SM_CLOUD = {
                     }
                 }
             });
+
+            // 1b. Acesso removido: uma história que era compartilhada comigo e não aparece mais.
+            //     (Só vale se as duas consultas deram certo; senão uma falha de rede apagaria cópias locais.)
+            const revokedKeys = [];
+            if (memOk && sharedOk) {
+                const prevShared = this.sharedMap();
+                const present = new Set((data || []).map(r => r.key));
+                Object.keys(prevShared).forEach(k => {
+                    if (present.has(k)) return;
+                    if (db[k]) {
+                        revokedKeys.push(k);
+                        try { if (window.SM_STORE) SM_STORE.noteDeleted(k); } catch (_) {}   // guarda cópia antes de sumir
+                        delete db[k];
+                    }
+                    clearTimeout(this.timers[k]); delete this.timers[k]; delete this.queue[k]; this.clearDirty(k);
+                });
+                this.setSharedMap(sharedNow);
+            }
 
             // 2. Aplicar tombstones locais (remover da nuvem? aqui só pula o merge)
             //    (tombstones = histórias apagadas localmente; não devem ressuscitar)
@@ -343,7 +381,7 @@ const SM_CLOUD = {
                 this.timers[k] = setTimeout(() => this._send(k), 300);
             });
 
-            window.dispatchEvent(new CustomEvent('cloud:pull:done', { detail: { changed: changedKeys, deleted: deletedKeys } }));
+            window.dispatchEvent(new CustomEvent('cloud:pull:done', { detail: { changed: changedKeys, deleted: deletedKeys, revoked: revokedKeys } }));
         } catch (e) {
             this.lastError = 'pull: ' + (e && e.message || e);
             console.warn('Sincronização (pull) falhou, usando dados locais:', e);
@@ -358,6 +396,7 @@ const SM_CLOUD = {
 
   push(key, story) {
     if (this.tombstones().includes(key)) return;
+    if (this.roleOf(key) === 'viewer') return;        // só leitura: nunca grava na nuvem
     if (this.mergeOn() && story && Array.isArray(story.sheets)) {
       try {
         const legacy = !(story._sync && story._sync.items);
@@ -427,6 +466,14 @@ const SM_CLOUD = {
         const status = typeof res === 'string' ? res : 'ok';
         if (status === 'conflict') { base = null; continue; }    // alguém gravou no meio: busca de novo e mescla
         if (status === 'deleted') { delete this._inflightTs[key]; this.pull(); return; }
+        if (status === 'forbidden') {                          // sem permissão (acesso removido ou só leitura): para de insistir
+          delete this._inflightTs[key];
+          this.lastError = 'sem permissão para salvar esta história';
+          clearTimeout(this.timers[key]); delete this.timers[key]; delete this.queue[key]; this.clearDirty(key);
+          window.dispatchEvent(new CustomEvent('cloud:forbidden', { detail: { key: key } }));
+          this.pull();                                         // descobre se o acesso foi removido
+          return;
+        }
 
         // gravado
         this.knownTs[key] = newTs;
@@ -513,6 +560,18 @@ const SM_CLOUD = {
     clearTimeout(this.timers[key]);
     delete this.timers[key]; delete this.queue[key]; delete this.synced[key];
     this.clearDirty(key);
+
+    // Convidado: "excluir" significa SAIR da história (ela continua existindo para a dona e para os outros)
+    if (this.isShared(key)) {
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+      const left = await sb.from('story_members').delete().eq('story_key', key).eq('member_id', user.id);
+      if (left.error) throw left.error;
+      const shared = this.sharedMap(); delete shared[key]; this.setSharedMap(shared);
+      const dbl = this.local();
+      if (dbl[key]) { delete dbl[key]; localStorage.setItem(this.DB_KEY, JSON.stringify(dbl)); }
+      return;                                              // sem tombstone: se for convidada de novo, ela volta
+    }
 
     // 1. SOFT DELETE na nuvem (a linha continua existindo, mas marcada)
     const { error } = await sb.from('stories')
