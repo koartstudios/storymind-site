@@ -69,8 +69,17 @@
         catch (_) { return {}; }
     }
 
-    // ---------- canal por história (PRIVADO) ----------
-    let lastStatus = null;
+    // ---------- canal por história ----------
+    // 1º tenta o canal PRIVADO (presença, cursores E edição instantânea). Se o banco recusar (por exemplo, o
+    // etapa3-supabase.sql ainda não foi rodado), cai para um canal PÚBLICO só para presença, cursores e "editando"
+    // (como era antes da Etapa 3) e volta a tentar o privado de tempos em tempos. Edições (deltas) NUNCA vão
+    // por canal público: sem o privado, a sincronização normal pela nuvem continua cuidando delas.
+    let lastStatus = null, lastError = null, mode = null;      // mode: 'private' | 'public' | null
+    let fallingBack = false, probeTimer = null;
+    const PROBE_MS = 45000;
+
+    function publicFallbackOff() { try { return localStorage.getItem('sm_collab_public_off') === '1'; } catch (_) { return false; } }
+
     async function join(key) {
         if (!key) return;
         if (activeKey === key && channel) return;
@@ -78,27 +87,38 @@
         if (typeof sb === 'undefined' || !sb) return;
         activeKey = key;
         try { if (sb.realtime && typeof sb.realtime.setAuth === 'function') await sb.realtime.setAuth(); } catch (_) {}
-        channel = sb.channel('story:' + key, {
+        if (activeKey !== key) return;                    // trocou de história enquanto autenticava
+        openChannel(key, true);
+    }
+
+    function openChannel(key, priv) {
+        if (activeKey !== key) return;
+        const topic = (priv ? 'story:' : 'story-pub:') + key;
+        const ch = sb.channel(topic, {
             config: {
-                private: true,                       // o banco confere se esta conta pode entrar (etapa3-supabase.sql)
+                private: priv,                            // privado: o banco confere se esta conta pode entrar (etapa3-supabase.sql)
                 presence: { key: myDeviceId },
                 broadcast: { self: false }
             }
         });
+        channel = ch;
+        let everSubscribed = false;
 
-        channel.on('presence', { event: 'sync' }, () => renderPresence());
-        channel.on('presence', { event: 'join' }, () => renderPresence());
-        channel.on('presence', { event: 'leave' }, () => renderPresence());
+        ch.on('presence', { event: 'sync' }, () => renderPresence());
+        ch.on('presence', { event: 'join' }, () => renderPresence());
+        ch.on('presence', { event: 'leave' }, () => renderPresence());
 
-        // Edição instantânea: só o que mudou. (O formato antigo "story", que mandava a história inteira
-        // e gravava por cima do armazenamento local, foi aposentado e é ignorado de propósito.)
-        channel.on('broadcast', { event: 'delta' }, (msg) => {
-            const p = msg && msg.payload;
-            if (!p || p.from === myDeviceId || p.key !== activeKey || !p.delta) return;
-            try { if (window.SM_LIVE && typeof window.SM_LIVE.onDelta === 'function') window.SM_LIVE.onDelta(p); } catch (_) {}
-        });
+        // Edição instantânea: só o que mudou, e SÓ pelo canal privado. (O formato antigo "story", que mandava a
+        // história inteira e gravava por cima do armazenamento local, foi aposentado e é ignorado de propósito.)
+        if (priv) {
+            ch.on('broadcast', { event: 'delta' }, (msg) => {
+                const p = msg && msg.payload;
+                if (!p || p.from === myDeviceId || p.key !== activeKey || !p.delta) return;
+                try { if (window.SM_LIVE && typeof window.SM_LIVE.onDelta === 'function') window.SM_LIVE.onDelta(p); } catch (_) {}
+            });
+        }
 
-        channel.on('broadcast', { event: 'focus' }, (msg) => {
+        ch.on('broadcast', { event: 'focus' }, (msg) => {
             const p = msg && msg.payload;
             if (!p || p.from === myDeviceId) return;
             if (!p.nodeId) { delete focusPeers[p.from]; renderFocus(); return; }
@@ -106,7 +126,7 @@
             renderFocus();
         });
 
-        channel.on('broadcast', { event: 'cursor' }, (msg) => {
+        ch.on('broadcast', { event: 'cursor' }, (msg) => {
             if (!msg || !msg.payload) return;
             if (msg.payload.from === myDeviceId) return;
             peers[msg.payload.from] = {
@@ -118,12 +138,16 @@
             renderCursors();
         });
 
-        channel.subscribe((status) => {
+        ch.subscribe((status, err) => {
+            if (channel !== ch) return;                   // canal antigo (já trocado ou fechado): ignora
             lastStatus = status;
             if (status === 'SUBSCRIBED') {
+                everSubscribed = true;
                 connected = true;
+                mode = priv ? 'private' : 'public';
+                lastError = null;
                 try {
-                    channel.track({
+                    ch.track({
                         name: myUser ? myUser.name : 'Anônimo',
                         color: myColor,
                         device: myDeviceId,
@@ -132,19 +156,63 @@
                 } catch (_) {}
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
                 connected = false;
-                if (status === 'CHANNEL_ERROR') console.info('[SM_COLLAB] canal privado indisponível. Rode o etapa3-supabase.sql no Supabase. A sincronização normal continua funcionando.');
+                if (err) lastError = String(err && err.message ? err.message : err).slice(0, 200);
+                if (priv && !everSubscribed) fallBackToPublic(key, status);      // nunca chegou a entrar no privado
             }
         });
     }
 
+    function fallBackToPublic(key, status) {
+        if (fallingBack || activeKey !== key) return;
+        if (publicFallbackOff()) {
+            console.warn('[SM_COLLAB] canal privado recusado (' + status + ') e o canal público está desligado (sm_collab_public_off).');
+            return;
+        }
+        fallingBack = true;
+        console.warn('[SM_COLLAB] canal privado recusado (' + status + '). Usando canal público só para presença e cursores. ' +
+            'Para ativar a edição instantânea, rode o etapa3-supabase.sql no Supabase. A sincronização normal continua funcionando.');
+        const old = channel; channel = null; connected = false;
+        Promise.resolve(old ? sb.removeChannel(old) : null).catch(() => {}).then(() => {
+            fallingBack = false;
+            if (activeKey === key && !channel) { openChannel(key, false); scheduleProbe(key); }
+        });
+    }
+
+    // Em segundo plano, testa se o canal privado já funciona (sem mexer na presença atual). Se funcionar, troca.
+    function scheduleProbe(key) {
+        clearTimeout(probeTimer);
+        probeTimer = setTimeout(() => {
+            if (activeKey !== key || mode !== 'public' || typeof sb === 'undefined' || !sb) return;
+            let probe = null, done = false;
+            const finish = (okPriv) => {
+                if (done) return; done = true;
+                try { sb.removeChannel(probe); } catch (_) {}
+                if (activeKey !== key) return;
+                if (okPriv) { leave().then(() => join(key)); }
+                else scheduleProbe(key);
+            };
+            try {
+                probe = sb.channel('story:' + key, { config: { private: true, broadcast: { self: false } } });
+                probe.subscribe((st) => {
+                    if (st === 'SUBSCRIBED') finish(true);
+                    else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT' || st === 'CLOSED') finish(false);
+                });
+                setTimeout(() => finish(false), 10000);
+            } catch (_) { finish(false); }
+        }, PROBE_MS);
+    }
+
     async function leave() {
-        if (channel) {
-            try { await channel.untrack(); } catch (_) {}
-            try { await sb.removeChannel(channel); } catch (_) {}
-            channel = null;
+        clearTimeout(probeTimer);
+        const old = channel;
+        channel = null;                                   // antes de fechar: o aviso de "fechado" do canal antigo é ignorado
+        if (old) {
+            try { await old.untrack(); } catch (_) {}
+            try { await sb.removeChannel(old); } catch (_) {}
         }
         activeKey = null;
         connected = false;
+        mode = null;
         peers = {};
         focusPeers = {};
         lastFocusId = null;
@@ -160,7 +228,7 @@
 
     // ---------- enviar delta (só o que mudou) ----------
     function broadcastDelta(key, delta) {
-        if (!channel || !connected || !delta || key !== activeKey) return;
+        if (!channel || !connected || mode !== 'private' || !delta || key !== activeKey) return;   // edições só pelo canal privado
         try {
             channel.send({
                 type: 'broadcast', event: 'delta',
@@ -403,6 +471,8 @@
         init, join, leave, broadcastStory, broadcastDelta, broadcastCursor,
         isConnected: () => connected,
         get status() { return lastStatus; },
+        get mode() { return mode; },
+        diag: () => ({ status: lastStatus, mode: mode, connected: connected, activeKey: activeKey, error: lastError, publicFallbackOff: publicFallbackOff() }),
         get activeKey() { return activeKey; },
         _t: { esc, safeColor, focusTick, renderFocus, focusPeers: () => focusPeers }
     };
