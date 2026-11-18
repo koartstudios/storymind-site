@@ -16,7 +16,8 @@
 <script src="assets/merge.js"></script>
 <script src="assets/cloud.js"></script>
 <script src="assets/collab.js" defer></script>
-<script src="assets/live-sync.js" defer></script> 
+<script src="assets/live-sync.js" defer></script>
+<script src="assets/sharing.js" defer></script> 
     <script>SM_AUTH.require();</script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -17178,31 +17179,10 @@ window.getStaticCommands = getStaticCommands;
 })();
 </script>
 <script>
-async function shareStory() {
-    const key = currentStoryKey;
-    if (!key) return;
-    const email = prompt('E-mail da pessoa que você quer convidar para editar esta história:');
-    if (!email) return;
-
-    // Precisamos do UUID da pessoa pelo email. 
-    // (Para simplificar, o convidado precisa informar o UUID dele se você não tiver uma tabela de perfis).
-    // Vou usar um RPC que você deve criar no Supabase para buscar o ID pelo email.
-    const { data: memberId, error: errId } = await sb.rpc('get_user_id_by_email', { p_email: email });
-    
-    if (errId || !memberId) {
-        alert('Usuário não encontrado. Certifique-se de que ele já criou conta no StoryMind.');
-        return;
-    }
-
-    const { error } = await sb.from('story_members').insert({
-        story_key: key,
-        owner_id: (await sb.auth.getUser()).data.user.id,
-        member_id: memberId,
-        role: 'editor'
-    });
-
-    if (error) alert('Erro ao compartilhar: ' + error.message);
-    else alert('História compartilhada com sucesso! Peça para a pessoa recarregar o dashboard.');
+function shareStory() {
+    // A tela de compartilhamento agora fica em assets/sharing.js (convites com papel, lista de acessos, sair da história).
+    if (window.SM_SHARING) window.SM_SHARING.open();
+    else alert('A tela de compartilhamento ainda está carregando. Tente de novo em instantes.');
 }
 </script>
 
