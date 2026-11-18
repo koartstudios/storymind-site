@@ -3,7 +3,7 @@
  * >>> A CADA PUBLICAÇÃO, MUDE O NÚMERO ABAIXO (v1 -> v2 -> v3...) <<<
  * É isso que faz os aparelhos baixarem a versão nova e apagarem o cache antigo.
  */
-const SM_VERSION = 'v8';
+const SM_VERSION = 'v9';
 
 const SHELL_CACHE = 'sm-shell-' + SM_VERSION;   // páginas e arquivos do próprio site (trocam a cada versão)
 const LIB_CACHE = 'sm-libs-v1';                  // bibliotecas de CDN (a versão já vai na URL; só mude se trocar a lista)
