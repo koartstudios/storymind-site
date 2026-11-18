@@ -124,6 +124,7 @@
     var now = o.now != null ? o.now : Date.now();
     var prev = story._sync && story._sync.items ? story._sync : null;
     var legacyTs = o.fallbackTs != null ? o.fallbackTs : now;
+    var out = o.out || null;          // opcional: { changed: [], deleted: [] } recebe as chaves que mudaram agora
     var en = enumerate(story);
     var items = {}, del = {}, alive = {};
 
@@ -133,8 +134,8 @@
       alive[key] = 1;
       var p = prev && prev.items[key];
       if (p && p.h === h) items[key] = { ts: p.ts, h: h };                 // não mudou: mantém o carimbo
-      else if (p) items[key] = { ts: now, h: h };                           // mudou: carimbo novo
-      else items[key] = { ts: prev ? now : legacyTs, h: h };                // item novo (ou história ainda sem carimbos)
+      else if (p) { items[key] = { ts: now, h: h }; if (out) out.changed.push(key); }          // mudou: carimbo novo
+      else { items[key] = { ts: prev ? now : legacyTs, h: h }; if (out && prev) out.changed.push(key); }   // item novo (ou história ainda sem carimbos)
       delete del[key];
     }
     en.items.forEach(function (it) { touch(it.key, hash(canon(it.value))); });
@@ -142,7 +143,7 @@
 
     if (prev) {
       Object.keys(prev.items).forEach(function (k) {
-        if (!alive[k] && k.charAt(0) !== 'o' && del[k] == null) del[k] = now;   // sumiu desde a última vez: lápide
+        if (!alive[k] && k.charAt(0) !== 'o' && del[k] == null) { del[k] = now; if (out) out.deleted.push(k); }   // sumiu desde a última vez: lápide
       });
     }
     Object.keys(del).forEach(function (k) { if (now - del[k] > TOMBSTONE_TTL) delete del[k]; });
@@ -230,6 +231,21 @@
     var aliveSheets = {};
     Object.keys(win).forEach(function (k) { if (win[k].it.kind === 'sheet') aliveSheets[win[k].it.sid] = 1; });
 
+    // Sempre sobra pelo menos uma página: se dois aparelhos excluíram páginas diferentes ao mesmo tempo e a soma
+    // das exclusões esvaziaria a história, volta a página mais recente que alguma das versões ainda tem.
+    if (!Object.keys(aliveSheets).length) {
+      var best = null;
+      [[byA, mA], [byB, mB]].forEach(function (pair) {
+        Object.keys(pair[0]).forEach(function (k) {
+          var it = pair[0][k];
+          if (it.kind !== 'sheet') return;
+          var ts = pair[1].items[k].ts;
+          if (!best || ts > best.ts || (ts === best.ts && it.sid < best.it.sid)) best = { it: it, ts: ts, meta: pair[1].items[k], key: k };
+        });
+      });
+      if (best) { win[best.key] = { it: best.it, meta: best.meta }; aliveSheets[best.it.sid] = 1; delete outDel[best.key]; }
+    }
+
     // Itens que estavam dentro de uma página excluída: não saem na história, mas deixam lápide,
     // para que uma cópia antiga deles não "ressuscite" o item quando as versões forem mescladas de novo.
     Object.keys(win).forEach(function (k) {
@@ -305,7 +321,192 @@
     });
   }
 
-  var api = { stamp: stamp, merge: merge, same: same, canon: canon, _enumerate: enumerate, TOMBSTONE_TTL: TOMBSTONE_TTL };
+  // ---------- DELTA: só o que mudou, para enviar em tempo real ----------
+  function listIds(arr, isSheets) {
+    var used = {};
+    return (arr || []).map(function (el, i) {
+      return uniq(used, el && el.id != null ? String(el.id) : (isSheets ? '#s' + i : '#' + hash(canon(el))));
+    });
+  }
+  function findSheet(S, sid) {
+    var ids = listIds(S.sheets, true);
+    var i = ids.indexOf(sid);
+    return i === -1 ? null : S.sheets[i];
+  }
+  function parseKey(key) {
+    var p = key.split('|');
+    if (key === 'S') return { kind: 'story' };
+    if (p[0] === 'sh') return { kind: 'sheet', sid: p.slice(1).join('|') };
+    if (ARRAY_COLLS.indexOf(p[0]) !== -1) return { kind: p[0], sid: p[1], id: p.slice(2).join('|') };
+    if (p[0] === 'a') return { kind: 'opaque', sid: p[1], coll: p[2] };
+    if (p[0] === 'm') return { kind: 'map', sid: p[1], coll: p[2], id: p.slice(3).join('|') };
+    return null;
+  }
+
+  // Monta o delta a partir do que o stamp() acabou de carimbar (out = { changed, deleted }).
+  function makeDelta(story, out) {
+    var meta = story._sync, en = enumerate(story), byKey = {}, ord = {};
+    en.items.forEach(function (it) { byKey[it.key] = it; });
+    en.orders.forEach(function (o) { ord[o.key] = o; });
+    var delta = { v: 1, items: [], del: {}, orders: [] };
+    (out.changed || []).forEach(function (k) {
+      if (k.charAt(0) === 'o') {
+        if (ord[k] && meta.items[k]) delta.orders.push({ key: k, ids: ord[k].ids, ts: meta.items[k].ts });
+      } else if (byKey[k] && meta.items[k]) {
+        var it = byKey[k];
+        var di = { key: k, kind: it.kind, sid: it.sid, coll: it.coll, id: it.id,
+          value: it.value, ts: meta.items[k].ts, h: meta.items[k].h };
+        if (it.kind === 'sheet') {                       // quais coleções (mesmo vazias) a página tem: o receptor as cria iguais
+          var shObj = findSheet(story, it.sid);
+          di.colls = shObj ? ALL_COLLS.filter(function (c) { return shObj[c] !== undefined; }) : [];
+        }
+        delta.items.push(di);
+      }
+    });
+    (out.deleted || []).forEach(function (k) { if (meta.del[k] != null) delta.del[k] = meta.del[k]; });
+    return delta;
+  }
+
+  function place(S, d) {
+    var v = clone(d.value), sh, i;
+    if (d.kind === 'story') {
+      Object.keys(S).forEach(function (k) { if (!STORY_SKIP[k] && !(k in v)) delete S[k]; });
+      Object.keys(v).forEach(function (k) { if (!STORY_SKIP[k]) S[k] = v[k]; });
+      return true;
+    }
+    sh = findSheet(S, d.sid);
+    if (d.kind === 'sheet') {
+      if (!sh) { sh = {}; S.sheets.push(sh); }
+      Object.keys(sh).forEach(function (k) { if (ALL_COLLS.indexOf(k) === -1 && !(k in v)) delete sh[k]; });
+      Object.keys(v).forEach(function (k) { sh[k] = v[k]; });
+      (d.colls || []).forEach(function (c) {
+        if (ALL_COLLS.indexOf(c) !== -1 && sh[c] === undefined) sh[c] = MAP_COLLS.indexOf(c) !== -1 ? {} : [];
+      });
+      return true;
+    }
+    if (!sh) return false;                                   // página ainda desconhecida aqui: a nuvem traz depois
+    if (ARRAY_COLLS.indexOf(d.kind) !== -1) {
+      var arr = sh[d.kind];
+      if (!Array.isArray(arr)) arr = sh[d.kind] = [];
+      var ids = listIds(arr, false);
+      i = ids.indexOf(d.id);
+      if (i !== -1) arr[i] = v; else arr.push(v);
+      return true;
+    }
+    if (d.kind === 'opaque') { sh[d.coll] = v; return true; }
+    if (d.kind === 'map') {
+      if (!sh[d.coll] || typeof sh[d.coll] !== 'object' || Array.isArray(sh[d.coll])) sh[d.coll] = {};
+      sh[d.coll][d.id] = v;
+      return true;
+    }
+    return false;
+  }
+
+  function removeItem(S, key) {
+    var d = parseKey(key);
+    if (!d || d.kind === 'story') return;
+    if (d.kind === 'sheet') {
+      var sids = listIds(S.sheets, true);
+      S.sheets = S.sheets.filter(function (x, i) { return sids[i] !== d.sid; });
+      return;
+    }
+    var sh = findSheet(S, d.sid);
+    if (!sh) return;
+    if (ARRAY_COLLS.indexOf(d.kind) !== -1) {
+      if (!Array.isArray(sh[d.kind])) return;
+      var ids = listIds(sh[d.kind], false);
+      sh[d.kind] = sh[d.kind].filter(function (x, i) { return ids[i] !== d.id; });
+    } else if (d.kind === 'opaque') { delete sh[d.coll]; }
+    else if (d.kind === 'map') { if (sh[d.coll] && typeof sh[d.coll] === 'object') delete sh[d.coll][d.id]; }
+  }
+
+  function orderIds(S, key) {
+    if (key === 'o|sheets') return listIds(S.sheets, true);
+    var p = key.split('|');                                  // o|sid|coll
+    var sh = findSheet(S, p[1]);
+    if (!sh || ARRAY_COLLS.indexOf(p[2]) === -1) return null;
+    return listIds(sh[p[2]] || [], false);
+  }
+  function setOrder(S, key, ids) {
+    var arr, isSheets = key === 'o|sheets', sh, p = key.split('|');
+    if (isSheets) arr = S.sheets; else { sh = findSheet(S, p[1]); arr = sh && sh[p[2]]; }
+    if (!Array.isArray(arr)) return;
+    var cur = listIds(arr, isSheets), map = {};
+    cur.forEach(function (id, i) { map[id] = arr[i]; });
+    var out = ids.filter(function (id) { return map[id] !== undefined; }).map(function (id) { return map[id]; });
+    cur.forEach(function (id, i) { if (ids.indexOf(id) === -1) out.push(arr[i]); });   // o que o delta não conhece fica no fim
+    if (isSheets) S.sheets = out; else sh[p[2]] = out;
+  }
+
+  // Aplica um delta recebido. Usa a MESMA regra da mesclagem completa: o item mais recente vence,
+  // exclusão só vale se for mais nova que a edição. Receber o mesmo delta duas vezes, fora de ordem ou
+  // perder deltas é seguro: a mesclagem completa (nuvem) sempre corrige o que faltar.
+  // opts.skipIds = { idDoNó: true } -> não mexe em itens que o usuário está editando/arrastando agora.
+  function applyDelta(story, delta, o) {
+    o = o || {};
+    if (!story || !Array.isArray(story.sheets) || !delta || delta.v !== 1) return null;
+    var now = o.now != null ? o.now : Date.now();
+    var skip = o.skipIds || {};
+    var S = clone(story);
+    if (o.noStamp) { if (!S._sync || !S._sync.items) return null; }       // leitora: não carimba o que ela rabiscou
+    else stamp(S, { now: now, fallbackTs: o.fallbackTs });                // edições locais ainda sem carimbo recebem o carimbo agora
+    var meta = S._sync, applied = 0, skipped = 0;
+
+    (delta.items || []).forEach(function (d) {
+      if (!d || typeof d.key !== 'string' || typeof d.ts !== 'number' || typeof d.h !== 'string') return;
+      if (hash(canon(d.value)) !== d.h) { skipped++; return; }                 // conteúdo não confere com o carimbo: ignora
+      if (d.id !== undefined && skip[d.id]) { skipped++; return; }
+      var mine = meta.items[d.key], dead = meta.del[d.key];
+      if (dead != null && dead >= d.ts) return;
+      if (mine) {
+        if (mine.h === d.h) { if (d.ts > mine.ts) mine.ts = d.ts; return; }
+        if (mine.ts > d.ts || (mine.ts === d.ts && mine.h >= d.h)) return;
+      }
+      if (!place(S, d)) { skipped++; return; }
+      meta.items[d.key] = { ts: d.ts, h: d.h };
+      delete meta.del[d.key];
+      applied++;
+    });
+
+    Object.keys(delta.del || {}).forEach(function (k) {
+      var t = delta.del[k];
+      if (typeof t !== 'number') return;
+      var pk = parseKey(k);
+      if (pk && pk.id !== undefined && skip[pk.id]) { skipped++; return; }
+      var mine = meta.items[k];
+      if (mine && mine.ts > t) return;                                         // tenho uma versão mais nova que a exclusão
+      if (pk && pk.kind === 'sheet' && S.sheets.length <= 1) { skipped++; return; }   // nunca fica sem páginas
+      if (mine) { removeItem(S, k); delete meta.items[k]; }
+      meta.del[k] = Math.max(meta.del[k] || 0, t);
+      applied++;
+    });
+
+    (delta.orders || []).forEach(function (d) {
+      if (!d || typeof d.key !== 'string' || !Array.isArray(d.ids) || typeof d.ts !== 'number') return;
+      var cur = orderIds(S, d.key);
+      if (!cur) return;
+      var alive = {};
+      cur.forEach(function (id) { alive[id] = 1; });
+      var ta = meta.items[d.key] ? meta.items[d.key].ts : -1;
+      var r = chooseOrder(cur, d.ids, ta, d.ts, alive);
+      if (r.list.join(SEP) !== cur.join(SEP)) { setOrder(S, d.key, r.list); applied++; }
+      var ts = r.combined ? Math.max(ta, d.ts, 0) + 1 : Math.max(r.preferA ? ta : d.ts, 0);
+      meta.items[d.key] = { ts: ts, h: hash(r.list.join(SEP)) };
+    });
+
+    // carimbos de ordem de páginas que não existem mais não ficam para trás (o emissor também os descarta)
+    var sheetIds = listIds(S.sheets, true);
+    Object.keys(meta.items).forEach(function (k) {
+      if (k.charAt(0) === 'o' && k !== 'o|sheets') {
+        var sid = k.split('|')[1];
+        if (sheetIds.indexOf(sid) === -1) delete meta.items[k];
+      }
+    });
+
+    return { story: S, applied: applied, skipped: skipped };
+  }
+
+  var api = { stamp: stamp, merge: merge, same: same, makeDelta: makeDelta, applyDelta: applyDelta, canon: canon, _enumerate: enumerate, TOMBSTONE_TTL: TOMBSTONE_TTL };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.SM_MERGE = api;
 })(typeof window !== 'undefined' ? window : this);

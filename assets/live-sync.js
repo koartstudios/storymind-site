@@ -34,7 +34,8 @@
   }
 
   // O usuário está no meio de alguma coisa? Então não mexe na tela agora.
-  function isBusy() {
+  // ignoreSave: edições locais ainda não salvas NÃO impedem (a mesclagem já as leva em conta).
+  function isBusy(ignoreSave) {
     try {
       if (typeof editingNodeId !== 'undefined' && editingNodeId) return true;
       if (typeof isPanning !== 'undefined' && isPanning) return true;
@@ -44,8 +45,8 @@
       if (typeof draggedNodeId !== 'undefined' && draggedNodeId) return true;
       if (typeof activePointers !== 'undefined' && activePointers && activePointers.size > 0) return true;
       if (typeof pinchState !== 'undefined' && pinchState) return true;
-      if (typeof saveTimer !== 'undefined' && saveTimer) return true;        // edição ainda não salva
-      if (typeof saveScheduled !== 'undefined' && saveScheduled) return true;
+      if (!ignoreSave && typeof saveTimer !== 'undefined' && saveTimer) return true;        // edição ainda não salva
+      if (!ignoreSave && typeof saveScheduled !== 'undefined' && saveScheduled) return true;
     } catch (_) { return true; }
 
     var ae = document.activeElement;
@@ -79,6 +80,12 @@
     } catch (_) {}
   }
 
+  // Carimba as edições locais ainda sem carimbo (e, se houver tempo real, as envia aos outros).
+  function stampLocal(key) {
+    if (window.SM_CLOUD && typeof window.SM_CLOUD.stampStory === 'function') window.SM_CLOUD.stampStory(key, currentStory);
+    else SM_MERGE.stamp(currentStory, { now: window.SM_CLOUD._clock() });
+  }
+
   // Troca a história aberta pela versão que chegou, mantendo zoom, posição, página e seleção.
   function applyRemote(key) {
     var fresh = storiesDatabase[key];
@@ -91,12 +98,20 @@
     if (!viewer && mergeMode() && currentStory && Array.isArray(currentStory.sheets) && Array.isArray(fresh.sheets)) {
       try {
         var clock = window.SM_CLOUD._clock();
-        SM_MERGE.stamp(currentStory, { now: clock });
+        stampLocal(key);
         var m = SM_MERGE.merge(currentStory, fresh, { now: clock });
         if (m) { base = m; mergedLocal = !SM_MERGE.same(m, fresh); }
       } catch (e) { console.warn('[SM_LIVE] mesclagem falhou; usando a versão da nuvem:', e); }
     }
 
+    swapInto(base);
+    // Havia edições locais que a nuvem ainda não tem: salva para elas subirem junto.
+    if (mergedLocal) { try { saveStoriesStorage(); } catch (_) {} }
+    return mergedLocal ? 'merged' : 'applied';
+  }
+
+  // Coloca na tela a história `base`, mantendo página, seleção, zoom e inspetor.
+  function swapInto(base) {
     var prevSheetId = mindMapData && mindMapData.id;
     var prevSelected = Array.from(selectedNodeIds);
     var inspectorId = null;
@@ -145,9 +160,43 @@
       if (mindMapData.nodes.some(function (n) { return n.id === inspectorId; })) openInspectorFor(inspectorId);
       else closeInspector();
     }
-    // Havia edições locais que a nuvem ainda não tem: salva para elas subirem junto.
-    if (mergedLocal) { try { saveStoriesStorage(); } catch (_) {} }
-    return mergedLocal ? 'merged' : 'applied';
+  }
+
+
+  // ---------- Etapa 3: deltas em tempo real (só o que mudou, ~0,1 s) ----------
+  var deltaQueue = [], deltaTimer = null, DELTA_QUEUE_MAX = 60;
+
+  function tryDeltas() {
+    clearTimeout(deltaTimer); deltaTimer = null;
+    if (!deltaQueue.length) return;
+    var key = typeof currentStoryKey !== 'undefined' ? currentStoryKey : null;
+    if (!key) { deltaQueue = []; return; }
+    if (isBusy(true)) { deltaTimer = setTimeout(tryDeltas, 400); return; }     // arrastando/digitando: espera soltar
+
+    var batch = deltaQueue.splice(0);
+    try {
+      var clock = window.SM_CLOUD._clock();
+      var viewer = false;
+      try { viewer = window.SM_CLOUD.roleOf(key) === 'viewer'; } catch (_) {}
+      if (!viewer) stampLocal(key);                                             // suas edições ainda sem carimbo entram na conta
+      var story = currentStory, applied = 0;                                    // (leitora: rabiscos não ganham carimbo, então não vencem ninguém)
+      batch.forEach(function (d) {
+        var r = SM_MERGE.applyDelta(story, d, { now: clock, noStamp: viewer });
+        if (r) { story = r.story; applied += r.applied; }
+      });
+      if (applied > 0) swapInto(story);                                         // sem salvar de volta: quem editou já salva
+    } catch (e) {
+      console.warn('[SM_LIVE] falha ao aplicar delta (a nuvem corrige em instantes):', e);
+    }
+  }
+
+  function onDelta(p) {
+    if (off() || !mergeMode()) return;
+    var key = typeof currentStoryKey !== 'undefined' ? currentStoryKey : null;
+    if (!key || !p || p.key !== key || !p.delta) return;                         // só vale para a história aberta
+    deltaQueue.push(p.delta);
+    if (deltaQueue.length > DELTA_QUEUE_MAX) deltaQueue.shift();                // fila longa: o mais antigo a nuvem entrega
+    tryDeltas();
   }
 
   function tryApply() {
@@ -207,6 +256,7 @@
 
   window.SM_LIVE = {
     onPullDone: function (ev) { if (off()) return false; onPullDone(ev); return true; },
+    onDelta: onDelta,
     isBusy: isBusy,
     _state: function () { return { pending: pending }; }
   };

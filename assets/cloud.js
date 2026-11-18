@@ -61,6 +61,27 @@ const SM_CLOUD = {
     return !!err && (err.code === 'PGRST202' || err.code === '42883' || /could not find the function/i.test(err.message || ''));
   },
 
+  // Carimba a história (o que mudou agora ganha o carimbo de agora) e, havendo tempo real, envia SÓ o que mudou
+  // para quem está com a mesma história aberta (~0,1 s). A nuvem continua sendo a fonte de verdade: se um aviso
+  // se perder, a mesclagem completa corrige.
+  stampStory(key, story) {
+    if (!story || !Array.isArray(story.sheets)) return;
+    const legacy = !(story._sync && story._sync.items);
+    const out = { changed: [], deleted: [] };
+    SM_MERGE.stamp(story, { now: this._clock(), fallbackTs: legacy ? (this.knownTs[key] || undefined) : undefined, out: out });
+    if (!legacy && (out.changed.length || out.deleted.length)) this._broadcast(key, story, out);
+  },
+  _broadcast(key, story, out) {
+    try {
+      if (!window.SM_COLLAB || typeof window.SM_COLLAB.broadcastDelta !== 'function') return;
+      if (this.roleOf(key) === 'viewer') return;                         // leitora nunca transmite
+      if (out.changed.length + out.deleted.length > 400) return;         // mudança enorme (ex.: duplicar página): a nuvem leva
+      const d = SM_MERGE.makeDelta(story, out);
+      if (JSON.stringify(d).length > 120000) return;                     // grande demais para o canal: a nuvem leva
+      window.SM_COLLAB.broadcastDelta(key, d);
+    } catch (e) { this.lastError = 'broadcast: ' + (e && e.message || e); }
+  },
+
   // Busca UMA linha na nuvem (para mesclar antes de gravar). Devolve { none:true } se não existir.
   async _fetchRow(key) {
     const { data, error } = await sb.from('stories')
@@ -398,10 +419,8 @@ const SM_CLOUD = {
     if (this.tombstones().includes(key)) return;
     if (this.roleOf(key) === 'viewer') return;        // só leitura: nunca grava na nuvem
     if (this.mergeOn() && story && Array.isArray(story.sheets)) {
-      try {
-        const legacy = !(story._sync && story._sync.items);
-        SM_MERGE.stamp(story, { now: this._clock(), fallbackTs: legacy ? (this.knownTs[key] || undefined) : undefined });
-      } catch (e) { this.lastError = 'stamp: ' + (e && e.message || e); }
+      try { this.stampStory(key, story); }
+      catch (e) { this.lastError = 'stamp: ' + (e && e.message || e); }
     }
     const json = JSON.stringify(story);
     if (this.synced[key] === json) return;

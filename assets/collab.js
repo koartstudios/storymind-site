@@ -1,20 +1,21 @@
 /* ============================================================
-   STORYMIND — COLABORAÇÃO EM TEMPO REAL (aditivo, seguro)
-   Carregar DEPOIS de cloud.js no app.html:
-     <script src="assets/collab.js" defer></script>
+   STORYMIND — COLABORAÇÃO EM TEMPO REAL
+   Carregar DEPOIS de cloud.js e live-sync.js no app.html.
 
    O QUE FAZ:
-   1. Broadcast instantâneo (~100ms) das alterações para outras
-      abas e outros dispositivos do MESMO usuário.
-   2. Presença: mostra quem está online na história (badge no canto).
-   3. Cursores: mostra onde cada colaborador está.
+   1. Edição instantânea (~0,1 s): envia SÓ o que mudou (um "delta") a quem está
+      com a mesma história aberta (outras abas, outros aparelhos, outras pessoas).
+      Quem recebe aplica com a mesma regra da mesclagem completa (live-sync.js).
+   2. Presença: mostra quem está online na história.
+   3. Cursores e "fulana está editando este nó".
 
-   O QUE NÃO FAZ:
-   - Compartilhar entre contas (precisa Fase 3, com SQL).
-   - Merge campo a campo (Fase 4, CRDT).
+   SEGURANÇA:
+   - O canal é PRIVADO: o banco só deixa entrar quem é dona da história ou foi
+     convidada (regras no etapa3-supabase.sql). Quem só lê não transmite nada.
+   - Tudo que vem de outras pessoas é validado/escapado antes de ir para a tela.
 
-   NÃO TOCA no cloud.js: se este arquivo falhar, o cloud.js
-   continua sincronizando normalmente (fallback automático).
+   A nuvem continua sendo a fonte de verdade: se um aviso se perder, a sincronização
+   normal (cloud.js) corrige. Se este arquivo falhar, nada mais para de funcionar.
    ============================================================ */
 (function () {
     'use strict';
@@ -34,6 +35,12 @@
     let peers = {};   // deviceId -> {name, color, x, y, ts}
 
     // ---------- utilidades ----------
+    function esc(v) {
+        return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    function safeColor(c) { return (typeof c === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(c)) ? c : '#6366f1'; }
+    function num(v) { v = Number(v); return isFinite(v) ? v : 0; }
+
     function getDeviceId() {
         try {
             let id = sessionStorage.getItem('sm-device-id');
@@ -62,15 +69,18 @@
         catch (_) { return {}; }
     }
 
-    // ---------- canal por história ----------
+    // ---------- canal por história (PRIVADO) ----------
+    let lastStatus = null;
     async function join(key) {
         if (!key) return;
         if (activeKey === key && channel) return;
         await leave();
         if (typeof sb === 'undefined' || !sb) return;
         activeKey = key;
+        try { if (sb.realtime && typeof sb.realtime.setAuth === 'function') await sb.realtime.setAuth(); } catch (_) {}
         channel = sb.channel('story:' + key, {
             config: {
+                private: true,                       // o banco confere se esta conta pode entrar (etapa3-supabase.sql)
                 presence: { key: myDeviceId },
                 broadcast: { self: false }
             }
@@ -80,25 +90,36 @@
         channel.on('presence', { event: 'join' }, () => renderPresence());
         channel.on('presence', { event: 'leave' }, () => renderPresence());
 
-        channel.on('broadcast', { event: 'story' }, (msg) => {
-            if (!msg || !msg.payload) return;
-            if (msg.payload.from === myDeviceId) return;
-            applyRemote(msg.payload);
+        // Edição instantânea: só o que mudou. (O formato antigo "story", que mandava a história inteira
+        // e gravava por cima do armazenamento local, foi aposentado e é ignorado de propósito.)
+        channel.on('broadcast', { event: 'delta' }, (msg) => {
+            const p = msg && msg.payload;
+            if (!p || p.from === myDeviceId || p.key !== activeKey || !p.delta) return;
+            try { if (window.SM_LIVE && typeof window.SM_LIVE.onDelta === 'function') window.SM_LIVE.onDelta(p); } catch (_) {}
+        });
+
+        channel.on('broadcast', { event: 'focus' }, (msg) => {
+            const p = msg && msg.payload;
+            if (!p || p.from === myDeviceId) return;
+            if (!p.nodeId) { delete focusPeers[p.from]; renderFocus(); return; }
+            focusPeers[p.from] = { nodeId: String(p.nodeId).slice(0, 200), name: String(p.name || '?').slice(0, 40), color: safeColor(p.color), ts: Date.now() };
+            renderFocus();
         });
 
         channel.on('broadcast', { event: 'cursor' }, (msg) => {
             if (!msg || !msg.payload) return;
             if (msg.payload.from === myDeviceId) return;
             peers[msg.payload.from] = {
-                name: msg.payload.name || '?',
-                color: msg.payload.color || '#6366f1',
-                x: msg.payload.x, y: msg.payload.y,
+                name: String(msg.payload.name || '?').slice(0, 40),
+                color: safeColor(msg.payload.color),
+                x: num(msg.payload.x), y: num(msg.payload.y),
                 ts: Date.now()
             };
             renderCursors();
         });
 
         channel.subscribe((status) => {
+            lastStatus = status;
             if (status === 'SUBSCRIBED') {
                 connected = true;
                 try {
@@ -109,6 +130,9 @@
                         ts: Date.now()
                     });
                 } catch (_) {}
+            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                connected = false;
+                if (status === 'CHANNEL_ERROR') console.info('[SM_COLLAB] canal privado indisponível. Rode o etapa3-supabase.sql no Supabase. A sincronização normal continua funcionando.');
             }
         });
     }
@@ -122,37 +146,25 @@
         activeKey = null;
         connected = false;
         peers = {};
+        focusPeers = {};
+        lastFocusId = null;
         renderPresence();
         renderCursors();
+        renderFocus();
     }
 
-    // ---------- aplicar história recebida ----------
-    function applyRemote(payload) {
-        const key = payload.key;
-        if (!key || !payload.story) return;
-        const db = readDB();
-        const local = db[key];
-        const localTs = (local && local.updatedAt) || 0;
-        const incomingTs = payload.ts || 0;
-        if (incomingTs && localTs && incomingTs < localTs) return;   // versão antiga, ignora
-        payload.story.updatedAt = payload.ts || Date.now();
-        db[key] = payload.story;
-        try { localStorage.setItem('storymind_database_v2', JSON.stringify(db)); } catch (_) {}
-        if (currentKey() === key) {
-            try {
-                if (typeof storiesDatabase !== 'undefined') storiesDatabase[key] = payload.story;
-                if (typeof renderApp === 'function') renderApp();
-            } catch (_) {}
-        }
-    }
+    // ---------- (aposentado) história inteira ----------
+    // Antes, cada salvamento mandava a história INTEIRA e quem recebia gravava por cima do armazenamento local,
+    // sem mesclar. Agora só circulam deltas (broadcastDelta) e a mesclagem fica a cargo do live-sync.js.
+    function broadcastStory() { /* aposentado */ }
 
-    // ---------- enviar história local ----------
-    function broadcastStory(key, story) {
-        if (!channel || !connected || !story) return;
+    // ---------- enviar delta (só o que mudou) ----------
+    function broadcastDelta(key, delta) {
+        if (!channel || !connected || !delta || key !== activeKey) return;
         try {
             channel.send({
-                type: 'broadcast', event: 'story',
-                payload: { key, story, ts: story.updatedAt || Date.now(), from: myDeviceId }
+                type: 'broadcast', event: 'delta',
+                payload: { key: key, delta: delta, from: myDeviceId }
             });
         } catch (_) {}
     }
@@ -238,11 +250,79 @@
         
         avatars.innerHTML = others.map(id => {
             const meta = (state[id] && state[id][0]) || {};
-            const color = meta.color || '#6366f1';
-            const initials = (meta.name || '?').slice(0, 2).toUpperCase();
+            const color = safeColor(meta.color);
+            const initials = esc((meta.name || '?').slice(0, 2).toUpperCase());
             // Avatar circular compacto com a inicial do nome
-            return `<span title="${(meta.name || '').replace(/"/g, '')}" style="width:22px;height:22px;border-radius:50%;background:${color};color:#fff;font-weight:700;font-size:10px;display:inline-flex;align-items:center;justify-content:center;margin-left:-4px;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.1)">${initials}</span>`;
+            return `<span title="${esc(meta.name || '')}" style="width:22px;height:22px;border-radius:50%;background:${color};color:#fff;font-weight:700;font-size:10px;display:inline-flex;align-items:center;justify-content:center;margin-left:-4px;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.1)">${initials}</span>`;
         }).join('');
+    }
+
+    // ---------- UI: "fulana está editando este nó" ----------
+    const FOCUS_TTL_MS = 12000;
+    let focusPeers = {};          // deviceId -> { nodeId, name, color, ts }
+    let lastFocusId = null, lastFocusSent = 0, lastFocusSig = '', focusLayer = null;
+
+    function myFocusNodeId() {
+        try {
+            if (typeof editingNodeId !== 'undefined' && editingNodeId) return String(editingNodeId);
+            const side = document.getElementById('inspector-sidebar');
+            if (side && !side.classList.contains('translate-x-full')) {
+                const f = document.getElementById('edit-node-id');
+                if (f && f.value) return String(f.value);
+            }
+        } catch (_) {}
+        return null;
+    }
+    function broadcastFocus(nodeId) {
+        if (!channel || !connected) return;
+        try { if (window.SM_CLOUD && activeKey && window.SM_CLOUD.roleOf(activeKey) === 'viewer') return; } catch (_) {}
+        try {
+            channel.send({
+                type: 'broadcast', event: 'focus',
+                payload: { nodeId: nodeId, from: myDeviceId, name: myUser ? myUser.name : '?', color: myColor }
+            });
+        } catch (_) {}
+    }
+    function ensureFocusLayer() {
+        if (focusLayer) return focusLayer;
+        focusLayer = document.createElement('div');
+        focusLayer.id = 'sm-collab-focus';
+        focusLayer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:74';
+        document.body.appendChild(focusLayer);
+        return focusLayer;
+    }
+    function renderFocus() {
+        const layer = ensureFocusLayer();
+        const now = Date.now();
+        Object.keys(focusPeers).forEach(id => { if (!focusPeers[id].nodeId || now - focusPeers[id].ts > FOCUS_TTL_MS) delete focusPeers[id]; });
+        const marks = [];
+        Object.keys(focusPeers).forEach(id => {
+            const p = focusPeers[id];
+            let el = null;
+            try { el = document.querySelector('[data-node-id="' + CSS.escape(p.nodeId) + '"]'); } catch (_) {}
+            if (!el) return;
+            const r = el.getBoundingClientRect();
+            if (!r.width && !r.height) return;
+            marks.push({ l: Math.round(r.left), t: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height), color: p.color, name: p.name });
+        });
+        const sig = JSON.stringify(marks);
+        if (sig === lastFocusSig) return;                       // nada mudou: não mexe no DOM (evita piscar)
+        lastFocusSig = sig;
+        layer.innerHTML = marks.map(m =>
+            `<div style="position:absolute;left:${m.l - 3}px;top:${m.t - 3}px;width:${m.w + 6}px;height:${m.h + 6}px;border:2px solid ${m.color};border-radius:12px"></div>` +
+            `<div style="position:absolute;left:${m.l - 3}px;top:${m.t - 21}px;background:${m.color};color:#fff;font:600 10px Inter,sans-serif;padding:2px 6px;border-radius:6px 6px 6px 0;white-space:nowrap">✎ ${esc(m.name)} editando</div>`
+        ).join('');
+    }
+    function focusTick() {
+        try {
+            const k = currentKey();
+            if (k && k !== activeKey) join(k);                  // trocou de história por outro caminho
+            const id = myFocusNodeId(), now = Date.now();
+            if (id !== lastFocusId || (id && now - lastFocusSent > 5000)) {
+                lastFocusId = id; lastFocusSent = now; broadcastFocus(id);
+            }
+            renderFocus();
+        } catch (_) {}
     }
 
     // ---------- UI: cursores ----------
@@ -263,35 +343,18 @@
         Object.keys(peers).forEach(id => {
             const c = peers[id];
             const el = document.createElement('div');
-            el.style.cssText = `position:absolute;left:${c.x}px;top:${c.y}px;pointer-events:none`;
+            el.style.cssText = `position:absolute;left:${num(c.x)}px;top:${num(c.y)}px;pointer-events:none`;
             el.innerHTML =
                 `<svg width="18" height="24" viewBox="0 0 18 24" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))">
                     <path d="M0 0 L0 18 L5 13 L9 22 L12 20 L8 12 L15 12 Z" fill="${c.color}" stroke="#fff" stroke-width="1.5"/>
                 </svg>
-                <span style="position:absolute;left:14px;top:14px;background:${c.color};color:#fff;font:600 10px Inter,sans-serif;padding:2px 6px;border-radius:6px;white-space:nowrap">${c.name}</span>`;
+                <span style="position:absolute;left:14px;top:14px;background:${c.color};color:#fff;font:600 10px Inter,sans-serif;padding:2px 6px;border-radius:6px;white-space:nowrap">${esc(c.name)}</span>`;
             layer.appendChild(el);
         });
     }
 
     // ---------- hooks no app existente ----------
-    function hookSave() {
-        const orig = window.saveStoriesStorage;
-        if (typeof orig !== 'function' || orig.__smCollab) return;
-        const wrapped = function () {
-            const r = orig.apply(this, arguments);
-            try {
-                const k = currentKey();
-                if (k) {
-                    const db = readDB();
-                    const story = db[k];
-                    if (story) { story.updatedAt = story.updatedAt || Date.now(); broadcastStory(k, story); }
-                }
-            } catch (_) {}
-            return r;
-        };
-        wrapped.__smCollab = true;
-        window.saveStoriesStorage = wrapped;
-    }
+    // (hookSave aposentado: o envio agora é feito pelo cloud.js, só com o que mudou)
     function hookSwitch() {
         const orig = window.switchStory;
         if (typeof orig !== 'function' || orig.__smCollab) return;
@@ -326,8 +389,9 @@
         myColor = pickColor(myDeviceId);
 
         // Re-aplica os hooks (o app pode recriar funções em runtime)
-        setInterval(() => { hookSave(); hookSwitch(); }, 2000);
-        hookSave(); hookSwitch(); hookCursor();
+        setInterval(() => { hookSwitch(); }, 2000);
+        hookSwitch(); hookCursor();
+        setInterval(focusTick, 500);
 
         const k = currentKey();
         if (k) setTimeout(() => join(k), 800);
@@ -336,9 +400,11 @@
     }
 
     window.SM_COLLAB = {
-        init, join, leave, broadcastStory, broadcastCursor,
+        init, join, leave, broadcastStory, broadcastDelta, broadcastCursor,
         isConnected: () => connected,
-        get activeKey() { return activeKey; }
+        get status() { return lastStatus; },
+        get activeKey() { return activeKey; },
+        _t: { esc, safeColor, focusTick, renderFocus, focusPeers: () => focusPeers }
     };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
