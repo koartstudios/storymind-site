@@ -15,8 +15,7 @@
         bindEvents();
     });
 
-       function injectProfileButton() {
-        // 🔽 Procura o slot que criamos no dashboard.html, senão usa o header do app.html 🔽
+    function injectProfileButton() {
         const header = document.getElementById('profile-slot') || document.querySelector('body > header > div:nth-child(2)');
         if (!header || document.getElementById('sm-profile-btn')) return;
 
@@ -190,7 +189,6 @@
             if (e.target.id === 'sm-prof-avatar-input') uploadAvatar(e.target.files[0]);
         });
 
-        // ESC fecha
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') closeModal();
         });
@@ -214,14 +212,22 @@
 
     // ── Dados ────────────────────────────────────────────────
     async function loadUserData() {
-        if (typeof supabase === 'undefined') return;
+        // 🔽 MUDANÇA CRÍTICA: Usa 'sb' em vez de 'supabase' 🔽
+        if (typeof sb === 'undefined') {
+            console.warn("Supabase client 'sb' not found.");
+            return;
+        }
 
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await sb.auth.getUser();
         currentUser = user;
         if (!user) return;
 
-        const { data: profile } = await supabase
+        const { data: profile, error } = await sb
             .from('profiles').select('*').eq('id', user.id).maybeSingle();
+
+        if (error) {
+            console.error("Erro ao carregar perfil do banco:", error);
+        }
 
         currentProfile = profile || {};
 
@@ -275,14 +281,18 @@
         const name = document.getElementById('sm-prof-name-input').value.trim();
         const bio = document.getElementById('sm-prof-bio-input').value.trim();
 
-        const { error } = await supabase.from('profiles').upsert({
+        // 🔽 MUDANÇA CRÍTICA: Usa 'sb' 🔽
+        const { error } = await sb.from('profiles').upsert({
             id: currentUser.id,
             display_name: name,
             bio: bio,
             updated_at: new Date().toISOString()
         });
 
-        if (error) return alert('Erro ao salvar: ' + error.message);
+        if (error) {
+            console.error("Erro ao salvar perfil:", error);
+            return alert('Erro ao salvar: ' + error.message);
+        }
 
         currentProfile.display_name = name;
         currentProfile.bio = bio;
@@ -298,7 +308,8 @@
         const layout = document.getElementById('sm-prof-layout-select').value;
         const lang = document.getElementById('sm-prof-lang-select').value;
 
-        const { error } = await supabase.from('profiles').upsert({
+        // 🔽 MUDANÇA CRÍTICA: Usa 'sb' 🔽
+        const { error } = await sb.from('profiles').upsert({
             id: currentUser.id,
             default_theme: theme,
             default_layout: layout,
@@ -306,13 +317,15 @@
             updated_at: new Date().toISOString()
         });
 
-        if (error) return alert('Erro ao salvar: ' + error.message);
+        if (error) {
+            console.error("Erro ao salvar preferências:", error);
+            return alert('Erro ao salvar: ' + error.message);
+        }
 
         currentProfile.default_theme = theme;
         currentProfile.default_layout = layout;
         currentProfile.ui_language = lang;
 
-        // Aplica tema imediatamente, se a função existir no app
         if (typeof changeTheme === 'function') changeTheme(theme);
         if (typeof changeLayout === 'function') changeLayout(layout);
 
@@ -326,19 +339,29 @@
         const ext = file.name.split('.').pop();
         const path = `${currentUser.id}/avatar.${ext}`;
 
-        const { error: upErr } = await supabase.storage
+        // 🔽 MUDANÇA CRÍTICA: Usa 'sb' 🔽
+        const { error: upErr } = await sb.storage
             .from('avatars').upload(path, file, { upsert: true, cacheControl: '3600' });
-        if (upErr) return alert('Erro no upload: ' + upErr.message);
+            
+        if (upErr) {
+            console.error("Erro no upload da imagem:", upErr);
+            return alert('Erro no upload: ' + upErr.message);
+        }
 
-        const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
-        // Cache-buster
+        const { data: { publicUrl } } = sb.storage.from('avatars').getPublicUrl(path);
         const url = publicUrl + '?t=' + Date.now();
 
-        await supabase.from('profiles').upsert({
+        // 🔽 MUDANÇA CRÍTICA: Usa 'sb' 🔽
+        const { error } = await sb.from('profiles').upsert({
             id: currentUser.id,
             avatar_url: url,
             updated_at: new Date().toISOString()
         });
+
+        if (error) {
+            console.error("Erro ao salvar URL do avatar no banco:", error);
+            return alert("Imagem enviada, mas erro ao salvar no banco: " + error.message);
+        }
 
         currentProfile.avatar_url = url;
         renderAvatar(url, currentProfile.display_name);
@@ -350,7 +373,7 @@
         const pass = document.getElementById('sm-prof-password').value;
         if (pass.length < 6) return alert('Senha precisa ter no mínimo 6 caracteres.');
 
-        const { error } = await supabase.auth.updateUser({ password: pass });
+        const { error } = await sb.auth.updateUser({ password: pass });
         if (error) return alert('Erro: ' + error.message);
         document.getElementById('sm-prof-password').value = '';
         toast('Senha alterada!');
@@ -358,7 +381,7 @@
 
     async function logout() {
         if (!confirm('Sair da conta?')) return;
-        await supabase.auth.signOut();
+        await sb.auth.signOut();
         location.reload();
     }
 
@@ -366,10 +389,9 @@
         const confirmText = prompt('Digite "EXCLUIR" para confirmar a exclusão permanente da conta:');
         if (confirmText !== 'EXCLUIR') return;
 
-        // Requer função RPC no Supabase (veja nota abaixo)
-        const { error } = await supabase.rpc('delete_own_account');
+        const { error } = await sb.rpc('delete_own_account');
         if (error) return alert('Erro: ' + error.message + '\n\n(Verifique se a função RPC foi criada no Supabase)');
-        await supabase.auth.signOut();
+        await sb.auth.signOut();
         location.reload();
     }
 
@@ -377,23 +399,21 @@
         if (!currentUser) return;
         try {
             const [storiesRes, commentsRes] = await Promise.all([
-                supabase.from('stories').select('id', { count: 'exact', head: true }),
-                supabase.from('node_comments').select('id', { count: 'exact', head: true }).eq('user_id', currentUser.id)
+                sb.from('stories').select('id', { count: 'exact', head: true }),
+                sb.from('node_comments').select('id', { count: 'exact', head: true }).eq('user_id', currentUser.id)
             ]);
             document.getElementById('sm-stat-stories').textContent = storiesRes.count ?? '—';
             document.getElementById('sm-stat-comments').textContent = commentsRes.count ?? '—';
             document.getElementById('sm-stat-since').textContent = new Date(currentUser.created_at)
                 .toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
-            document.getElementById('sm-stat-nodes').textContent = '—'; // plugue sua query aqui
+            document.getElementById('sm-stat-nodes').textContent = '—'; 
         } catch (e) { console.warn(e); }
     }
 
     function toast(msg) {
-        // Reaproveita a função de toast do app, se existir
         if (typeof showToast === 'function') return showToast(msg, 'success');
         console.log('[Profile]', msg);
     }
 
-    // Permite abrir via console/atalho
     window.SM_PROFILE.open = openModal;
 })();
