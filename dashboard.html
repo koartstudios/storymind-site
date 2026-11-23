@@ -5,6 +5,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/profile.css">
 <style>
     /* ========= Hero ========= */
     .hero {
@@ -726,7 +727,11 @@
 </head>
 <body>
 <nav class="nav"><a class="logo" href="index.html"><i class="fa-solid fa-brain"></i>StoryMind</a>
-<div><span class="mut" id="who"></span> <button class="btn ghost" onclick="SM_AUTH.logout()">Sair</button></div></nav>
+<div style="display:flex; align-items:center; gap:12px;">
+    <div id="profile-slot"></div> <!-- Perfil primeiro -->
+    <span class="mut" id="who"></span> <!-- E-mail no meio -->
+    <button class="btn ghost" onclick="SM_AUTH.logout()">Sair</button>
+</div></nav>
 
 <div class="wrap">
 
@@ -745,6 +750,12 @@
                 <i class="fa-solid fa-plus"></i> Novo mapa
             </button>
         </div>
+    </div>
+     <div id="node-types-container" style="display:none; background:var(--card,#fff); border:1px solid var(--line,#e2e8f0); border-radius:14px; padding:14px 16px; margin-bottom:20px;">
+        <h3 style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--mut,#64748b); margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+            <i class="fa-solid fa-layer-group"></i> Tipos de Nós no seu Universo
+        </h3>
+        <div id="node-types-grid" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
     </div>
 
 
@@ -1901,4 +1912,66 @@
     window.SM_HUD = { refresh: renderHudStats };
 })();
 </script>
+<!-- 🔽 MODAL DE METADADOS 🔽 -->
+<div id="meta-modal" style="position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); z-index:9999; display:none; align-items:center; justify-content:center; padding:16px;">
+    <div style="background:#fff; border-radius:16px; width:100%; max-width:420px; overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,.3);">
+        <div style="padding:16px 20px; border-bottom:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="font-weight:800; font-size:14px; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-sliders" style="color:#6366f1;"></i> Detalhes da História
+            </h3>
+            <button onclick="document.getElementById('meta-modal').style.display='none'" style="background:none; border:none; color:#94a3b8; cursor:pointer; font-size:16px;"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
+            <input type="hidden" id="meta-key">
+            <div>
+                <label style="display:block; font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Gênero Literário</label>
+                <select id="meta-genre" style="width:100%; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:10px; font-size:13px; outline:none;">
+                    <option value="">Não definido</option>
+                    <option value="Fantasia">Fantasia</option>
+                    <option value="Ficção Científica">Ficção Científica</option>
+                    <option value="Romance">Romance</option>
+                    <option value="Suspense/Mistério">Suspense/Mistério</option>
+                    <option value="Drama">Drama</option>
+                    <option value="Terror">Terror</option>
+                    <option value="Aventura">Aventura</option>
+                    <option value="Histórico">Histórico</option>
+                    <option value="Outro">Outro</option>
+                </select>
+            </div>
+            <div>
+                <label style="display:block; font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Status do Projeto</label>
+                <select id="meta-status" style="width:100%; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:10px; font-size:13px; outline:none;">
+                    <option value="">Não definido</option>
+                    <option value="Ideia">Ideia / Brainstorm</option>
+                    <option value="Planejamento">Planejamento / Mapa</option>
+                    <option value="Rascunho">Rascunho</option>
+                    <option value="Revisão">Revisão</option>
+                    <option value="Concluído">Concluído</option>
+                </select>
+            </div>
+            <div>
+                <label style="display:block; font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Logline / Sinopse Curta</label>
+                <textarea id="meta-logline" rows="3" placeholder="Ex: Um ferreiro descobre ser o herdeiro de um império caído..." style="width:100%; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:10px; font-size:13px; outline:none; resize:none; font-family:inherit;"></textarea>
+            </div>
+            <div>
+                <label style="display:block; font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Público-Alvo</label>
+                <select id="meta-audience" style="width:100%; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:10px; font-size:13px; outline:none;">
+                    <option value="">Não definido</option>
+                    <option value="Infantil">Infantil</option>
+                    <option value="Juvenil">Juvenil (YA)</option>
+                    <option value="Adulto">Adulto</option>
+                    <option value="Novo Adulto">Novo Adulto (NA)</option>
+                </select>
+            </div>
+        </div>
+        <div style="padding:14px 20px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:flex-end;">
+            <button onclick="saveStoryMeta()" style="background:#6366f1; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer;">Salvar Detalhes</button>
+        </div>
+    </div>
+</div>
+<!-- 🔼 FIM DO MODAL 🔼 -->
+
+<!-- 🔽 ADICIONE O PROFILE.JS AQUI (junto aos outros scripts) 🔽 -->
+<script src="assets/profile.js"></script>
+</body>
 </body></html>
