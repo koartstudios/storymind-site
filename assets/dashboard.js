@@ -370,4 +370,6 @@ window.saveStoryMeta = function() {
 };
 // 🔼 FIM 🔼
 
+window.SM_NODE_TYPES = NODE_TYPE_CONFIG; // Expõe os tipos para a Bíblia
+
 render();

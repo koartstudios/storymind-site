@@ -1,0 +1,330 @@
+/**
+ * StoryMind - Bíblia Global do Universo (com Fusão de Entidades e Tags)
+ */
+(function () {
+    'use strict';
+    if (window.SM_BIBLE) return;
+
+    const DB_KEY = 'storymind_database_v2';
+
+    const DEFAULT_TYPES = {
+        'scene':      { label: 'Cenas',       icon: 'fa-film',             color: '#6366f1' },
+        'character':  { label: 'Personagens', icon: 'fa-user',             color: '#10b981' },
+        'location':   { label: 'Cenários',    icon: 'fa-location-dot',     color: '#14b8a6' },
+        'event':      { label: 'Eventos',     icon: 'fa-bolt',             color: '#f59e0b' },
+        'dialogue':   { label: 'Diálogos',    icon: 'fa-comments',         color: '#0ea5e9' },
+        'theme':      { label: 'Temas',       icon: 'fa-masks-theater',    color: '#f43f5e' },
+        'note':       { label: 'Notas',       icon: 'fa-note-sticky',      color: '#94a3b8' },
+        'timeline':   { label: 'Timelines',   icon: 'fa-timeline',         color: '#8b5cf6' },
+        'object':     { label: 'Objetos',     icon: 'fa-flask',            color: '#f97316' }
+    };
+
+    let allItems = []; 
+    let activeCat = 'all';
+    let activeStory = 'all';
+    let activeSearch = '';
+    let viewMode = 'type';
+
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    function getTypes() { return window.SM_NODE_TYPES || DEFAULT_TYPES; }
+    function typeConf(t) { return getTypes()[t] || { label: t || 'Outro', icon: 'fa-circle', color: '#94a3b8' }; }
+
+    // ---------- Extração e FUSÃO de dados ----------
+    function extractAllItems() {
+        let db = {};
+        try { db = JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch (_) { return []; }
+
+        const mergedMap = new Map(); // Chave: "tipo::titulo_normalizado"
+
+        Object.keys(db).forEach(storyKey => {
+            const story = db[storyKey];
+            const storyTitle = story.title || 'Sem título';
+            
+            (story.sheets || []).forEach(sheet => {
+                (sheet.nodes || []).forEach(node => {
+                    // 🚫 Ignora "Sem Tipo"
+                    if (!node.type || node.type === 'sem') return;
+
+                    const nodeTitle = String(node.title || node.name || '').trim();
+                    if (!nodeTitle) return; // Ignora nós sem título
+
+                    const nodeDesc = String(node.description || node.content || node.text || '').trim();
+                    const normKey = `${node.type}::${nodeTitle.toLowerCase()}`;
+
+                    if (!mergedMap.has(normKey)) {
+                        mergedMap.set(normKey, {
+                            type: node.type,
+                            title: nodeTitle,
+                            description: nodeDesc,
+                            tags: new Set(),
+                            stories: new Map() // storyKey -> storyTitle
+                        });
+                    }
+
+                    const entry = mergedMap.get(normKey);
+                    
+                    // Mantém a descrição mais longa (mais detalhada)
+                    if (nodeDesc.length > entry.description.length) {
+                        entry.description = nodeDesc;
+                    }
+
+                    // Adiciona a história (Backlinks)
+                    entry.stories.set(storyKey, storyTitle);
+
+                    // Adiciona Tags (lê de node.tags ou node.meta.tags)
+                    if (Array.isArray(node.tags)) node.tags.forEach(t => entry.tags.add(t.trim()));
+                    if (node.meta && Array.isArray(node.meta.tags)) node.meta.tags.forEach(t => entry.tags.add(t.trim()));
+                });
+            });
+        });
+
+        // Converte o Map para Array e prepara as tags
+        return Array.from(mergedMap.values()).map(item => ({
+            ...item,
+            tags: Array.from(item.tags).filter(Boolean),
+            stories: Array.from(item.stories.entries()).map(([key, title]) => ({ key, title }))
+        }));
+    }
+
+    // ---------- Injeção do botão + overlay (Mantido igual) ----------
+    function injectButton() {
+        if ($('sm-bible-btn')) return;
+        const heroActions = document.querySelector('.hero-actions');
+        if (!heroActions) return;
+        const btn = document.createElement('button');
+        btn.id = 'sm-bible-btn';
+        btn.className = 'btn-hero';
+        btn.style.cssText = 'background:linear-gradient(135deg,#8b5cf6,#6366f1); color:#fff; border-color:transparent; box-shadow:0 6px 16px -8px rgba(139,92,246,.55);';
+        btn.innerHTML = '<i class="fa-solid fa-book-skull"></i> Bíblia do Universo';
+        btn.addEventListener('click', open);
+        heroActions.prepend(btn);
+    }
+
+    function injectOverlay() {
+        if ($('sm-bible-overlay')) return;
+        document.body.insertAdjacentHTML('beforeend', `
+            <div id="sm-bible-overlay" role="dialog" aria-modal="true">
+                <div id="sm-bible-header">
+                    <div class="sm-bible-topline">
+                        <div class="sm-bible-title-wrap">
+                            <h2 class="sm-bible-title"><i class="fa-solid fa-book-skull" style="background:linear-gradient(135deg,#a5b4fc,#c7d2fe);-webkit-background-clip:text;background-clip:text;color:transparent;"></i> Bíblia do Universo</h2>
+                            <p class="sm-bible-subtitle" id="sm-bible-subtitle">Consolidando seu acervo...</p>
+                        </div>
+                        <button class="sm-bible-close" id="sm-bible-close" title="Fechar (ESC)"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="sm-bible-stats" id="sm-bible-stats"></div>
+                    <div class="sm-bible-toolbar">
+                        <div class="sm-bible-search">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input id="sm-bible-search" type="search" placeholder="Buscar por nome, tag, descrição…">
+                        </div>
+                        <select id="sm-bible-story-filter" class="sm-bible-select">
+                            <option value="all">Todas as histórias</option>
+                        </select>
+                        <div class="sm-bible-view-toggle">
+                            <button data-mode="type" class="on"><i class="fa-solid fa-layer-group"></i> Por Tipo</button>
+                            <button data-mode="story"><i class="fa-solid fa-book"></i> Por História</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="sm-bible-cats"></div>
+                <div id="sm-bible-content"></div>
+            </div>
+        `);
+
+        $('sm-bible-close').addEventListener('click', close);
+        $('sm-bible-search').addEventListener('input', e => { activeSearch = e.target.value.trim().toLowerCase(); renderContent(); });
+        $('sm-bible-story-filter').addEventListener('change', e => { activeStory = e.target.value; renderContent(); });
+        document.querySelectorAll('.sm-bible-view-toggle button').forEach(b => {
+            b.addEventListener('click', () => {
+                document.querySelectorAll('.sm-bible-view-toggle button').forEach(x => x.classList.remove('on'));
+                b.classList.add('on'); viewMode = b.dataset.mode; renderContent();
+            });
+        });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && $('sm-bible-overlay').classList.contains('open')) close();
+        });
+    }
+
+    // ---------- Abertura e Stats ----------
+    function open() {
+        injectOverlay();
+        $('sm-bible-overlay').classList.add('open');
+        document.body.style.overflow = 'hidden';
+        refresh();
+    }
+    function close() {
+        $('sm-bible-overlay').classList.remove('open');
+        document.body.style.overflow = '';
+    }
+    function refresh() {
+        allItems = extractAllItems();
+        activeCat = 'all'; activeStory = 'all'; activeSearch = '';
+        if ($('sm-bible-search')) $('sm-bible-search').value = '';
+        populateStoryFilter();
+        renderStats();
+        renderCategories();
+        renderContent();
+    }
+
+    function populateStoryFilter() {
+        const sel = $('sm-bible-story-filter');
+        if (!sel) return;
+        const storyMap = new Map(); // key -> title
+        allItems.forEach(it => it.stories.forEach(s => storyMap.set(s.key, s.title)));
+        
+        const opts = ['<option value="all">Todas as histórias</option>'];
+        storyMap.forEach((title, key) => opts.push(`<option value="${esc(key)}">${esc(title)}</option>`));
+        sel.innerHTML = opts.join('');
+        sel.value = storyMap.has(activeStory) ? activeStory : 'all';
+    }
+
+    function renderStats() {
+        const totalEntidades = allItems.length;
+        const totalAparicoes = allItems.reduce((acc, it) => acc + it.stories.length, 0);
+        const totalTags = new Set(allItems.flatMap(it => it.tags)).size;
+        
+        if ($('sm-bible-subtitle')) {
+            $('sm-bible-subtitle').textContent = `${totalEntidades} entidades únicas · ${totalAparicoes} aparições globais`;
+        }
+
+        const counts = {};
+        allItems.forEach(it => { counts[it.type] = (counts[it.type] || 0) + 1; });
+        const sorted = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+        
+        const main = sorted.slice(0, 4).map(t => {
+            const c = typeConf(t);
+            return `<div class="sm-bible-stat"><i class="fa-solid ${c.icon}" style="color:${c.color}"></i> ${esc(c.label)} <b>${counts[t]}</b></div>`;
+        }).join('');
+
+        $('sm-bible-stats').innerHTML = `
+            <div class="sm-bible-stat"><i class="fa-solid fa-database"></i> Entidades <b>${totalEntidades}</b></div>
+            ${main}
+            ${totalTags > 0 ? `<div class="sm-bible-stat" style="background:rgba(251,191,36,.15);border-color:rgba(251,191,36,.3);color:#fcd34d"><i class="fa-solid fa-tags"></i> Tags <b>${totalTags}</b></div>` : ''}
+        `;
+    }
+
+    function renderCategories() {
+        const el = $('sm-bible-cats');
+        if (!el) return;
+        const filteredByStory = activeStory === 'all' ? allItems : allItems.filter(i => i.stories.some(s => s.key === activeStory));
+        const counts = {};
+        filteredByStory.forEach(it => { counts[it.type] = (counts[it.type] || 0) + 1; });
+
+        const pills = [`<button class="sm-bible-cat ${activeCat === 'all' ? 'active' : ''}" data-cat="all"><i class="fa-solid fa-star"></i> Tudo <span class="sm-bible-cat-count">${filteredByStory.length}</span></button>`];
+        Object.keys(counts).sort((a, b) => counts[b] - counts[a]).forEach(t => {
+            const c = typeConf(t);
+            pills.push(`<button class="sm-bible-cat ${activeCat === t ? 'active' : ''}" data-cat="${esc(t)}"><i class="fa-solid ${c.icon}" style="color:${c.color}"></i> ${esc(c.label)} <span class="sm-bible-cat-count">${counts[t]}</span></button>`);
+        });
+
+        el.innerHTML = pills.join('');
+        el.querySelectorAll('.sm-bible-cat').forEach(btn => {
+            btn.addEventListener('click', () => {
+                activeCat = btn.dataset.cat;
+                el.querySelectorAll('.sm-bible-cat').forEach(b => b.classList.toggle('active', b === btn));
+                renderContent();
+            });
+        });
+    }
+
+    function applyFilters() {
+        return allItems.filter(it => {
+            if (activeCat !== 'all' && it.type !== activeCat) return false;
+            if (activeStory !== 'all' && !it.stories.some(s => s.key === activeStory)) return false;
+            if (activeSearch) {
+                const hay = (it.title + ' ' + it.description + ' ' + it.tags.join(' ') + ' ' + it.stories.map(s=>s.title).join(' ')).toLowerCase();
+                if (!hay.includes(activeSearch)) return false;
+            }
+            return true;
+        });
+    }
+
+    // ---------- Renderização de Conteúdo ----------
+    function renderContent() {
+        const content = $('sm-bible-content');
+        if (!content) return;
+        const items = applyFilters();
+
+        if (!items.length) {
+            content.innerHTML = `<div class="sm-bible-empty"><i class="fa-solid fa-magnifying-glass"></i><h3>Nenhuma entidade encontrada</h3><p>Ajuste os filtros ou busque por outro termo.</p></div>`;
+            return;
+        }
+
+        if (viewMode === 'story') {
+            const groups = {};
+            items.forEach(it => {
+                it.stories.forEach(s => {
+                    if (activeStory !== 'all' && s.key !== activeStory) return;
+                    if (!groups[s.key]) groups[s.key] = { title: s.title, items: [] };
+                    groups[s.key].items.push(it);
+                });
+            });
+            content.innerHTML = Object.keys(groups).map(k => {
+                const g = groups[k];
+                return `<div class="sm-bible-story-group">
+                    <div class="sm-bible-story-head"><i class="fa-solid fa-book"></i><span class="sm-bible-story-name">${esc(g.title)}</span><span class="sm-bible-story-count">${g.items.length} entidades</span></div>
+                    <div class="sm-bible-grid">${g.items.map(cardHTML).join('')}</div>
+                </div>`;
+            }).join('');
+        } else {
+            content.innerHTML = `<div class="sm-bible-grid">${items.map(cardHTML).join('')}</div>`;
+        }
+        
+        bindCardClicks(content);
+    }
+
+    function cardHTML(it) {
+        const conf = typeConf(it.type);
+        const descHTML = it.description ? `<div class="sm-bible-card-desc">${esc(it.description)}</div>` : `<div class="sm-bible-card-desc empty">Sem descrição.</div>`;
+        
+        const tagsHTML = it.tags.length > 0 
+            ? `<div class="sm-bible-tags">${it.tags.map(t => `<span class="sm-bible-tag">#${esc(t)}</span>`).join('')}</div>` 
+            : '';
+
+        const storiesHTML = it.stories.map(s => 
+            `<span class="sm-bible-story-pill" data-story="${esc(s.key)}"><i class="fa-solid fa-book"></i> ${esc(s.title)}</span>`
+        ).join('');
+
+        return `
+            <div class="sm-bible-card" style="--card-color:${conf.color}">
+                <div class="sm-bible-card-header">
+                    <span class="sm-bible-card-type" style="color:${conf.color}"><i class="fa-solid ${conf.icon}"></i> ${esc(conf.label)}</span>
+                </div>
+                <div class="sm-bible-card-title">${esc(it.title)}</div>
+                ${tagsHTML}
+                ${descHTML}
+                
+                <div class="sm-bible-stories-box">
+                    <div class="sm-bible-stories-title"><i class="fa-solid fa-link"></i> Backlinks Globais (${it.stories.length})</div>
+                    <div class="sm-bible-stories-list">${storiesHTML}</div>
+                </div>
+            </div>`;
+    }
+
+    function bindCardClicks(content) {
+        content.querySelectorAll('.sm-bible-story-pill').forEach(pill => {
+            pill.addEventListener('click', (e) => {
+                e.stopPropagation();
+                location.href = 'app.html?story=' + encodeURIComponent(pill.dataset.story);
+            });
+        });
+    }
+
+    // ---------- Init ----------
+    function init() {
+        injectButton();
+        injectOverlay();
+        document.addEventListener('keydown', e => {
+            if ((e.ctrlKey || e.metaKey) && e.code === 'KeyB') {
+                if (!$('sm-bible-overlay').classList.contains('open')) { e.preventDefault(); open(); }
+            }
+        });
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+
+    window.SM_BIBLE = { open, close, refresh };
+})();
