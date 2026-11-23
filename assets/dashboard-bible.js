@@ -32,42 +32,6 @@
     function getTypes() { return window.SM_NODE_TYPES || DEFAULT_TYPES; }
     function typeConf(t) { return getTypes()[t] || { label: t || 'Outro', icon: 'fa-circle', color: '#94a3b8' }; }
 
-    // ---------- Imagens e links de referência ----------
-    function collectNodeImageCandidates(node) {
-        const td = node && node.typeData && typeof node.typeData === 'object' ? node.typeData : {};
-        const meta = node && node.meta && typeof node.meta === 'object' ? node.meta : {};
-        const candidates = [
-            node && node.image, node && node.imageUrl, node && node.avatar,
-            meta.image, meta.imageUrl, td.image, td.imageUrl, td.avatar, td.iconUrl
-        ];
-        let firstPageUrl = '';
-        if (Array.isArray(td.referenceLinks)) {
-            td.referenceLinks.forEach(link => {
-                if (link && typeof link.url === 'string') {
-                    candidates.push(link.url);
-                    if (!firstPageUrl) firstPageUrl = link.url.trim();
-                }
-                if (link && typeof link.image === 'string') candidates.push(link.image);
-                if (link && typeof link.imageUrl === 'string') candidates.push(link.imageUrl);
-            });
-        }
-        // Para links de páginas (Pinterest, sites, artigos etc.), tenta primeiro
-        // a imagem Open Graph e, se não existir, uma captura da própria página.
-        if (/^https?:\/\//i.test(firstPageUrl)) {
-            const encodedPage = encodeURIComponent(firstPageUrl);
-            candidates.push(`https://api.microlink.io/?url=${encodedPage}&embed=image.url`);
-            candidates.push(`https://api.microlink.io/?url=${encodedPage}&screenshot=true&meta=false&embed=screenshot.url`);
-        }
-        const seen = new Set();
-        return candidates.filter(value => typeof value === 'string')
-            .map(value => value.trim())
-            .filter(value => {
-                if (!/^https?:\/\//i.test(value) || seen.has(value)) return false;
-                seen.add(value);
-                return true;
-            });
-    }
-
     // ---------- Extração e FUSÃO de dados ----------
     function extractAllItems() {
         let db = {};
@@ -94,7 +58,6 @@
                             title: nodeTitle,
                             description: nodeDesc,
                             image: null,
-                            imageCandidates: [],
                             tags: new Set(),
                             stories: new Map()
                         });
@@ -104,10 +67,14 @@
                     
                     if (nodeDesc.length > entry.description.length) entry.description = nodeDesc;
 
-                    collectNodeImageCandidates(node).forEach(url => {
-                        if (!entry.imageCandidates.includes(url)) entry.imageCandidates.push(url);
-                    });
-                    if (!entry.image && entry.imageCandidates.length) entry.image = entry.imageCandidates[0];
+                    // Usa as imagens cadastradas no inspetor do nó (Ícones por URL).
+                    // node.icons é um array de URLs; a galeria utiliza a primeira imagem disponível.
+                    const nodeIcons = Array.isArray(node.icons)
+                        ? node.icons.filter(url => typeof url === 'string' && url.trim())
+                        : [];
+                    const imgUrl = nodeIcons[0] || node.image || node.imageUrl || node.avatar ||
+                        (node.meta && (node.meta.image || node.meta.imageUrl));
+                    if (imgUrl && !entry.image) entry.image = imgUrl;
 
                     entry.stories.set(storyKey, storyTitle);
 
@@ -120,7 +87,6 @@
         return Array.from(mergedMap.values()).map(item => ({
             ...item,
             tags: Array.from(item.tags).filter(Boolean),
-            imageCandidates: item.imageCandidates || (item.image ? [item.image] : []),
             stories: Array.from(item.stories.entries()).map(([key, title]) => ({ key, title }))
         }));
     }
@@ -372,11 +338,10 @@
     // --- HTML do Layout: Galeria ---
     function galleryHTML(it) {
         const conf = typeConf(it.type);
-        const candidates = Array.isArray(it.imageCandidates) ? it.imageCandidates : (it.image ? [it.image] : []);
-        const candidatesAttr = esc(JSON.stringify(candidates));
-        const imgHtml = candidates.length
-            ? `<img src="${esc(candidates[0])}" data-image-candidates="${candidatesAttr}" data-image-index="0" alt="${esc(it.title)}" style="width:100%;height:100%;object-fit:cover;">`
+        const imgHtml = it.image 
+            ? `<img src="${esc(it.image)}" alt="${esc(it.title)}" style="width:100%;height:100%;object-fit:cover;">`
             : `<div class="sm-bible-gallery-placeholder" style="color:${conf.color};background:${conf.color}15;"><i class="fa-solid ${conf.icon}"></i></div>`;
+        
         return `
             <div class="sm-bible-gallery-card" data-story="${esc(it.stories[0]?.key || '')}" data-node="${esc(it.title)}">
                 <div class="sm-bible-gallery-img">
@@ -385,7 +350,7 @@
                 </div>
                 <div class="sm-bible-gallery-info">
                     <div class="sm-bible-gallery-title">${esc(it.title)}</div>
-                    <div class="sm-bible-gallery-sub">${it.stories.length} história(s)${candidates.length ? ` · ${candidates.length} imagem/link(s)` : ''}</div>
+                    <div class="sm-bible-gallery-sub">${it.stories.length} história(s)</div>
                 </div>
             </div>`;
     }
@@ -393,9 +358,8 @@
     // --- HTML do Layout: Lista ---
     function listHTML(it) {
         const conf = typeConf(it.type);
-        const candidates = Array.isArray(it.imageCandidates) ? it.imageCandidates : (it.image ? [it.image] : []);
-        const imgHtml = candidates.length
-            ? `<img src="${esc(candidates[0])}" data-image-candidates="${esc(JSON.stringify(candidates))}" data-image-index="0" alt="${esc(it.title)}" class="sm-bible-list-thumb">`
+        const imgHtml = it.image 
+            ? `<img src="${esc(it.image)}" alt="${esc(it.title)}" class="sm-bible-list-thumb">`
             : `<div class="sm-bible-list-thumb sm-bible-list-placeholder" style="color:${conf.color};background:${conf.color}15;"><i class="fa-solid ${conf.icon}"></i></div>`;
         
         return `
@@ -416,27 +380,6 @@
 
     // ---------- Bind de Cliques ----------
     function bindClicks(content) {
-        // Tenta todos os links de imagem/referência antes de desistir.
-        content.querySelectorAll('img[data-image-candidates]').forEach(img => {
-            img.addEventListener('error', () => {
-                let candidates = [];
-                try { candidates = JSON.parse(img.dataset.imageCandidates || '[]'); } catch (_) {}
-                const nextIndex = Number(img.dataset.imageIndex || 0) + 1;
-                if (nextIndex < candidates.length) {
-                    img.dataset.imageIndex = String(nextIndex);
-                    img.src = candidates[nextIndex];
-                } else {
-                    const placeholder = document.createElement('div');
-                    placeholder.className = img.classList.contains('sm-bible-list-thumb')
-                        ? 'sm-bible-list-thumb sm-bible-list-placeholder'
-                        : 'sm-bible-gallery-placeholder';
-                    placeholder.innerHTML = '<i class="fa-solid fa-image-slash"></i>';
-                    placeholder.style.cssText = 'display:flex;align-items:center;justify-content:center;color:#94a3b8;background:rgba(148,163,184,.12);';
-                    img.replaceWith(placeholder);
-                }
-            });
-        });
-
         // Backlinks (pílulas de história)
         content.querySelectorAll('.sm-bible-story-pill').forEach(pill => {
             pill.addEventListener('click', (e) => {
