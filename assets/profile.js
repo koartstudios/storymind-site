@@ -15,8 +15,9 @@
         bindEvents();
     });
 
-    function injectProfileButton() {
-        const header = document.querySelector('body > header > div:nth-child(2)');
+       function injectProfileButton() {
+        // 🔽 Procura o slot que criamos no dashboard.html, senão usa o header do app.html 🔽
+        const header = document.getElementById('profile-slot') || document.querySelector('body > header > div:nth-child(2)');
         if (!header || document.getElementById('sm-profile-btn')) return;
 
         const btn = document.createElement('button');

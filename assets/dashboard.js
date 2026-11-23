@@ -2,6 +2,19 @@ const DB_KEY = 'storymind_database_v2', META_KEY = 'storymind_meta';   // mesma 
 const $ = id => document.getElementById(id);
 const COR = { purple: '#a78bfa', orange: '#fbbf24', blue: '#60a5fa', emerald: '#34d399', rose: '#fb7185', white: '#cbd5e1' };
 let owner = '', view = localStorage.getItem('storymind_view') || 'list';
+// 🔽 ADICIONE ESTE BLOCO AQUI 🔽
+const NODE_TYPE_CONFIG = {
+  'scene':      { label: 'Cenas',       icon: 'fa-film',             color: 'bg-indigo-100 text-indigo-700' },
+  'character':  { label: 'Personagens', icon: 'fa-user',             color: 'bg-emerald-100 text-emerald-700' },
+  'location':   { label: 'Cenários',    icon: 'fa-location-dot',     color: 'bg-teal-100 text-teal-700' },
+  'event':      { label: 'Eventos',     icon: 'fa-bolt',             color: 'bg-amber-100 text-amber-700' },
+  'dialogue':   { label: 'Diálogos',    icon: 'fa-comments',         color: 'bg-sky-100 text-sky-700' },
+  'theme':      { label: 'Temas',       icon: 'fa-masks-theater',    color: 'bg-rose-100 text-rose-700' },
+  'note':       { label: 'Notas',       icon: 'fa-note-sticky',      color: 'bg-slate-100 text-slate-700' },
+  'timeline':   { label: 'Timelines',   icon: 'fa-timeline',         color: 'bg-purple-100 text-purple-700' },
+  'object':     { label: 'Objetos',     icon: 'fa-flask',            color: 'bg-orange-100 text-orange-700' },
+  'sem':        { label: 'Sem Tipo',    icon: 'fa-xmark',            color: 'bg-slate-100 text-slate-500' }
+};
 document.getElementById('favs').checked = false;
 
 const load = () => { try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch (e) { return {}; } };
@@ -35,10 +48,42 @@ function thumb(s) {
 
 function render() {
   const db = load(), meta = loadMeta(), q = $('q').value.toLowerCase(), st = $('sort').value, onlyFav = $('favs').checked;
+  
+  // 1. CALCULAR TIPOS DE NÓS
+  let typeCounts = {};
+  Object.values(db).forEach(story => {
+    (story.sheets || []).forEach(sheet => {
+      (sheet.nodes || []).forEach(node => {
+        const t = node.type || 'sem';
+        typeCounts[t] = (typeCounts[t] || 0) + 1;
+      });
+    });
+  });
+
+  // 2. RENDERIZAR PAINEL DE TIPOS DE NÓS
+  const typesContainer = document.getElementById('node-types-container');
+  const typesGrid = document.getElementById('node-types-grid');
+  if (typesContainer && typesGrid) {
+    const activeTypes = Object.keys(typeCounts).sort((a,b) => typeCounts[b] - typeCounts[a]);
+    if (activeTypes.length > 0) {
+      typesContainer.style.display = 'block';
+      typesGrid.innerHTML = activeTypes.map(t => {
+        const conf = NODE_TYPE_CONFIG[t] || { label: t, icon: 'fa-circle', color: 'bg-slate-100 text-slate-700' };
+        // 🔽 NOVO ESTILO: Usa as variáveis do seu CSS para funcionar no claro e escuro 🔽
+        return `<div style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:999px; border:1px solid var(--line, #e2e8f0); background:var(--card, #fff); font-size:11px; font-weight:600; box-shadow:0 1px 3px rgba(0,0,0,0.05); color:var(--tx, #0f172a);">
+          <i class="fa-solid ${conf.icon}" style="color:#6366f1;"></i> ${conf.label} 
+          <span style="background:#6366f1; color:#fff; padding:1px 8px; border-radius:999px; font-size:10px; font-weight:800;">${typeCounts[t]}</span>
+        </div>`;
+      }).join('');
+    } else {
+      typesContainer.style.display = 'none';
+    }
+  }
+
+  // 3. FILTRAR E ORDENAR HISTÓRIAS
   let keys = Object.keys(db).filter(k => (db[k].title || '').toLowerCase().includes(q) && (!onlyFav || db[k].isFavorite));
   const t = (k, f) => {
     const m = meta[k] || {};
-    // Datas confiáveis (assets/story-dates.js): gravadas na própria história ou reconstruídas dos ids
     if (window.SM_DATES && (f === 'created' || f === 'modified')) {
       const v = f === 'created' ? SM_DATES.created(k, db[k], m) : SM_DATES.modified(k, db[k], m);
       if (v) return v;
@@ -55,16 +100,23 @@ function render() {
   $('vl').classList.toggle('on', view === 'list');
   
   if (!keys.length) { 
-    // O empty state do HTML cuida disso depois via MutationObserver
     $('list').innerHTML = '<p class="mut">Nenhum mapa encontrado.</p>'; 
     return; 
   }
   
+  // 4. RENDERIZAR CARDS COM METADADOS
   const star = k => `<button class="ic ${db[k].isFavorite ? 'fav' : ''}" data-fav="${esc(k)}" title="Favorito"><i class="fa-${db[k].isFavorite ? 'solid' : 'regular'} fa-star"></i></button>`;
-  const menu = k => `<button class="ic" data-menu="${esc(k)}" title="Mais"><i class="fa-solid fa-ellipsis-vertical"></i></button>`;
+  
+  // Menu atualizado com o botão de metadados (sliders)
+  const menu = k => `
+    <button class="ic" data-meta="${esc(k)}" title="Detalhes / Gênero"><i class="fa-solid fa-sliders"></i></button>
+    <button class="ic" data-menu="${esc(k)}" title="Mais opções"><i class="fa-solid fa-ellipsis-vertical"></i></button>`;
+    
   const info = (s, k) => { 
     const n = (s.sheets || []).reduce((a, sh) => a + ((sh.nodes || []).length), 0);
-    return `${(s.sheets || []).length} aba(s) · ${n} nós · modificado ${fmt(t(k, 'modified')).toLowerCase()}`; 
+    const g = s.meta?.genre ? `<span style="background:#eef2ff; color:#4338ca; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:800; margin-right:4px;">${esc(s.meta.genre)}</span>` : '';
+    const stat = s.meta?.status ? `<span style="background:#ecfdf5; color:#047857; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:800; margin-right:4px;">${esc(s.meta.status)}</span>` : '';
+    return `${g}${stat}${(s.sheets || []).length} aba(s) · ${n} nós · modificado ${fmt(t(k, 'modified')).toLowerCase()}`; 
   };
 
   if (view === 'grid') {
@@ -75,7 +127,13 @@ function render() {
             <div class="overlay"><span>Abrir mapa</span></div>
         </div>
         <div class="in">
-            <div class="nm"><div><b>${esc(db[k].title || 'Sem título')}</b><span>Criado ${fmt(t(k, 'created')).toLowerCase()}</span></div></div>
+            <div class="nm">
+                <div style="min-width:0">
+                    <b>${esc(db[k].title || 'Sem título')}</b>
+                    <span style="display:block; margin-top:4px;">${info(db[k], k)}</span>
+                    ${db[k].meta?.logline ? `<p style="font-size:10px; color:#64748b; font-style:italic; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;">"${esc(db[k].meta.logline)}"</p>` : ''}
+                </div>
+            </div>
             <div class="act">${star(k)}${menu(k)}</div>
         </div>
       </div>`).join('') + '</div>';
@@ -95,24 +153,39 @@ function render() {
 $('list').onclick = e => {
   const fav = e.target.closest('[data-fav]');
   const mn = e.target.closest('[data-menu]');
+  const metaBtn = e.target.closest('[data-meta]'); // ✅ Botão de Detalhes
   const op = e.target.closest('[data-open]');
   
   document.querySelectorAll('.menu').forEach(m => m.remove());
 
-    if (fav) { 
+  // ✅ 1. Abrir Modal de Metadados
+  if (metaBtn) {
+    const k = metaBtn.dataset.meta;
+    const s = load()[k];
+    $('meta-key').value = k;
+    $('meta-genre').value = s.meta?.genre || '';
+    $('meta-status').value = s.meta?.status || '';
+    $('meta-logline').value = s.meta?.logline || '';
+    $('meta-audience').value = s.meta?.audience || '';
+    document.getElementById('meta-modal').style.display = 'flex';
+    return e.stopPropagation();
+  }
+
+  // ✅ 2. Botão de Favorito
+  if (fav) { 
     const db = load(), k = fav.dataset.fav; 
     if (db[k]) {
-        db[k].isFavorite = !db[k].isFavorite; // Inverte o status
-        save(db); // Salva no localStorage local
-        
+        db[k].isFavorite = !db[k].isFavorite; 
+        save(db); 
         if (window.SM_CLOUD) {
             SM_CLOUD.push(k, db[k]); 
-            if (SM_CLOUD.flush) SM_CLOUD.flush(); // OBRIGA o envio imediato
+            if (SM_CLOUD.flush) SM_CLOUD.flush(); 
         }
     }
     return render(); 
   }
   
+  // ✅ 3. Menu de Três Pontinhos (Duplicar, Excluir, etc)
   if (mn) { 
     const k = mn.dataset.menu;
     const d = document.createElement('div');
@@ -141,12 +214,12 @@ $('list').onclick = e => {
     d.onclick = (ev) => {
         const btn = ev.target.closest('[data-act]');
         if (!btn) return;
-        ev.stopPropagation(); // Impede o fechamento imediato pelo document
+        ev.stopPropagation(); 
         
         const key = btn.dataset.k;
         const act = btn.dataset.act;
         const db = load();
-        d.remove(); // Fecha o menu
+        d.remove(); 
 
         if (act === 'open') return abrir(key);
 
@@ -155,7 +228,7 @@ $('list').onclick = e => {
             const copy = JSON.parse(JSON.stringify(original));
             const newK = 'story_' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
             copy.title = (original.title || 'Sem título') + ' (Cópia)';
-            try { if (window.SM_DATES) SM_DATES.resetForCopy(copy); } catch (_) {}   // cópia = história nova (datas novas)
+            try { if (window.SM_DATES) SM_DATES.resetForCopy(copy); } catch (_) {} 
             db[newK] = copy;
             save(db);
             const m = loadMeta();
@@ -265,5 +338,36 @@ SM_CLOUD.pull().then(async () => {
   
   if (mudou) save(db);
 })();
+
+// MIGRAÇÃO DE FAVORITOS ANTIGOS
+(function migrarFavoritos() {
+  // ... código original que já estava aí ...
+})();
+
+// 🔽 COLE ISSO AQUI 🔽
+window.saveStoryMeta = function() {
+    const k = document.getElementById('meta-key').value;
+    if (!k) return;
+    const db = load();
+    if (!db[k]) return;
+
+    if (!db[k].meta) db[k].meta = {};
+    db[k].meta.genre = document.getElementById('meta-genre').value;
+    db[k].meta.status = document.getElementById('meta-status').value;
+    db[k].meta.logline = document.getElementById('meta-logline').value.trim();
+    db[k].meta.audience = document.getElementById('meta-audience').value;
+
+    save(db);
+    
+    if (window.SM_CLOUD) {
+        SM_CLOUD.push(k, db[k]);
+        if (SM_CLOUD.flush) SM_CLOUD.flush();
+    }
+    
+    document.getElementById('meta-modal').style.display = 'none';
+    render();
+    if (window.SM_TOAST) window.SM_TOAST('Detalhes da história salvos!', 'success');
+};
+// 🔼 FIM 🔼
 
 render();
