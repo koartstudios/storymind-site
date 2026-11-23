@@ -395,19 +395,47 @@
         location.reload();
     }
 
-    async function loadStats() {
+         async function loadStats() {
         if (!currentUser) return;
+        
         try {
-            const [storiesRes, commentsRes] = await Promise.all([
-                sb.from('stories').select('id', { count: 'exact', head: true }),
-                sb.from('node_comments').select('id', { count: 'exact', head: true }).eq('user_id', currentUser.id)
-            ]);
-            document.getElementById('sm-stat-stories').textContent = storiesRes.count ?? '—';
-            document.getElementById('sm-stat-comments').textContent = commentsRes.count ?? '—';
-            document.getElementById('sm-stat-since').textContent = new Date(currentUser.created_at)
-                .toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
-            document.getElementById('sm-stat-nodes').textContent = '—'; 
-        } catch (e) { console.warn(e); }
+            // 1. Conta Histórias e Nós direto do localStorage (Garante que é idêntico ao Dashboard)
+            let totalStories = 0;
+            let totalNodes = 0;
+            try {
+                const db = JSON.parse(localStorage.getItem('storymind_database_v2')) || {};
+                const storyKeys = Object.keys(db);
+                totalStories = storyKeys.length;
+                
+                storyKeys.forEach(k => {
+                    (db[k].sheets || []).forEach(sheet => {
+                        totalNodes += (sheet.nodes || []).length;
+                    });
+                });
+            } catch (e) {
+                console.warn("Erro ao ler dados locais para estatísticas", e);
+            }
+
+            document.getElementById('sm-stat-stories').textContent = totalStories;
+            document.getElementById('sm-stat-nodes').textContent = totalNodes;
+
+            // 2. Busca Comentários no Supabase (Como não estão no localStorage, buscamos na nuvem)
+            const commentsRes = await sb.from('node_comments')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', currentUser.id);
+            
+            const totalComments = commentsRes.error ? 0 : (commentsRes.count || 0);
+            document.getElementById('sm-stat-comments').textContent = totalComments;
+
+            // 3. Membro desde
+            if (currentUser.created_at) {
+                document.getElementById('sm-stat-since').textContent = new Date(currentUser.created_at)
+                    .toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+            }
+
+        } catch (e) { 
+            console.warn("Erro ao carregar estatísticas:", e); 
+        }
     }
 
     function toast(msg) {
