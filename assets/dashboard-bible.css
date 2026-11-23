@@ -509,3 +509,190 @@
 .sm-bible-story-pill i {
     font-size: 8px;
 }
+/* ==================== Modo Galeria ==================== */
+.sm-bible-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+}
+.sm-bible-gallery-card {
+    background: var(--card, #1a1d35);
+    border: 1px solid var(--line, #2a2d52);
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform .15s, border-color .15s, box-shadow .15s;
+}
+.sm-bible-gallery-card:hover {
+    transform: translateY(-3px);
+    border-color: #6366f1;
+    box-shadow: 0 12px 24px -8px rgba(0,0,0,.4);
+}
+.sm-bible-gallery-img {
+    width: 100%;
+    height: 140px;
+    background: rgba(0,0,0,.2);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.sm-bible-gallery-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+}
+.sm-bible-gallery-type {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 9px;
+    font-weight: 800;
+    color: #fff;
+    text-transform: uppercase;
+    box-shadow: 0 2px 6px rgba(0,0,0,.3);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.sm-bible-gallery-info {
+    padding: 10px 12px;
+}
+.sm-bible-gallery-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--tx, #e8e9ff);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sm-bible-gallery-sub {
+    font-size: 10px;
+    color: var(--mut, #9a9dc9);
+    margin-top: 2px;
+}
+
+/* ==================== Modo Lista ==================== */
+.sm-bible-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.sm-bible-list-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 14px;
+    background: var(--card, #1a1d35);
+    border: 1px solid var(--line, #2a2d52);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background .12s, border-color .12s;
+}
+.sm-bible-list-item:hover {
+    background: rgba(99,102,241,.08);
+    border-color: #a5b4fc;
+}
+.sm-bible-list-thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex: none;
+}
+.sm-bible-list-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+.sm-bible-list-content {
+    flex: 1;
+    min-width: 0;
+}
+.sm-bible-list-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--tx, #e8e9ff);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sm-bible-list-desc {
+    font-size: 11.5px;
+    color: var(--mut, #9a9dc9);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+}
+.sm-bible-list-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+}
+.sm-bible-list-stories {
+    font-size: 11px;
+    font-weight: 700;
+    color: #a5b4fc;
+    background: rgba(99,102,241,.15);
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+
+/* Responsivo para Mobile */
+@media (max-width: 640px) {
+    .sm-bible-gallery-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    .sm-bible-gallery-img { height: 110px; }
+    .sm-bible-list-item { padding: 8px 10px; gap: 10px; }
+    .sm-bible-list-thumb { width: 36px; height: 36px; }
+    .sm-bible-list-desc { display: none; } /* Esconde descrição no mobile */
+    .sm-bible-list-meta .sm-bible-card-type { display: none; } /* Foca no título */
+}
+/* ==================== Controles Separados (Agrupar / Visualizar) ==================== */
+.sm-bible-control-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+}
+.sm-bible-control-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--mut, #9a9dc9);
+    opacity: .8;
+    white-space: nowrap;
+}
+
+/* No mobile, deixa os controles empilharem e ocuparem a linha toda */
+@media (max-width: 760px) {
+    .sm-bible-toolbar { gap: 8px; }
+    .sm-bible-control-group {
+        width: 100%;
+        justify-content: space-between;
+    }
+    .sm-bible-control-group .sm-bible-view-toggle {
+        flex: 1;
+    }
+    .sm-bible-view-toggle button {
+        flex: 1;
+        justify-content: center;
+        padding: 8px 10px;
+        font-size: 11px;
+    }
+    .sm-bible-control-group .sm-bible-control-label {
+        min-width: 62px;
+    }
+}
