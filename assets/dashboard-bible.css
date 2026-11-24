@@ -696,3 +696,116 @@
         min-width: 62px;
     }
 }
+/* ==================== Sistema de Gaveta (Drawer) no Mobile ==================== */
+
+/* Por padrão (Desktop), o botão fica escondido e a gaveta fica aberta */
+.sm-bible-filter-toggle-mobile { display: none; }
+.sm-bible-filters-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+}
+
+/* Limpa o estilo antigo da barra de categorias que ficava solta */
+#sm-bible-cats {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    background: transparent;
+    border: none;
+    padding: 0;
+    flex: none;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+@media (max-width: 640px) {
+    /* 1. Remove os contadores de texto abaixo do título no mobile */
+    .sm-bible-stats { display: none !important; }
+    
+    /* 2. Estilo do botão que abre a gaveta */
+    .sm-bible-filter-toggle-mobile {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        padding: 12px 16px;
+        background: var(--card, #1a1d35);
+        border: 1px solid var(--line, #2a2d52);
+        border-radius: 10px;
+        color: var(--tx, #e8e9ff);
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        margin-top: 4px;
+    }
+    .sm-bible-filter-toggle-mobile i { color: #a5b4fc; transition: transform 0.2s; }
+    .sm-bible-filter-toggle-mobile.open i.fa-chevron-down { transform: rotate(180deg); }
+    
+    /* 3. Gaveta de filtros (escondida por padrão no mobile) */
+    .sm-bible-filters-wrapper {
+        display: none; 
+        background: rgba(0,0,0,0.15);
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px dashed var(--line, #2a2d52);
+        margin-top: 8px;
+        gap: 12px;
+    }
+    .sm-bible-filters-wrapper.open { 
+        display: flex; 
+        animation: bible-fade .2s ease;
+    }
+    
+    /* 4. Reorganiza os filtros para ocuparem a largura toda em coluna */
+    .sm-bible-toolbar { 
+        flex-direction: column; 
+        align-items: stretch; 
+        gap: 12px; 
+    }
+    .sm-bible-search, .sm-bible-select { 
+        max-width: 100%; 
+        width: 100%; 
+    }
+    .sm-bible-control-group { 
+        flex-direction: column; 
+        align-items: flex-start; 
+        gap: 6px; 
+        width: 100%; 
+    }
+    .sm-bible-control-group .sm-bible-view-toggle { 
+        width: 100%; 
+    }
+    .sm-bible-view-toggle button { 
+        flex: 1; 
+        justify-content: center; 
+    }
+    
+    /* 5. Separa as categorias (Cena, Personagem...) com uma linha sutil */
+    #sm-bible-cats { 
+        margin-top: 6px;
+        padding-top: 12px;
+        border-top: 1px solid var(--line, #2a2d52);
+    }
+    
+    /* Ajusta o padding do header no mobile para não ficar espaçado demais */
+    #sm-bible-header { padding: 14px 14px 12px; gap: 10px; }
+}
+@media (max-width: 640px) {
+    /* Conserta o input de busca esticado */
+    .sm-bible-search {
+        flex: none !important; /* Impede o campo de esticar verticalmente */
+        width: 100%;
+        max-width: 100%;
+    }
+    .sm-bible-search input {
+        height: 46px !important; /* Altura ideal para toque */
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        font-size: 15px !important; /* Evita zoom no iOS */
+    }
+    .sm-bible-search i {
+        top: 50% !important; /* Centraliza a lupa novamente */
+    }
+}

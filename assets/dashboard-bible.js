@@ -105,7 +105,7 @@
         heroActions.prepend(btn);
     }
 
-    function injectOverlay() {
+       function injectOverlay() {
         if ($('sm-bible-overlay')) return;
         document.body.insertAdjacentHTML('beforeend', `
             <div id="sm-bible-overlay" role="dialog" aria-modal="true">
@@ -117,33 +117,47 @@
                         </div>
                         <button class="sm-bible-close" id="sm-bible-close" title="Fechar (ESC)"><i class="fa-solid fa-xmark"></i></button>
                     </div>
+                    
+                    <!-- Estatísticas (Serão ocultadas no mobile via CSS) -->
                     <div class="sm-bible-stats" id="sm-bible-stats"></div>
-                    <div class="sm-bible-toolbar">
-                        <div class="sm-bible-search">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                            <input id="sm-bible-search" type="search" placeholder="Buscar por nome, tag, descrição…">
-                        </div>
-                        <select id="sm-bible-story-filter" class="sm-bible-select">
-                            <option value="all">Todas as histórias</option>
-                        </select>
-                        <div class="sm-bible-control-group">
-                            <span class="sm-bible-control-label">Agrupar:</span>
-                            <div class="sm-bible-view-toggle" id="sm-bible-group-toggle">
-                                <button data-mode="type" class="on" title="Agrupar por Tipo"><i class="fa-solid fa-layer-group"></i> Tipos</button>
-                                <button data-mode="story" title="Agrupar por História"><i class="fa-solid fa-book"></i> Histórias</button>
+                    
+                    <!-- Botão que abre a gaveta no mobile -->
+                    <button id="sm-bible-filter-toggle" class="sm-bible-filter-toggle-mobile">
+                        <span><i class="fa-solid fa-filter"></i> Filtros e Categorias</span>
+                        <i class="fa-solid fa-chevron-down" id="sm-bible-filter-chevron"></i>
+                    </button>
+
+                    <!-- Gaveta de Filtros -->
+                    <div class="sm-bible-filters-wrapper" id="sm-bible-filters-wrapper">
+                        <div class="sm-bible-toolbar">
+                            <div class="sm-bible-search">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input id="sm-bible-search" type="search" placeholder="Buscar por nome, tag, descrição…">
+                            </div>
+                            <select id="sm-bible-story-filter" class="sm-bible-select">
+                                <option value="all">Todas as histórias</option>
+                            </select>
+                            <div class="sm-bible-control-group">
+                                <span class="sm-bible-control-label">Agrupar:</span>
+                                <div class="sm-bible-view-toggle" id="sm-bible-group-toggle">
+                                    <button data-mode="type" class="on" title="Agrupar por Tipo"><i class="fa-solid fa-layer-group"></i> Tipos</button>
+                                    <button data-mode="story" title="Agrupar por História"><i class="fa-solid fa-book"></i> Histórias</button>
+                                </div>
+                            </div>
+                            <div class="sm-bible-control-group">
+                                <span class="sm-bible-control-label">Visualizar:</span>
+                                <div class="sm-bible-view-toggle" id="sm-bible-layout-toggle">
+                                    <button data-mode="grid" class="on" title="Grade"><i class="fa-solid fa-table-cells-large"></i> Grade</button>
+                                    <button data-mode="gallery" title="Galeria"><i class="fa-solid fa-image"></i> Galeria</button>
+                                    <button data-mode="list" title="Lista"><i class="fa-solid fa-list"></i> Lista</button>
+                                </div>
                             </div>
                         </div>
-                        <div class="sm-bible-control-group">
-                            <span class="sm-bible-control-label">Visualizar:</span>
-                            <div class="sm-bible-view-toggle" id="sm-bible-layout-toggle">
-                                <button data-mode="grid" class="on" title="Grade"><i class="fa-solid fa-table-cells-large"></i> Grade</button>
-                                <button data-mode="gallery" title="Galeria"><i class="fa-solid fa-image"></i> Galeria</button>
-                                <button data-mode="list" title="Lista"><i class="fa-solid fa-list"></i> Lista</button>
-                            </div>
-                        </div>
+                        
+                        <!-- Categorias (Cena, Personagem, etc) agora ficam aqui dentro -->
+                        <div id="sm-bible-cats"></div>
                     </div>
                 </div>
-                <div id="sm-bible-cats"></div>
                 <div id="sm-bible-content"></div>
             </div>
         `);
@@ -152,6 +166,16 @@
         $('sm-bible-search').addEventListener('input', e => { activeSearch = e.target.value.trim().toLowerCase(); renderContent(); });
         $('sm-bible-story-filter').addEventListener('change', e => { activeStory = e.target.value; renderContent(); });
         
+        // Lógica para abrir/fechar a gaveta no mobile
+        const filterToggle = $('sm-bible-filter-toggle');
+        const filterWrapper = $('sm-bible-filters-wrapper');
+        if (filterToggle && filterWrapper) {
+            filterToggle.addEventListener('click', () => {
+                filterToggle.classList.toggle('open');
+                filterWrapper.classList.toggle('open');
+            });
+        }
+
         // Controle de Agrupamento
         document.querySelectorAll('#sm-bible-group-toggle button').forEach(b => {
             b.addEventListener('click', () => {
