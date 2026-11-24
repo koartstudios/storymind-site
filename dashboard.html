@@ -719,6 +719,89 @@
         animation: none !important;
     }
 }
+/* ==================== AJUSTES MOBILE: HERO E GAVETA DE TIPOS ==================== */
+.sm-node-types-header { display: block; }
+.sm-node-types-chevron { display: none; }
+
+@media (max-width: 760px) {
+    /* 1. Hero em Linha e Botões acima das Estatísticas */
+    .hero {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 16px !important;
+        padding: 14px 0 16px !important;
+    }
+    .hero > div:first-child {
+        width: 100%;
+    }
+    .hero h2 {
+        font-size: 1.65rem;
+        white-space: nowrap; /* Impede que "Meus mapas" quebre em várias linhas */
+        margin: 0;
+    }
+    .hero .sub {
+        font-size: .85rem;
+        line-height: 1.4;
+        margin-top: 4px;
+    }
+    .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        width: 100%;
+    }
+    .hero-actions .btn-hero {
+        flex: 1;
+        justify-content: center;
+        padding: 9px 13px;
+        font-size: .82rem;
+    }
+    /* O botão "Novo mapa" continua como botão flutuante no canto inferior direito */
+
+    /* 2. Tipos de Nós como Gaveta (Accordion) */
+    #node-types-container {
+        padding: 0 !important;
+        background: transparent !important;
+        border: none !important;
+    }
+    .sm-node-types-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        background: var(--card, #fff);
+        border: 1px solid var(--line, #e2e8f0);
+        border-radius: 12px;
+        cursor: pointer;
+    }
+    .sm-node-types-chevron {
+        display: block;
+        transition: transform 0.2s;
+        color: #64748b;
+        font-size: 12px;
+    }
+    #node-types-container.open .sm-node-types-header {
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+        margin-bottom: -1px;
+    }
+    #node-types-grid {
+        display: none !important;
+        padding: 14px 16px !important;
+        background: var(--card, #fff);
+        border: 1px solid var(--line, #e2e8f0);
+        border-top: none;
+        border-radius: 0 0 12px 12px;
+        margin-top: 0 !important;
+    }
+    #node-types-container.open #node-types-grid {
+        display: flex !important;
+    }
+    #node-types-container.open .sm-node-types-chevron {
+        transform: rotate(180deg);
+    }
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="assets/config.js"></script><script src="assets/auth.js"></script><script src="assets/store.js"></script>
@@ -753,11 +836,14 @@
         </div>
     </div>
      <div id="node-types-container" style="display:none; background:var(--card,#fff); border:1px solid var(--line,#e2e8f0); border-radius:14px; padding:14px 16px; margin-bottom:20px;">
-        <h3 style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--mut,#64748b); margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+    <div class="sm-node-types-header" onclick="this.parentElement.classList.toggle('open')">
+        <h3 style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--mut,#64748b); margin:0; display:flex; align-items:center; gap:6px;">
             <i class="fa-solid fa-layer-group"></i> Tipos de Nós no seu Universo
         </h3>
-        <div id="node-types-grid" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+        <i class="fa-solid fa-chevron-down sm-node-types-chevron"></i>
     </div>
+    <div id="node-types-grid" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;"></div>
+</div>
 
 
     <!-- Toolbar -->
