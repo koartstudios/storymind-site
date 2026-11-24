@@ -4026,6 +4026,12 @@ body.app-theme-dark .sm-select-btn:hover { filter: brightness(1.15); }
         </button>
     </div>
 
+    <!-- ==================== SEÇÃO 0: MODO LEVE ==================== -->
+    <button type="button" data-sm-action="lite-toggle" id="sm-lite-btn"><i class="fa-solid fa-feather-pointed"></i><span id="sm-lite-label">Modo leve: ligado</span></button>
+
+    <!-- ==================== DIVISOR ==================== -->
+    <div class="sm-section-divider"></div>
+
     <!-- ==================== SEÇÃO 1: HISTÓRIA ==================== -->
     <div class="sm-full-width">
         <label class="sm-label">📚 História</label>
@@ -4074,10 +4080,11 @@ body.app-theme-dark .sm-select-btn:hover { filter: brightness(1.15); }
     </div>
     <div class="sm-section-divider"></div>
     <div class="sm-full-width"><label class="sm-label">✨ Extras</label></div>
-    <button type="button" data-sm-action="zen"><i class="fa-solid fa-expand"></i>Modo Zen</button>
-    <button type="button" data-sm-action="gallery"><i class="fa-solid fa-images"></i>Galeria Visual</button>
-    <button type="button" data-sm-action="settings"><i class="fa-solid fa-gear"></i>Configurações</button>
-    <button type="button" data-sm-action="lite-toggle" id="sm-lite-btn"><i class="fa-solid fa-feather-pointed"></i><span id="sm-lite-label">Modo leve: ligado</span></button>
+    <div class="sm-extras-grid">
+        <button type="button" data-sm-action="settings"><i class="fa-solid fa-gear"></i>Configurações</button>
+        <button type="button" data-sm-action="share"><i class="fa-solid fa-share-nodes"></i>Compartilhar</button>
+        <button type="button" data-sm-action="onboarding"><i class="fa-solid fa-circle-question"></i>Como começar</button>
+    </div>
 </div>
 
     <div id="sm-mobile-tools" role="dialog" aria-label="Ferramentas" aria-modal="false">
@@ -4093,10 +4100,9 @@ body.app-theme-dark .sm-select-btn:hover { filter: brightness(1.15); }
     <button type="button" data-sm-action="write-scene"><i class="fa-solid fa-pen-nib"></i>Escrever cena</button>
     <button type="button" data-sm-action="timeline"><i class="fa-solid fa-timeline"></i>Linha do Tempo</button>
     <button type="button" data-sm-action="tension"><i class="fa-solid fa-chart-line"></i>Curva de Tensão</button>
-    <button type="button" data-sm-action="focus"><i class="fa-solid fa-eye"></i>Focar no ramo</button>
     <button type="button" data-sm-action="gallery"><i class="fa-solid fa-images"></i>Galeria Visual</button>
     <button type="button" data-sm-action="zen"><i class="fa-solid fa-expand"></i>Modo Zen</button>
-    <button type="button" data-sm-action="settings"><i class="fa-solid fa-gear"></i>Configurações</button>
+    <button type="button" data-sm-action="verify"><i class="fa-solid fa-shield-halved"></i>Verificar</button>
 </div>
 <div id="mobile-info-backdrop" onclick="closeMobileNodeInfo()"></div>
     <div id="toast-container"></div>
@@ -15208,6 +15214,7 @@ function renderContentHTML(content, isSearchHit) {
             menu.classList.toggle('open'); 
             btn.setAttribute('aria-expanded', isOpening ? 'true' : 'false'); 
             if (isOpening) syncHeaderMenuUI(); // <--- NOVO AQUI
+            if (isOpening) anchorTopPanelsToHeader();
         } 
     });
     headerLeft.appendChild(btn);
@@ -15416,6 +15423,9 @@ function syncHeaderMenuUI() {
       case 'zoom-out': if (typeof zoomOut === 'function') zoomOut(); break;
       case 'write-scene': if (typeof openSceneWritingMode === 'function') openSceneWritingMode(); if (tools) tools.classList.remove('open'); break;
       case 'settings': if (typeof openStorySettings === 'function') openStorySettings(); if (tools) tools.classList.remove('open'); break;
+      case 'share': if (typeof shareStory === 'function') shareStory(); break;
+      case 'onboarding': if (typeof window.SM_openOnboarding === 'function') window.SM_openOnboarding(); break;
+      case 'verify': if (typeof window.SM_openContinuityChecker === 'function') window.SM_openContinuityChecker(); if (tools) tools.classList.remove('open'); break;
             // Layouts
       case 'layout-tree': if (typeof changeLayout === 'function') changeLayout('tree'); break;
       case 'layout-radial': if (typeof changeLayout === 'function') changeLayout('radial'); break;
@@ -15461,6 +15471,53 @@ function installHeaderExportButton() {
     else headerLeft.appendChild(btn);
 }
 
+/* Perfil no cabeçalho mobile: botão-espelho do #sm-profile-btn (que continua intacto no desktop). */
+function installHeaderProfileButton() {
+    const headerLeft = document.querySelector('body > header > div:first-child');
+    if (!headerLeft || byId('sm-header-profile')) return;
+    const btn = document.createElement('button');
+    btn.id = 'sm-header-profile'; btn.type = 'button';
+    btn.setAttribute('aria-label', 'Meu perfil'); btn.title = 'Meu perfil';
+    btn.innerHTML = '<i class="fa-solid fa-user"></i>';
+    btn.addEventListener('click', function (e) {
+        e.preventDefault(); e.stopPropagation();
+        const real = byId('sm-profile-btn');
+        if (real) real.click();
+    });
+    const hamburger = byId('sm-header-menu');
+    if (hamburger) headerLeft.insertBefore(btn, hamburger); else headerLeft.appendChild(btn);
+
+    // Espelha foto/iniciais quando o profile.js carregar ou atualizar o avatar.
+    let tries = 0;
+    (function hook() {
+        const real = byId('sm-profile-btn');
+        if (real) {
+            const sync = () => { btn.innerHTML = real.innerHTML; };
+            sync();
+            if (window.MutationObserver) new MutationObserver(sync).observe(real, { childList: true, subtree: true, characterData: true });
+        } else if (tries++ < 40) setTimeout(hook, 250);
+    })();
+
+    // Ícone de salvamento sem texto: guarda o texto no title/aria-label para acessibilidade.
+    const st = byId('save-status'), stText = byId('save-status-text');
+    if (st && stText && window.MutationObserver) {
+        const upd = () => { st.title = stText.textContent; st.setAttribute('aria-label', stText.textContent); };
+        upd();
+        new MutationObserver(upd).observe(stText, { childList: true, characterData: true, subtree: true });
+    }
+}
+
+/* Painéis do topo ancorados logo abaixo do cabeçalho (que agora tem altura variável no mobile). */
+function anchorTopPanelsToHeader() {
+    const header = document.querySelector('body > header');
+    if (!header) return;
+    const top = Math.round(header.getBoundingClientRect().bottom + 6);
+    const maxH = 'calc(100dvh - ' + top + 'px - var(--sm-mobile-nav-h) - var(--sm-safe-bottom) - 12px)';
+    ['sm-header-menu-panel', 'sm-mobile-export-menu'].forEach(function (id) {
+        const el = byId(id);
+        if (el) { el.style.top = top + 'px'; el.style.maxHeight = maxH; }
+    });
+}
 function installMobileExportMenu() {
     if (byId('sm-mobile-export-menu')) return;
     const menu = document.createElement('div');
@@ -15499,7 +15556,7 @@ function toggleMobileExportMenu() {
     const isOpen = menu.classList.toggle('open');
     const btn = byId('sm-header-export');
     if (btn) btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-    if (isOpen) closeHeaderMenuNow();
+    if (isOpen) { closeHeaderMenuNow(); anchorTopPanelsToHeader(); }
 }
 
 function closeMobileExportMenu() {
@@ -15596,6 +15653,7 @@ function syncMobileModeButtons() {
   applyDeviceClasses();
   installHeaderMenu();
     installHeaderExportButton();   // NOVO
+  installHeaderProfileButton();  // NOVO (mobile)
   installMobileExportMenu();     // NOVO
   // Registra PWA apenas em contexto seguro e sem interferir no fluxo de autenticação.
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
@@ -17180,6 +17238,105 @@ window.getStaticCommands = getStaticCommands;
     setTimeout(function () { if (active() && typeof renderApp === 'function') renderApp(); }, 400);
 })();
 </script>
+<style id="sm-mobile-v2-css">
+/* ============================================================
+   MOBILE v2 — cabeçalho, menu principal e ferramentas.
+   Escopo: SOMENTE celular (hover:none + max-width:640px).
+   O desktop não é afetado por nenhuma regra deste bloco.
+   ============================================================ */
+#sm-header-profile { display: none; }
+
+@media (hover: none) and (max-width: 640px) {
+
+    /* ---------- CABEÇALHO ----------
+       Linha 1: nome da história inteiro (quebra em várias linhas, sem "...").
+       Linha 2: voltar + logo | salvamento, exportar, perfil, menu. */
+    body > header > div:first-child {
+        flex-wrap: wrap !important;
+        justify-content: flex-start !important;
+        align-items: center !important;
+        row-gap: 6px !important;
+        column-gap: 8px !important;
+    }
+    body > header > div:first-child > * { margin-left: 0 !important; }
+
+    /* "dissolve" os wrappers do título para o h1 virar item direto da linha */
+    body > header > div:first-child > div.min-w-0,
+    body > header > div:first-child > div.min-w-0 > div.min-w-0 {
+        display: contents !important;
+    }
+    body > header > div:first-child #story-title-display {
+        order: -1;
+        flex: 0 0 100%;
+        width: 100%;
+        max-width: 100% !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        overflow-wrap: anywhere;
+        font-size: 15px !important;
+        line-height: 1.25;
+    }
+    /* empurra tudo que vem depois do logo para a direita */
+    body > header > div:first-child > a.bg-indigo-600 { margin-right: auto !important; }
+
+    /* marcador de salvamento: somente ícone */
+    body > header > div:first-child #save-status {
+        margin: 0 !important;
+        min-width: 32px; height: 32px;
+        justify-content: center;
+        border-radius: 10px;
+        font-size: 0 !important;
+        gap: 0 !important;
+    }
+    body > header > div:first-child #save-status #save-status-text { display: none !important; }
+    body > header > div:first-child #save-status #save-status-icon { font-size: 17px; }
+
+    /* exportar / menu / perfil com o mesmo tamanho de toque */
+    #sm-header-export, #sm-header-menu { flex: 0 0 38px !important; width: 38px !important; height: 38px !important; }
+    #sm-header-profile {
+        display: inline-flex; align-items: center; justify-content: center;
+        flex: 0 0 38px; width: 38px; height: 38px; min-height: 0; padding: 0;
+        border-radius: 50%; overflow: hidden; cursor: pointer;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: #fff; font-weight: 700; font-size: 13px;
+        border: 2px solid #fff; box-shadow: 0 2px 8px rgba(99,102,241,.35);
+        position: relative; z-index: 170;
+    }
+    #sm-header-profile img { width: 100%; height: 100%; object-fit: cover; }
+    #sm-header-profile:active { transform: scale(.95); }
+    body.app-theme-dark #sm-header-profile { border-color: #1e293b; }
+
+    /* ---------- MENU PRINCIPAL ---------- */
+    #sm-header-menu-panel > button#sm-lite-btn { min-height: 52px; }
+    #sm-header-menu-panel .sm-extras-grid {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+    }
+    #sm-header-menu-panel .sm-extras-grid > button {
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 6px; min-height: 68px; padding: 10px 4px;
+        border: 1px solid #e2e8f0; border-radius: 12px;
+        font-size: 10.5px; font-weight: 600; color: #334155; background: #fff;
+        cursor: pointer; text-align: center; line-height: 1.2;
+        transition: background .12s, color .12s;
+    }
+    #sm-header-menu-panel .sm-extras-grid > button i { font-size: 17px; color: #4f46e5; }
+    #sm-header-menu-panel .sm-extras-grid > button:active { background: #eef2ff; color: #4338ca; }
+    body.app-theme-dark #sm-header-menu-panel .sm-extras-grid > button { background: #0f172a; border-color: #475569; color: #e2e8f0; }
+    body.app-theme-dark #sm-header-menu-panel .sm-extras-grid > button i { color: #a5b4fc; }
+    body.app-theme-dark #sm-header-menu-panel .sm-extras-grid > button:active { background: #312e81; color: #c7d2fe; }
+
+    /* ---------- FERRAMENTAS ----------
+       11 itens: 3 por linha nas 3 primeiras linhas; os 2 últimos
+       (Modo Zen e Verificar) dividem a última linha ao meio. */
+    #sm-mobile-tools { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    #sm-mobile-tools > button { grid-column: span 2; }
+    #sm-mobile-tools > button:nth-last-child(-n+2) { grid-column: span 3; }
+}
+</style>
 <script>
 function shareStory() {
     // A tela de compartilhamento agora fica em assets/sharing.js (convites com papel, lista de acessos, sair da história).
