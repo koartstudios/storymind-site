@@ -25,6 +25,84 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <link rel="stylesheet" href="assets/profile.css">
+    <style id="sm-text-ctx-styles">
+    /* Menu de Contexto para Edição de Texto */
+    #sm-text-context-menu {
+        position: fixed;
+        z-index: 99999;
+        display: none;
+        flex-direction: column;
+        min-width: 200px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 6px;
+        box-shadow: 0 12px 32px -8px rgba(0,0,0,.25);
+        animation: sm-text-ctx-in 0.1s ease;
+    }
+    @keyframes sm-text-ctx-in {
+        from { opacity: 0; transform: scale(.96) translateY(-4px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .sm-text-ctx-header {
+        padding: 6px 10px;
+        font-size: 10px;
+        font-weight: 800;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid #e2e8f0;
+        margin-bottom: 4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    #sm-text-context-menu button {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 8px 10px;
+        background: transparent;
+        border: none;
+        border-radius: 6px;
+        color: #1e293b;
+        font-size: 12px;
+        font-weight: 500;
+        text-align: left;
+        cursor: pointer;
+        transition: background 0.1s, color 0.1s;
+        font-family: inherit;
+    }
+    #sm-text-context-menu button:hover {
+        background: #eef2ff;
+        color: #4338ca;
+    }
+    #sm-text-context-menu button i {
+        width: 16px;
+        text-align: center;
+        color: #94a3b8;
+        font-size: 12px;
+    }
+    #sm-text-context-menu button:hover i { color: #4338ca; }
+    .sm-text-ctx-divider {
+        height: 1px;
+        background: #e2e8f0;
+        margin: 4px 0;
+    }
+    
+    /* Dark Mode */
+    body.app-theme-dark #sm-text-context-menu {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    body.app-theme-dark .sm-text-ctx-header { color: #94a3b8; border-bottom-color: #334155; }
+    body.app-theme-dark #sm-text-context-menu button { color: #e2e8f0; }
+    body.app-theme-dark #sm-text-context-menu button:hover { background: rgba(99,102,241,.2); color: #a5b4fc; }
+    body.app-theme-dark #sm-text-context-menu button i { color: #64748b; }
+    body.app-theme-dark #sm-text-context-menu button:hover i { color: #a5b4fc; }
+    body.app-theme-dark .sm-text-ctx-divider { background: #334155; }
+</style>
     <style id="sm-bible-ctx-styles">
     #sm-bible-context-menu {
         position: fixed;
@@ -17544,6 +17622,162 @@ function shareStory() {
         document.addEventListener('DOMContentLoaded', setupMenu);
     } else {
         setupMenu();
+    }
+})();
+</script>
+<script id="sm-text-ctx-script">
+(function() {
+    'use strict';
+
+    function initTextContextMenu() {
+        let menu = document.getElementById('sm-text-context-menu');
+        if (!menu) {
+            menu = document.createElement('div');
+            menu.id = 'sm-text-context-menu';
+            document.body.appendChild(menu);
+        }
+
+        document.addEventListener('contextmenu', (e) => {
+            const target = e.target;
+            const isEditable = target.tagName === 'INPUT' || 
+                               target.tagName === 'TEXTAREA' || 
+                               target.hasAttribute('contenteditable') ||
+                               target.closest('[contenteditable="true"]');
+            
+            if (!isEditable) return;
+            if (target.type === 'search' || target.id === 'search-input') return;
+
+            e.preventDefault();
+
+            const el = target.closest('[contenteditable="true"]') || target;
+            const isInput = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA';
+            
+            // Captura a seleção corretamente
+            let selectedText = '';
+            if (isInput) {
+                selectedText = el.value.substring(el.selectionStart, el.selectionEnd).trim();
+            } else {
+                selectedText = (window.getSelection().toString() || '').trim();
+            }
+
+            const hasSelection = selectedText.length > 0;
+            const preview = hasSelection ? (selectedText.length > 20 ? selectedText.substring(0, 20) + '...' : selectedText) : '';
+
+            const isWikiLink = hasSelection && selectedText.startsWith('[[') && selectedText.endsWith(']]');
+            const wikiLabel = isWikiLink ? 'Remover Wiki-link' : 'Transformar em [[Wiki-link]]';
+            const wikiIcon = isWikiLink ? 'fa-link-slash' : 'fa-link';
+
+            // ✅ MENU RESTAURADO COM A OPÇÃO DE BUSCAR NA BÍBLIA
+            menu.innerHTML = `
+                <div class="sm-text-ctx-header">${hasSelection ? `"${preview}"` : 'Edição de Texto'}</div>
+                ${hasSelection ? `
+                    <button data-action="format-wiki"><i class="fa-solid ${wikiIcon}"></i> ${wikiLabel}</button>
+                    <button data-action="capitalize"><i class="fa-solid fa-font"></i> Capitalizar</button>
+                    <div class="sm-text-ctx-divider"></div>
+                    <button data-action="search-bible"><i class="fa-solid fa-book-bible"></i> Buscar na Bíblia</button>
+                    <div class="sm-text-ctx-divider"></div>
+                    <button data-action="copy"><i class="fa-solid fa-copy"></i> Copiar</button>
+                    <button data-action="cut"><i class="fa-solid fa-scissors"></i> Cortar</button>
+                ` : ''}
+                <button data-action="paste"><i class="fa-solid fa-paste"></i> Colar</button>
+                <div class="sm-text-ctx-divider"></div>
+                <button data-action="undo"><i class="fa-solid fa-rotate-left"></i> Desfazer</button>
+                <button data-action="redo"><i class="fa-solid fa-rotate-right"></i> Refazer</button>
+            `;
+
+            menu.style.left = `${e.clientX}px`;
+            menu.style.top = `${e.clientY}px`;
+            menu.style.display = 'flex';
+
+            const rect = menu.getBoundingClientRect();
+            if (rect.right > window.innerWidth) menu.style.left = `${window.innerWidth - rect.width - 10}px`;
+            if (rect.bottom > window.innerHeight) menu.style.top = `${window.innerHeight - rect.height - 10}px`;
+
+            menu.onclick = async (ev) => {
+                const btn = ev.target.closest('button');
+                if (!btn) return;
+                const action = btn.dataset.action;
+
+                el.focus();
+
+                const insertNativeText = (text) => {
+                    if (isInput) {
+                        const start = el.selectionStart;
+                        const end = el.selectionEnd;
+                        el.setSelectionRange(start, end);
+                    }
+                    document.execCommand('insertText', false, text);
+                };
+
+                if (action === 'format-wiki') {
+                    const newText = isWikiLink ? selectedText.slice(2, -2) : `[[${selectedText}]]`;
+                    insertNativeText(newText);
+                    if (typeof showToast === 'function') showToast('Formatado!', 'success');
+                }
+                else if (action === 'capitalize') {
+                    const cap = selectedText.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+                    insertNativeText(cap);
+                    if (typeof showToast === 'function') showToast('Capitalizado!', 'success');
+                }
+                else if (action === 'search-bible') {
+                    // ✅ LÓGICA DE BUSCA RESTAURADA
+                    if (typeof openStoryBible === 'function') {
+                        openStoryBible();
+                    } else {
+                        const bibleBtn = document.querySelector('button[onclick*="Bible"], button[onclick*="bible"]');
+                        if (bibleBtn) bibleBtn.click();
+                    }
+                    
+                    setTimeout(() => {
+                        const searchInput = document.querySelector('#bible-modal input[type="search"], #bible-modal input[type="text"]');
+                        if (searchInput) {
+                            searchInput.value = selectedText;
+                            searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        } else {
+                            if (typeof showToast === 'function') showToast('Campo de busca da Bíblia não encontrado.', 'warn');
+                        }
+                    }, 500);
+                }
+                else if (action === 'copy') {
+                    await navigator.clipboard.writeText(selectedText);
+                    if (typeof showToast === 'function') showToast('Copiado!', 'success');
+                }
+                else if (action === 'cut') {
+                    await navigator.clipboard.writeText(selectedText);
+                    insertNativeText(''); 
+                    if (typeof showToast === 'function') showToast('Cortado!', 'success');
+                }
+                else if (action === 'paste') {
+                    try {
+                        const text = await navigator.clipboard.readText();
+                        insertNativeText(text);
+                        if (typeof showToast === 'function') showToast('Colado!', 'success');
+                    } catch (err) {
+                        if (typeof showToast === 'function') showToast('Permissão negada.', 'warn');
+                    }
+                }
+                else if (action === 'undo') {
+                    document.execCommand('undo');
+                }
+                else if (action === 'redo') {
+                    document.execCommand('redo');
+                }
+
+                menu.style.display = 'none';
+            };
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#sm-text-context-menu')) menu.style.display = 'none';
+        });
+
+        window.addEventListener('scroll', () => menu.style.display = 'none', true);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initTextContextMenu);
+    } else {
+        initTextContextMenu();
     }
 })();
 </script>
