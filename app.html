@@ -17782,5 +17782,48 @@ function shareStory() {
 })();
 </script>
 
+<script id="sm-writing-badge-fix">
+(function() {
+    'use strict';
+
+    // O terceiro parâmetro 'true' (capture) é crucial aqui.
+    // Ele intercepta o toque/clique ANTES do sistema de arrastar do mapa.
+    document.addEventListener('pointerdown', function(e) {
+        // Verifica se o clique foi no badge ou em algum ícone dentro dele
+        const badge = e.target.closest('.writing-badge');
+        if (!badge) return;
+
+        // Impede o comportamento padrão (evita arrastar o card)
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Encontra o card do nó
+        const card = badge.closest('.node-card');
+        if (!card) return;
+
+        // Pega o ID do nó
+        const nodeId = card.getAttribute('data-node-id') || card.id.replace('node-', '');
+        
+        console.log('Badge de rascunho clicado! Nó ID:', nodeId);
+
+        if (nodeId) {
+            // 1. Força a seleção do nó no mapa (para o inspetor abrir a cena certa)
+            if (typeof selectNode === 'function') {
+                selectNode(nodeId);
+            }
+
+            // 2. Abre a tela de escrita após um pequeno delay (para a seleção processar)
+            setTimeout(() => {
+                if (typeof openSceneWritingMode === 'function') {
+                    openSceneWritingMode();
+                } else {
+                    console.error('A função openSceneWritingMode() não existe neste escopo.');
+                }
+            }, 150);
+        }
+    }, true); // O 'true' é o que garante a interceptação no início do fluxo
+})();
+</script>
+
 </body>
 </html>
