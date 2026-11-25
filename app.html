@@ -25,6 +25,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <link rel="stylesheet" href="assets/profile.css">
+    <link rel="stylesheet" href="assets/story-sheet.css"> <!-- 🔽 NOVO -->
     <style id="sm-text-ctx-styles">
     /* Menu de Contexto para Edição de Texto */
     #sm-text-context-menu {
@@ -2673,6 +2674,11 @@ body.app-theme-dark .node-card .mobile-info-badge {
             </button>
             <button onclick="shareStory()" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-2.5 py-1.5 rounded-lg text-xs font-medium transition" title="Compartilhar">
     <i class="fa-solid fa-share-nodes"></i>
+</button>
+
+<button onclick="SM_STORY_SHEET.open()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5" title="Ficha da História (Estrutura)">
+    <i class="fa-solid fa-file-lines text-indigo-600"></i>
+    <span class="hidden md:inline">Ficha</span>
 </button>
 
             <div class="h-6 w-px bg-slate-200 mx-0.5 hidden md:block"></div>
@@ -17022,6 +17028,7 @@ window.getStaticCommands = getStaticCommands;
 <script src="assets/continuity-checker.js"></script>
 <script src="assets/story-dates.js"></script>
 <script src="assets/profile.js" defer></script>
+<script src="assets/story-sheet.js"></script> <!-- 🔽 NOVO -->
 
 <!-- ============================================================
      StoryMind — MOBILE: paridade com o desktop + MODO LEVE
