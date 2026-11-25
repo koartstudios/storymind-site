@@ -25,6 +25,82 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <link rel="stylesheet" href="assets/profile.css">
+    <style id="sm-bible-ctx-styles">
+    #sm-bible-context-menu {
+        position: fixed;
+        z-index: 99999;
+        display: none;
+        flex-direction: column;
+        min-width: 200px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 6px;
+        box-shadow: 0 12px 32px -8px rgba(0,0,0,.25);
+        animation: sm-bible-ctx-in 0.1s ease;
+    }
+    @keyframes sm-bible-ctx-in {
+        from { opacity: 0; transform: scale(.96) translateY(-4px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .sm-bible-ctx-header {
+        padding: 6px 10px;
+        font-size: 10px;
+        font-weight: 800;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid #e2e8f0;
+        margin-bottom: 4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    #sm-bible-context-menu button {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 8px 10px;
+        background: transparent;
+        border: none;
+        border-radius: 6px;
+        color: #1e293b;
+        font-size: 12px;
+        font-weight: 500;
+        text-align: left;
+        cursor: pointer;
+        transition: background 0.1s, color 0.1s;
+        font-family: inherit;
+    }
+    #sm-bible-context-menu button:hover {
+        background: #eef2ff;
+        color: #4338ca;
+    }
+    #sm-bible-context-menu button i {
+        width: 16px;
+        text-align: center;
+        color: #94a3b8;
+        font-size: 12px;
+    }
+    #sm-bible-context-menu button:hover i { color: #4338ca; }
+    .sm-bible-ctx-divider {
+        height: 1px;
+        background: #e2e8f0;
+        margin: 4px 0;
+    }
+    /* Dark Mode */
+    body.app-theme-dark #sm-bible-context-menu {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    body.app-theme-dark .sm-bible-ctx-header { color: #94a3b8; border-bottom-color: #334155; }
+    body.app-theme-dark #sm-bible-context-menu button { color: #e2e8f0; }
+    body.app-theme-dark #sm-bible-context-menu button:hover { background: rgba(99,102,241,.2); color: #a5b4fc; }
+    body.app-theme-dark #sm-bible-context-menu button i { color: #64748b; }
+    body.app-theme-dark #sm-bible-context-menu button:hover i { color: #a5b4fc; }
+    body.app-theme-dark .sm-bible-ctx-divider { background: #334155; }
+</style>
     <style>
         :root {
             --canvas-bg: #f8fafc;
@@ -17343,6 +17419,133 @@ function shareStory() {
     if (window.SM_SHARING) window.SM_SHARING.open();
     else alert('A tela de compartilhamento ainda está carregando. Tente de novo em instantes.');
 }
+</script>
+<script id="sm-bible-ctx-script">
+(function() {
+    'use strict';
+
+    // Busca a descrição da entidade diretamente do banco local (infalível)
+    function getDescriptionFromDB(title) {
+        try {
+            const dbStr = localStorage.getItem('storymind_database_v2');
+            if (!dbStr) return '';
+            const db = JSON.parse(dbStr);
+            
+            // Varre todas as histórias e abas procurando o nó pelo nome
+            for (const storyKey in db) {
+                const story = db[storyKey];
+                for (const sheet of (story.sheets || [])) {
+                    for (const node of (sheet.nodes || [])) {
+                        const nodeTitle = (node.title || node.name || '').trim().toLowerCase();
+                        if (nodeTitle === title.toLowerCase()) {
+                            // Retorna a descrição/texto que encontrar
+                            return (node.desc || node.description || node.text || node.content || '').trim();
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Erro ao buscar descrição no DB:', e);
+        }
+        return '';
+    }
+
+    function setupMenu() {
+        // Se o menu já existe, remove para evitar duplicação ao recarregar
+        let menu = document.getElementById('sm-bible-context-menu');
+        if (menu) menu.remove();
+
+        menu = document.createElement('div');
+        menu.id = 'sm-bible-context-menu';
+        document.body.appendChild(menu);
+
+        // Usa delegação de eventos no document inteiro para pegar qualquer clique direito
+        document.addEventListener('contextmenu', (e) => {
+            // Verifica se o clique foi dentro de uma entrada da Bíblia
+            const entry = e.target.closest('.bible-entry');
+            if (!entry) return;
+
+            // Verifica se a entrada está dentro do modal da Bíblia
+            const bibleModal = document.getElementById('bible-modal');
+            if (!bibleModal || !bibleModal.contains(entry)) return;
+
+            e.preventDefault();
+
+            // Pega o nome da entidade
+            const nameEl = entry.querySelector('.bible-key');
+            const title = nameEl ? nameEl.textContent.trim() : 'Desconhecido';
+
+            // Busca a descrição no banco de dados local
+            const description = getDescriptionFromDB(title);
+            const hasDesc = description.length > 0;
+
+            menu.innerHTML = `
+                <div class="sm-bible-ctx-header">${title}</div>
+                <button data-action="copy-wiki"><i class="fa-solid fa-link"></i> Copiar como [[link]]</button>
+                <button data-action="copy-name"><i class="fa-solid fa-copy"></i> Copiar Nome</button>
+                <button data-action="copy-desc" style="${hasDesc ? '' : 'opacity: 0.5;'}">
+                    <i class="fa-solid fa-file-lines"></i> Copiar Ficha Completa
+                </button>
+            `;
+
+            // Posiciona o menu
+            menu.style.left = `${e.clientX}px`;
+            menu.style.top = `${e.clientY}px`;
+            menu.style.display = 'flex';
+
+            // Ajusta para não vazar a tela
+            const rect = menu.getBoundingClientRect();
+            if (rect.right > window.innerWidth) menu.style.left = `${window.innerWidth - rect.width - 10}px`;
+            if (rect.bottom > window.innerHeight) menu.style.top = `${window.innerHeight - rect.height - 10}px`;
+
+            // Lógica de clique nos botões do menu
+            menu.onclick = (ev) => {
+                const btn = ev.target.closest('button');
+                if (!btn) return;
+                const action = btn.dataset.action;
+
+                if (action === 'copy-wiki') {
+                    navigator.clipboard.writeText(`[[${title}]]`);
+                    if (typeof showToast === 'function') showToast('Copiado como [[link]]!', 'success');
+                } 
+                else if (action === 'copy-name') {
+                    navigator.clipboard.writeText(title);
+                    if (typeof showToast === 'function') showToast('Nome copiado!', 'success');
+                }
+                else if (action === 'copy-desc') {
+                    if (!hasDesc) {
+                        if (typeof showToast === 'function') showToast('Esta entidade não tem descrição salva.', 'warn');
+                    } else {
+                        const fullText = `${title}\n\n${description}`;
+                        navigator.clipboard.writeText(fullText);
+                        if (typeof showToast === 'function') showToast('Ficha completa copiada!', 'success');
+                    }
+                }
+
+                menu.style.display = 'none';
+            };
+        });
+
+        // Esconde o menu ao clicar em qualquer outro lugar
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#sm-bible-context-menu')) {
+                menu.style.display = 'none';
+            }
+        });
+
+        // Esconde ao rolar a tela
+        window.addEventListener('scroll', () => {
+            menu.style.display = 'none';
+        }, true);
+    }
+
+    // Executa assim que a página carregar
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupMenu);
+    } else {
+        setupMenu();
+    }
+})();
 </script>
 
 </body>
