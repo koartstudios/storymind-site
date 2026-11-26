@@ -3062,7 +3062,7 @@ body.app-theme-dark .sm-select-btn:hover { filter: brightness(1.15); }
             <button onclick="openMentionsGraph()" class="w-10 h-10 rounded-xl text-teal-600 hover:bg-teal-50 flex items-center justify-center transition" title="Grafo de Menções (Ctrl+M)">
                 <i class="fa-solid fa-users-viewfinder"></i>
             </button>
-            <button onclick="openSkillTree()" class="w-10 h-10 rounded-xl text-amber-600 hover:bg-amber-50 flex items-center justify-center transition" title="Árvore de Habilidades (Ctrl+K)">
+            <button onclick="openSkillTree()" class="w-10 h-10 rounded-xl text-amber-600 hover:bg-amber-50 flex items-center justify-center transition" title="Árvore de Habilidades (Ctrl+Shift+K)">
                 <i class="fa-solid fa-sitemap"></i>
             </button>
             <button onclick="openTimeline()" class="w-10 h-10 rounded-xl text-cyan-600 hover:bg-cyan-50 flex items-center justify-center transition" title="Linha do Tempo (Ctrl+Shift+L)">
@@ -3283,13 +3283,14 @@ body.app-theme-dark .sm-select-btn:hover { filter: brightness(1.15); }
                     <div><i class="fa-solid fa-circle-info text-indigo-500 mr-1"></i>Ferramenta: <span id="current-tool-label" class="font-bold text-slate-800">Seleção</span></div>
                     <div class="w-px h-3 bg-slate-300"></div>
                     <div class="hidden md:block">
-                        <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">Ctrl+Shift+F</kbd> filtros ·
-                        <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">Ctrl+M</kbd> menções ·
-                        <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">Ctrl+B</kbd> bíblia ·
-                        <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">Ctrl+R</kbd> teia ·
-                        <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">Ctrl+K</kbd> skills ·
-                        <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">P</kbd> preview
-                    </div>
+    <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">Ctrl+K</kbd> comandos ·
+    <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">Ctrl+Shift+F</kbd> filtros ·
+    <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">Ctrl+M</kbd> menções ·
+    <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">Ctrl+B</kbd> bíblia ·
+    <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">Ctrl+R</kbd> teia ·
+    <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">Ctrl+Shift+K</kbd> skills ·
+    <kbd class="px-1 bg-slate-100 rounded text-[10px] border border-slate-300">P</kbd> preview
+</div>
                     <div class="md:hidden">Toque: 1 dedo mover · 2 dedos zoom · duplo-toque editar</div>
                 </div>
             </div>
@@ -6155,10 +6156,10 @@ if (node.type === 'character' || node.type === 'location' || node.type === 'obje
         }
 
         function openVariantModal() {
-            const id = document.getElementById('edit-node-id').value;
-            const node = getNode(id);
-            if (!node) return;
-            if (node.isVariant) { showToast("Este nó já é uma variante. Escolha um nó canônico.", "warn"); return; }
+    const id = (selectedNodeIds.size === 1 ? Array.from(selectedNodeIds)[0] : '') || document.getElementById('edit-node-id').value;
+    const node = getNode(id);
+    if (!node) return;
+    if (node.isVariant) { showToast("Este nó já é uma variante. Escolha um nó canônico.", "warn"); return; }
             variantModalAnchorId = id;
             const modal = document.getElementById('variant-modal');
             const input = document.getElementById('variant-label-input');
@@ -16231,124 +16232,294 @@ window.addEventListener('resize', function () {
         if (!node) return;
         node.type = type;
         if (NODE_TYPES[type]) node.title = NODE_TYPES[type].label;
+        selectedNodeIds.clear();
+        selectedNodeIds.add(newId);
         pushHistory();
         saveStoriesStorage();
         renderApp();
         startInlineEdit(newId, 'title');
     }
 
-    // ---------- 4. Lista de comandos ----------
+    // ---------- 4. Lista completa de comandos + auto-descoberta ----------
+    const COVERED_BTN_IDS = new Set([
+        'tool-select', 'tool-pan', 'tool-relation', 'tool-eyedropper',
+        'btn-undo', 'btn-redo', 'btn-focus', 'btn-beat-sheet', 'btn-beat-change',
+        'btn-tension', 'btn-toggle-variants', 'btn-organize-beat', 'btn-timeline-mode',
+        'export-menu-btn', 'outline-tab', 'sm-header-menu', 'sm-header-export',
+        'sm-header-profile', 'sm-cp-fab', 'sm-mobile-zoom-selected', 'sm-multi-btn'
+    ]);
+
+    const COVERED_ONCLICK_SNIPPETS = [
+        'setTool(', 'toggleEyedropper', 'addNewNode', 'deleteSelectedNodes',
+        'undo(', 'redo(', 'collapseAll', 'expandAll', 'toggleFocusMode',
+        'onBeatSheetButtonClick', 'openBeatSheetPicker', 'toggleTensionStrip',
+        'toggleMinimap', 'openStoryBible', 'openRelationWeb', 'openMentionsGraph',
+        'openSkillTree', 'openTimeline', 'fitView', 'zoomIn', 'zoomOut', 'resetView',
+        'toggleOutline', 'openAdvancedSearch', 'openSceneWritingMode', 'openStorySettings',
+        'shareStory', 'SM_STORY_SHEET.open', 'toggleExportMenu', 'autoLayoutNodes',
+        'toggleShowVariants', 'toggleBeatSortMode', 'toggleTimelineMode',
+        'gotoSearchResult', 'startEditStoryTitle', 'exportPNG', 'exportSVG',
+        'exportMarkdown', 'exportDataWithDialog'
+    ];
+
+    const COVERED_SM_ACTIONS = new Set([
+        'outline', 'sheets', 'add-child', 'add-sibling', 'delete', 'tools', 'tools-close',
+        'header-menu-close', 'layout', 'narrative', 'timeline-mode', 'variants',
+        'export-png', 'export-svg', 'export-md', 'export-json', 'import-json', 'export',
+        'beat-change', 'minimap', 'reset', 'edit', 'pan', 'relation', 'eyedropper',
+        'undo', 'redo', 'collapse', 'expand', 'focus', 'beats', 'tension', 'bible',
+        'relations', 'mentions', 'skilltree', 'timeline', 'fit', 'zoom-in', 'zoom-out',
+        'write-scene', 'settings', 'share', 'onboarding', 'verify', 'layout-tree',
+        'layout-radial', 'layout-org', 'lite-toggle', 'multi', 'zen', 'gallery'
+    ]);
+
+    function extractShortcutHint(title) {
+        if (!title) return '';
+        const m = String(title).match(/\(([^)]*(?:Ctrl|Cmd|Alt|Shift|Enter|Tab|Esc|Del|F\d+|\b[A-Z]\b)[^)]*)\)\s*$/i);
+        return m ? m[1].trim() : '';
+    }
+
+    function stripShortcutHint(text) {
+        return String(text || '').replace(/\s*\([^)]*(?:Ctrl|Cmd|Alt|Shift|Enter|Tab|Esc|Del|F\d+|\b[A-Z]\b)[^)]*\)\s*$/i, '').trim();
+    }
+
     function getStaticCommands() {
         const hasSel = selectedNodeIds.size > 0;
         const oneSel = selectedNodeIds.size === 1;
         const multiSel = selectedNodeIds.size >= 2;
+        const threePlusSel = selectedNodeIds.size >= 3;
+        const singleId = oneSel ? Array.from(selectedNodeIds)[0] : null;
+        const singleNode = singleId ? getNode(singleId) : null;
+        const isVariantNode = !!(singleNode && singleNode.isVariant);
+        const hasChildren = !!(singleId && childCount(singleId) > 0);
         const hasClip = !!(nodeClipboard && nodeClipboard.nodes.length > 0);
         const hasFw = !!(mindMapData.beatSheetFramework);
         const hasTimeline = mindMapData.nodes.some(n => n.type === 'timeline');
+        const hasNodes = mindMapData.nodes.length > 0;
         const canUndo = history.index > 0;
         const canRedo = history.index < history.stack.length - 1;
+        const canDelSheet = !!(currentStory && currentStory.sheets && currentStory.sheets.length > 1);
+        const profileBtn = document.getElementById('sm-profile-btn');
+        const zenBtn = document.querySelector('[onclick*="toggleZenMode"], [data-sm-action="zen"]');
+        const zenHint = zenBtn ? extractShortcutHint(zenBtn.getAttribute('title')) : '';
 
         const safe = (fn) => (...args) => {
             try { return fn.apply(null, args); }
             catch (e) { console.error('[CmdPalette]', e); if (typeof showToast === 'function') showToast('Erro ao executar comando.', 'error'); }
         };
 
-        return [
+        const syncInspectorId = () => {
+            if (!singleId) return;
+            const inp = document.getElementById('edit-node-id');
+            if (inp) inp.value = singleId;
+        };
+
+        const cmds = [
+            // ---- Ferramentas ----
+            { group: 'Ferramentas', icon: '🖱️', label: 'Ferramenta: Seleção', hint: 'V', keywords: 'ponteiro cursor select', action: safe(() => setTool('select')), enabled: true },
+            { group: 'Ferramentas', icon: '✋', label: 'Ferramenta: Mão (Mover tela)', hint: 'H / Espaço', keywords: 'pan arrastar tela', action: safe(() => setTool('pan')), enabled: true },
+            { group: 'Ferramentas', icon: '🔗', label: 'Ferramenta: Criar Relação entre nós', hint: 'R', keywords: 'ligar conectar seta', action: safe(() => setTool('relation')), enabled: true },
+            { group: 'Ferramentas', icon: '💧', label: eyedropperArmed ? 'Cancelar Conta-gotas' : 'Conta-gotas (copiar estilo)', hint: 'I', keywords: 'eyedropper cor estilo copiar', action: safe(() => toggleEyedropper()), enabled: eyedropperArmed || hasSel },
+
             // ---- Criar ----
             { group: 'Criar', icon: '➕', label: 'Novo nó', hint: 'N', action: safe(() => addNewNode()), enabled: true },
             { group: 'Criar', icon: '🌿', label: 'Novo nó filho', hint: 'Tab', action: safe(() => {
                 if (!oneSel) return;
-                const id = createChild(Array.from(selectedNodeIds)[0]);
+                const id = createChild(singleId);
                 if (id) { selectedNodeIds.clear(); selectedNodeIds.add(id); commit(); startInlineEdit(id, 'title'); }
             }), enabled: oneSel },
-            { group: 'Criar', icon: '↔️', label: 'Novo nó irmão', hint: 'Shift+Enter', action: safe(() => {
+            { group: 'Criar', icon: '↔️', label: 'Novo nó irmão', hint: 'Enter', action: safe(() => {
                 if (!oneSel) return;
-                const id = createSibling(Array.from(selectedNodeIds)[0]);
+                const id = createSibling(singleId);
                 if (id) { selectedNodeIds.clear(); selectedNodeIds.add(id); commit(); startInlineEdit(id, 'title'); }
             }), enabled: oneSel },
-            { group: 'Criar', icon: '🎬', label: 'Nova cena', hint: 'Alt+C', action: safe(() => createTypedNode('scene')), enabled: hasSel },
-            { group: 'Criar', icon: '🧙', label: 'Novo personagem', hint: 'Alt+P', action: safe(() => createTypedNode('character')), enabled: hasSel },
-            { group: 'Criar', icon: '📍', label: 'Novo cenário', hint: 'Alt+L', action: safe(() => createTypedNode('location')), enabled: hasSel },
-            { group: 'Criar', icon: '⚡', label: 'Novo evento', hint: 'Alt+E', action: safe(() => createTypedNode('event')), enabled: hasSel },
-            { group: 'Criar', icon: '💬', label: 'Novo diálogo', hint: 'Alt+D', action: safe(() => createTypedNode('dialogue')), enabled: hasSel },
-            { group: 'Criar', icon: '🎭', label: 'Novo tema', hint: 'Alt+T', action: safe(() => createTypedNode('theme')), enabled: hasSel },
-            { group: 'Criar', icon: '📅', label: 'Novo evento timeline', hint: 'Alt+I', action: safe(() => createTypedNode('timeline')), enabled: hasSel },
-            { group: 'Criar', icon: '🏺', label: 'Novo objeto', hint: 'Alt+O', action: safe(() => createTypedNode('object')), enabled: hasSel },
+            { group: 'Criar', icon: '🧪', label: 'Criar variante "E se..."', hint: 'E', keywords: 'hipotese alternativa branch', action: safe(() => { syncInspectorId(); openVariantModal(); }), enabled: oneSel && !isVariantNode },
+            { group: 'Criar', icon: '🎬', label: 'Nova cena', hint: 'Alt+C', action: safe(() => createTypedNode('scene')), enabled: hasNodes },
+            { group: 'Criar', icon: '🧙', label: 'Novo personagem', hint: 'Alt+P', action: safe(() => createTypedNode('character')), enabled: hasNodes },
+            { group: 'Criar', icon: '📍', label: 'Novo cenário', hint: 'Alt+L', action: safe(() => createTypedNode('location')), enabled: hasNodes },
+            { group: 'Criar', icon: '⚡', label: 'Novo evento', hint: 'Alt+E', action: safe(() => createTypedNode('event')), enabled: hasNodes },
+            { group: 'Criar', icon: '💬', label: 'Novo diálogo', hint: 'Alt+D', action: safe(() => createTypedNode('dialogue')), enabled: hasNodes },
+            { group: 'Criar', icon: '🎭', label: 'Novo tema', hint: 'Alt+T', action: safe(() => createTypedNode('theme')), enabled: hasNodes },
+            { group: 'Criar', icon: '📅', label: 'Novo evento timeline', hint: 'Alt+I', action: safe(() => createTypedNode('timeline')), enabled: hasNodes },
+            { group: 'Criar', icon: '🏺', label: 'Novo objeto', hint: 'Alt+O', action: safe(() => createTypedNode('object')), enabled: hasNodes },
+            { group: 'Criar', icon: '📝', label: 'Nova nota', keywords: 'anotacao postit', action: safe(() => createTypedNode('note')), enabled: hasNodes },
 
-            // ---- Abrir ----
-            { group: 'Abrir', icon: '📚', label: 'Bíblia da História', hint: 'Ctrl+B', action: safe(() => openStoryBible()), enabled: true },
-            { group: 'Abrir', icon: '⏳', label: 'Linha do Tempo', hint: 'Ctrl+Shift+L', action: safe(() => openTimeline()), enabled: hasTimeline },
-            { group: 'Abrir', icon: '🕸️', label: 'Teia de Relações', hint: 'Ctrl+R', action: safe(() => openRelationWeb()), enabled: true },
-            { group: 'Abrir', icon: '👥', label: 'Grafo de Menções', hint: 'Ctrl+M', action: safe(() => openMentionsGraph()), enabled: true },
-            { group: 'Abrir', icon: '⭐', label: 'Árvore de Habilidades', hint: 'Ctrl+Shift+K', action: safe(() => openSkillTree()), enabled: true },
-            { group: 'Abrir', icon: '📖', label: 'Escolher estrutura narrativa', action: safe(() => openBeatSheetPicker()), enabled: true },
-            { group: 'Abrir', icon: '🔍', label: 'Busca avançada', hint: 'Ctrl+Shift+F', action: safe(() => openAdvancedSearch()), enabled: true },
-            { group: 'Abrir', icon: '✍️', label: 'Modo escrita de cena', hint: 'Ctrl+Shift+W', action: safe(() => openSceneWritingMode()), enabled: true },
-            { group: 'Abrir', icon: '⚙️', label: 'Configurações da história', action: safe(() => openStorySettings()), enabled: true },
-
-            // ---- Modos ----
-            { group: 'Modos', icon: '📊', label: 'Beat Sheet', hint: 'B', action: safe(() => onBeatSheetButtonClick()), enabled: hasFw },
-            { group: 'Modos', icon: '🎼', label: 'Modo Narrativo', hint: 'Shift+B', action: safe(() => toggleBeatSortMode()), enabled: hasFw },
-            { group: 'Modos', icon: '⏳', label: 'Modo Timeline', action: safe(() => toggleTimelineMode()), enabled: hasTimeline },
-            { group: 'Modos', icon: '🧪', label: 'Mostrar/ocultar variantes', action: safe(() => toggleShowVariants()), enabled: true },
-            { group: 'Modos', icon: '📈', label: 'Curva de tensão', hint: 'K', action: safe(() => toggleTensionStrip()), enabled: true },
-            { group: 'Modos', icon: '🗺️', label: 'Minimapa', hint: 'M', action: safe(() => toggleMinimap()), enabled: true },
-                        // ---- Modos ----
-            { group: 'Modos', icon: '📊', label: 'Beat Sheet', hint: 'B', action: safe(() => onBeatSheetButtonClick()), enabled: hasFw },
-            { group: 'Modos', icon: '🎼', label: 'Modo Narrativo', hint: 'Shift+B', action: safe(() => toggleBeatSortMode()), enabled: hasFw },
-            { group: 'Modos', icon: '⏳', label: 'Modo Timeline', action: safe(() => toggleTimelineMode()), enabled: hasTimeline },
-            { group: 'Modos', icon: '🧪', label: 'Mostrar/ocultar variantes', action: safe(() => toggleShowVariants()), enabled: true },
-            { group: 'Modos', icon: '📈', label: 'Curva de tensão', hint: 'K', action: safe(() => toggleTensionStrip()), enabled: true },
-            { group: 'Modos', icon: '🗺️', label: 'Minimapa', hint: 'M', action: safe(() => toggleMinimap()), enabled: true },
-            // 👇 ADICIONE ESTA LINHA AQUI 👇
-            { group: 'Modos', icon: '🧘', label: 'Modo Zen (Tela Cheia)', hint: 'Ctrl+Shift+Z', action: () => window.toggleZenMode(), enabled: true },
-            // ---- Layout ----
-            { group: 'Layout', icon: '🌳', label: 'Layout árvore', action: safe(() => changeLayout('tree')), enabled: true },
-            { group: 'Layout', icon: '🎯', label: 'Layout radial', action: safe(() => changeLayout('radial')), enabled: true },
-            { group: 'Layout', icon: '🏢', label: 'Layout organograma', action: safe(() => changeLayout('org')), enabled: true },
-            { group: 'Layout', icon: '🎯', label: 'Centralizar mapa', hint: 'F', action: safe(() => fitView()), enabled: true },
-            { group: 'Layout', icon: '🔍', label: 'Zoom nos selecionados', hint: 'Z', action: safe(() => zoomToSelectedNodes()), enabled: hasSel },
-
-            // ---- Editar ----
-            { group: 'Editar', icon: '✏️', label: 'Editar nó', hint: 'F2', action: safe(() => { if (oneSel) openInspectorFor(Array.from(selectedNodeIds)[0]); }), enabled: oneSel },
-            { group: 'Editar', icon: '📝', label: 'Editar múltiplos', action: safe(() => { if (multiSel) openMultiInspector(); }), enabled: multiSel },
+            // ---- Editar & Seleção ----
+            { group: 'Editar', icon: '✏️', label: 'Editar título no card', hint: 'F2', action: safe(() => { if (oneSel) startInlineEdit(singleId, 'title'); }), enabled: oneSel },
+            { group: 'Editar', icon: '🗒️', label: 'Editar notas no card', action: safe(() => { if (oneSel) startInlineEdit(singleId, 'content'); }), enabled: oneSel },
+            { group: 'Editar', icon: '🎛️', label: 'Abrir inspetor de detalhes', keywords: 'painel lateral editar propriedades', action: safe(() => { if (oneSel) openInspectorFor(singleId); }), enabled: oneSel },
+            { group: 'Editar', icon: '📝', label: 'Editar múltiplos nós', action: safe(() => { if (multiSel) openMultiInspector(); }), enabled: multiSel },
+            { group: 'Editar', icon: '✅', label: 'Promover variante a canônico', action: safe(() => { syncInspectorId(); promoteCurrentVariant(); }), enabled: oneSel && isVariantNode },
+            { group: 'Editar', icon: '↩️', label: 'Tornar variante canônica sem substituir', action: safe(() => { syncInspectorId(); removeVariantFlag(); }), enabled: oneSel && isVariantNode },
+            { group: 'Editar', icon: '🧬', label: 'Duplicar selecionados', hint: 'Ctrl+D', action: safe(() => {
+                if (!hasSel) return;
+                pushHistory();
+                const newIds = duplicateSelectedNodesInPlace();
+                selectedNodeIds.clear(); newIds.forEach(id => selectedNodeIds.add(id));
+                invalidateStructure(); saveStoriesStorage(); renderApp();
+            }), enabled: hasSel },
             { group: 'Editar', icon: '📋', label: 'Copiar', hint: 'Ctrl+C', action: safe(() => copySelectedNodes()), enabled: hasSel },
             { group: 'Editar', icon: '✂️', label: 'Recortar', hint: 'Ctrl+X', action: safe(() => cutSelectedNodes()), enabled: hasSel },
             { group: 'Editar', icon: '📥', label: 'Colar', hint: 'Ctrl+V', action: safe(() => pasteClipboard()), enabled: hasClip },
-            { group: 'Editar', icon: '🗑️', label: 'Excluir', hint: 'Del', action: safe(() => deleteSelectedNodes()), enabled: hasSel },
-            { group: 'Editar', icon: '✅', label: 'Selecionar tudo', hint: 'Ctrl+A', action: safe(() => selectAllNodes()), enabled: true },
+            { group: 'Editar', icon: '🗑️', label: 'Excluir selecionados', hint: 'Del', action: safe(() => deleteSelectedNodes()), enabled: hasSel },
+            { group: 'Editar', icon: '☑️', label: 'Selecionar tudo', hint: 'Ctrl+A', action: safe(() => selectAllNodes()), enabled: true },
             { group: 'Editar', icon: '🌲', label: 'Selecionar descendentes', hint: 'Shift+A', action: safe(() => selectDescendants()), enabled: hasSel },
             { group: 'Editar', icon: '↩️', label: 'Desfazer', hint: 'Ctrl+Z', action: safe(() => undo()), enabled: canUndo },
-            { group: 'Editar', icon: '↪️', label: 'Refazer', hint: 'Ctrl+Y', action: safe(() => redo()), enabled: canRedo },
-            { group: 'Editar', icon: '👁️', label: 'Foco no ramo', hint: 'Shift+F', action: safe(() => toggleFocusMode()), enabled: oneSel },
-            { group: 'Editar', icon: '📕', label: 'Recolher tudo', action: safe(() => collapseAll()), enabled: true },
-            { group: 'Editar', icon: '📖', label: 'Expandir tudo', action: safe(() => expandAll()), enabled: true },
+            { group: 'Editar', icon: '↪️', label: 'Refazer', hint: 'Ctrl+Y / Ctrl+Shift+Z', action: safe(() => redo()), enabled: canRedo },
+            { group: 'Editar', icon: '📦', label: 'Mover selecionados para outra aba...', action: safe(() => openMoveToSheetMenu()), enabled: hasSel },
+            { group: 'Editar', icon: '🔀', label: 'Extrair ramo para nova aba', action: safe(() => { syncInspectorId(); extractCurrentNodeToNewSheet(); }), enabled: oneSel },
+            { group: 'Editar', icon: '📂', label: singleNode && singleNode.collapsed ? 'Expandir ramo do nó' : 'Recolher ramo do nó', action: safe(() => { if (oneSel) toggleCollapse(singleId); }), enabled: hasChildren },
+
+            // ---- Alinhamento ----
+            { group: 'Alinhamento', icon: '⬅️', label: 'Alinhar à esquerda', hint: 'Ctrl+Shift+←', action: safe(() => alignSelectedNodes('left')), enabled: multiSel },
+            { group: 'Alinhamento', icon: '↔️', label: 'Centralizar horizontalmente', hint: 'Ctrl+Shift+C', action: safe(() => alignSelectedNodes('center-h')), enabled: multiSel },
+            { group: 'Alinhamento', icon: '➡️', label: 'Alinhar à direita', hint: 'Ctrl+Shift+→', action: safe(() => alignSelectedNodes('right')), enabled: multiSel },
+            { group: 'Alinhamento', icon: '⬆️', label: 'Alinhar ao topo', hint: 'Ctrl+Shift+↑', action: safe(() => alignSelectedNodes('top')), enabled: multiSel },
+            { group: 'Alinhamento', icon: '↕️', label: 'Centralizar verticalmente', hint: 'Ctrl+Shift+M', action: safe(() => alignSelectedNodes('center-v')), enabled: multiSel },
+            { group: 'Alinhamento', icon: '⬇️', label: 'Alinhar à base', hint: 'Ctrl+Shift+↓', action: safe(() => alignSelectedNodes('bottom')), enabled: multiSel },
+            { group: 'Alinhamento', icon: '📏', label: 'Distribuir horizontalmente', hint: 'Ctrl+Shift+H', action: safe(() => alignSelectedNodes('distribute-h')), enabled: threePlusSel },
+            { group: 'Alinhamento', icon: '📐', label: 'Distribuir verticalmente', hint: 'Ctrl+Shift+V', action: safe(() => alignSelectedNodes('distribute-v')), enabled: threePlusSel },
+
+            // ---- Abrir ----
+            { group: 'Abrir', icon: '📚', label: 'Bíblia da História', hint: 'Ctrl+B', action: safe(() => openStoryBible()), enabled: true },
+            { group: 'Abrir', icon: '⏳', label: 'Linha do Tempo', hint: 'Ctrl+Shift+L', action: safe(() => openTimeline()), enabled: true },
+            { group: 'Abrir', icon: '🕸️', label: 'Teia de Relações', hint: 'Ctrl+R', action: safe(() => openRelationWeb()), enabled: true },
+            { group: 'Abrir', icon: '👥', label: 'Grafo de Menções', hint: 'Ctrl+M', action: safe(() => openMentionsGraph()), enabled: true },
+            { group: 'Abrir', icon: '⭐', label: 'Árvore de Habilidades', hint: 'Ctrl+Shift+K', action: safe(() => openSkillTree()), enabled: true },
+            { group: 'Abrir', icon: '✍️', label: 'Modo escrita de cena', hint: 'Ctrl+Shift+W', keywords: 'rascunho roteiro cena', action: safe(() => openSceneWritingMode()), enabled: true },
+            { group: 'Abrir', icon: '📖', label: 'Escolher estrutura narrativa (Beat Sheet)', action: safe(() => openBeatSheetPicker()), enabled: true },
+            { group: 'Abrir', icon: '🔎', label: 'Busca rápida no cabeçalho', hint: 'Ctrl+F', action: safe(() => { const inp = document.getElementById('search-input'); if (inp) { inp.focus(); inp.select(); } }), enabled: true },
+            { group: 'Abrir', icon: '🔍', label: 'Busca avançada & filtros', hint: 'Ctrl+Shift+F', keywords: 'substituir replace filtrar', action: safe(() => openAdvancedSearch()), enabled: true },
+            { group: 'Abrir', icon: '⚙️', label: 'Configurações da história', action: safe(() => openStorySettings()), enabled: true },
+            { group: 'Abrir', icon: '🔗', label: 'Compartilhar história', action: safe(() => shareStory()), enabled: true },
+            { group: 'Abrir', icon: '🏠', label: 'Voltar ao Dashboard', keywords: 'inicio mapas painel', action: safe(() => { location.href = 'dashboard.html'; }), enabled: true },
+
+            // ---- Modos ----
+            { group: 'Modos', icon: '📋', label: 'Outline lateral', hint: 'O', keywords: 'indice arvore lateral', action: safe(() => toggleOutline()), enabled: true },
+            { group: 'Modos', icon: '📊', label: 'Beat Sheet', hint: 'B', action: safe(() => onBeatSheetButtonClick()), enabled: true },
+            { group: 'Modos', icon: '🎼', label: 'Modo Narrativo (Por Beat)', hint: 'Shift+B', action: safe(() => toggleBeatSortMode()), enabled: hasFw },
+            { group: 'Modos', icon: '⏳', label: 'Modo Timeline', action: safe(() => toggleTimelineMode()), enabled: hasTimeline || !!mindMapData.timelineMode },
+            { group: 'Modos', icon: '🧪', label: showVariants ? 'Ocultar variantes' : 'Mostrar variantes', action: safe(() => toggleShowVariants()), enabled: true },
+            { group: 'Modos', icon: '👁️', label: focusModeNodeId ? 'Sair do foco no ramo' : 'Foco no ramo', hint: 'Shift+F', action: safe(() => toggleFocusMode()), enabled: oneSel || !!focusModeNodeId },
+            { group: 'Modos', icon: '📈', label: 'Curva de tensão', hint: 'K', action: safe(() => toggleTensionStrip()), enabled: true },
+            { group: 'Modos', icon: '🗺️', label: 'Minimapa', hint: 'M', action: safe(() => toggleMinimap()), enabled: true },
+
+            // ---- Layout & Tema ----
+            { group: 'Layout', icon: '🌳', label: 'Layout: Árvore', action: safe(() => changeLayout('tree')), enabled: true },
+            { group: 'Layout', icon: '🎯', label: 'Layout: Radial', action: safe(() => changeLayout('radial')), enabled: true },
+            { group: 'Layout', icon: '🏢', label: 'Layout: Organograma', action: safe(() => changeLayout('org')), enabled: true },
+            { group: 'Layout', icon: '🪄', label: 'Organizar mapa automaticamente', action: safe(() => autoLayoutNodes()), enabled: true },
+            { group: 'Layout', icon: '📕', label: 'Recolher tudo', action: safe(() => collapseAll()), enabled: true },
+            { group: 'Layout', icon: '📖', label: 'Expandir tudo', action: safe(() => expandAll()), enabled: true },
+            { group: 'Layout', icon: '☀️', label: 'Tema Claro', action: safe(() => changeTheme('default')), enabled: true },
+            { group: 'Layout', icon: '🌙', label: 'Tema Escuro', action: safe(() => changeTheme('dark')), enabled: true },
+            { group: 'Layout', icon: '📜', label: 'Tema Papel', action: safe(() => changeTheme('paper')), enabled: true },
+            { group: 'Layout', icon: '🎯', label: 'Centralizar mapa', hint: 'F', action: safe(() => fitView()), enabled: true },
+            { group: 'Layout', icon: '🔍', label: 'Zoom nos selecionados', hint: 'Z', action: safe(() => zoomToSelectedNodes()), enabled: hasSel },
+            { group: 'Layout', icon: '🔎', label: 'Aumentar zoom (Zoom +)', action: safe(() => zoomIn()), enabled: true },
+            { group: 'Layout', icon: '🔎', label: 'Diminuir zoom (Zoom -)', action: safe(() => zoomOut()), enabled: true },
+            { group: 'Layout', icon: '1️⃣', label: 'Resetar vista (1:1)', action: safe(() => resetView()), enabled: true },
+
+            // ---- Abas & Histórias ----
+            { group: 'Aba', icon: '📄', label: 'Nova aba', hint: 'Shift+T', action: safe(() => addSheet()), enabled: true },
+            { group: 'Aba', icon: '✏️', label: 'Renomear aba atual', action: safe(() => startRenameSheet(mindMapData.id)), enabled: true },
+            { group: 'Aba', icon: '🧬', label: 'Duplicar aba atual', action: safe(() => duplicateSheet(mindMapData.id)), enabled: true },
+            { group: 'Aba', icon: '🗑️', label: 'Excluir aba atual', action: safe(() => deleteSheet(mindMapData.id)), enabled: canDelSheet },
+            { group: 'História', icon: '✏️', label: 'Renomear título da história', action: safe(() => startEditStoryTitle()), enabled: true },
+            { group: 'História', icon: '➕', label: 'Criar nova história', action: safe(() => switchStory('new')), enabled: true },
 
             // ---- Exportar ----
-            { group: 'Exportar', icon: '🖼️', label: 'Exportar PNG do mapa', action: safe(() => exportPNG('all')), enabled: true },
+            { group: 'Exportar', icon: '🖼️', label: 'Exportar PNG do mapa inteiro', action: safe(() => exportPNG('all')), enabled: true },
             { group: 'Exportar', icon: '🖼️', label: 'Exportar PNG dos selecionados', action: safe(() => exportPNG('selected')), enabled: hasSel },
-            { group: 'Exportar', icon: '🎨', label: 'Exportar SVG', action: safe(() => exportSVG()), enabled: true },
-            { group: 'Exportar', icon: '📝', label: 'Exportar Markdown', action: safe(() => exportMarkdown()), enabled: true },
+            { group: 'Exportar', icon: '🎨', label: 'Exportar SVG vetorial', action: safe(() => exportSVG()), enabled: true },
+            { group: 'Exportar', icon: '📝', label: 'Exportar Markdown (.md)', action: safe(() => exportMarkdown()), enabled: true },
+            { group: 'Exportar', icon: '📚', label: 'Exportar Bíblia como Markdown', action: safe(() => exportStoryBible()), enabled: true },
             { group: 'Exportar', icon: '💾', label: 'Salvar como JSON', hint: 'Ctrl+S', action: safe(() => exportDataWithDialog()), enabled: true },
-            { group: 'Exportar', icon: '📂', label: 'Abrir JSON', hint: 'Ctrl+O', action: safe(() => openImportDialog()), enabled: true },
-
-            // ---- Aba ----
-            { group: 'Aba', icon: '📄', label: 'Nova aba', hint: 'Shift+T', action: safe(() => addSheet()), enabled: true },
+            { group: 'Exportar', icon: '📂', label: 'Abrir JSON (Importar)', hint: 'Ctrl+O', action: safe(() => openImportDialog()), enabled: true }
         ];
+
+        // Módulos externos conhecidos (carregados via assets/*.js)
+        if (window.SM_STORY_SHEET && typeof window.SM_STORY_SHEET.open === 'function') {
+            cmds.push({ group: 'Abrir', icon: '📋', label: 'Ficha da História', keywords: 'sinopse estrutura premissa', action: safe(() => window.SM_STORY_SHEET.open()), enabled: true });
+        }
+        if (typeof window.SM_openContinuityChecker === 'function') {
+            cmds.push({ group: 'Abrir', icon: '🛡️', label: 'Verificar continuidade', keywords: 'furos erros diagnostico', action: safe(() => window.SM_openContinuityChecker()), enabled: true });
+        }
+        if (typeof window.openStoryboardMode === 'function') {
+            cmds.push({ group: 'Abrir', icon: '🖼️', label: 'Galeria Visual (Storyboard)', keywords: 'imagens galeria', action: safe(() => window.openStoryboardMode()), enabled: true });
+        }
+        if (window.SM_STORE && typeof window.SM_STORE.openHistory === 'function') {
+            cmds.push({ group: 'Abrir', icon: '🕰️', label: 'Histórico de versões e recuperação', keywords: 'backup restaurar versao', action: safe(() => window.SM_STORE.openHistory()), enabled: true });
+        }
+        if (typeof window.SM_openOnboarding === 'function') {
+            cmds.push({ group: 'Abrir', icon: '❓', label: 'Como começar (Guia)', keywords: 'ajuda tutorial onboarding', action: safe(() => window.SM_openOnboarding()), enabled: true });
+        }
+        if (typeof window.toggleZenMode === 'function') {
+            cmds.push({ group: 'Modos', icon: '🧘', label: 'Modo Zen (Tela Cheia)', hint: zenHint, keywords: 'foco imersao tela cheia', action: safe(() => window.toggleZenMode()), enabled: true });
+        }
+        if (typeof window.openPitchMode === 'function' || (window.SM_PITCH && typeof window.SM_PITCH.open === 'function')) {
+            cmds.push({ group: 'Abrir', icon: '🎤', label: 'Modo Pitch / Apresentação', action: safe(() => window.openPitchMode ? window.openPitchMode() : window.SM_PITCH.open()), enabled: true });
+        }
+        if (typeof window.openMagicWrite === 'function' || (window.SM_MAGIC_WRITE && typeof window.SM_MAGIC_WRITE.open === 'function')) {
+            cmds.push({ group: 'Abrir', icon: '✨', label: 'Escrita Mágica', action: safe(() => window.openMagicWrite ? window.openMagicWrite() : window.SM_MAGIC_WRITE.open()), enabled: true });
+        }
+        if (profileBtn) {
+            cmds.push({ group: 'Abrir', icon: '👤', label: 'Meu Perfil', keywords: 'conta avatar usuario', action: safe(() => profileBtn.click()), enabled: true });
+        }
+
+        // Auto-descoberta: captura qualquer botão extra adicionado ao header ou barra lateral por plugins externos
+        const seenLabels = new Set(cmds.map(c => normalize(stripShortcutHint(c.label))));
+        document.querySelectorAll('body > header button, body > header + div > aside:first-child button').forEach(btn => {
+            if (btn.closest('#export-menu') || btn.closest('#search-nav')) return;
+            if (btn.id && COVERED_BTN_IDS.has(btn.id)) return;
+            const onclickAttr = btn.getAttribute('onclick') || '';
+            if (COVERED_ONCLICK_SNIPPETS.some(sn => onclickAttr.includes(sn))) return;
+            const smAct = btn.getAttribute('data-sm-action');
+            if (smAct && COVERED_SM_ACTIONS.has(smAct)) return;
+
+            const rawTitle = btn.getAttribute('title') || '';
+            const rawText = (btn.getAttribute('aria-label') || btn.innerText || rawTitle || '').trim();
+            const label = stripShortcutHint(rawText);
+            if (!label || seenLabels.has(normalize(label))) return;
+
+            seenLabels.add(normalize(label));
+            const iconEl = btn.querySelector('i');
+            const safeClass = iconEl ? iconEl.className.replace(/[^a-zA-Z0-9\s_-]/g, '') : '';
+            const icon = safeClass ? `<i class="${safeClass}" style="font-size:12px;"></i>` : '✨';
+
+            cmds.push({
+                group: 'Extras & Plugins',
+                icon,
+                label,
+                hint: extractShortcutHint(rawTitle),
+                action: safe(() => btn.click()),
+                enabled: !btn.disabled
+            });
+        });
+
+        return cmds;
     }
-window.getStaticCommands = getStaticCommands;
+
     function getDynamicNodeCommands(query) {
         if (!query || query.length < 2) return [];
         const q = normalize(query);
-        const matches = mindMapData.nodes
-            .filter(n => n.title && normalize(n.title).includes(q))
-            .slice(0, 6)
-            .map(n => {
+        const results = [];
+
+        // Nós do mapa atual
+        mindMapData.nodes
+            .filter(n => {
+                const t = normalize(n.title || '');
+                const fn = normalize(n.typeData?.fullName || '');
+                const pov = normalize(n.pov || '');
+                return t.includes(q) || (fn && fn.includes(q)) || (pov && pov.includes(q));
+            })
+            .slice(0, 8)
+            .forEach(n => {
                 const td = n.type ? NODE_TYPES[n.type] : null;
-                return {
-                    group: 'Ir para',
+                results.push({
+                    group: 'Ir para nó',
                     icon: td ? td.icon : '📄',
-                    label: n.title,
+                    label: n.title || 'Sem título',
                     hint: td ? td.label : 'Sem tipo',
                     action: () => {
                         if (typeof jumpToNodeFromBible === 'function') {
@@ -16360,27 +16531,66 @@ window.getStaticCommands = getStaticCommands;
                             focusNodeInView(n);
                         }
                     },
-                    enabled: true,
-                };
+                    enabled: true
+                });
             });
-        return matches;
+
+        // Abas da história atual
+        if (currentStory && Array.isArray(currentStory.sheets)) {
+            currentStory.sheets.forEach(s => {
+                if (s.id === mindMapData.id) return;
+                if (normalize(s.name).includes(q)) {
+                    results.push({
+                        group: 'Ir para aba',
+                        icon: '📑',
+                        label: `Aba: ${s.name}`,
+                        hint: `${(s.nodes || []).length} nós`,
+                        action: () => switchSheet(s.id),
+                        enabled: true
+                    });
+                }
+            });
+        }
+
+        // Outras histórias salvas
+        if (typeof storiesDatabase === 'object' && storiesDatabase) {
+            Object.keys(storiesDatabase).forEach(k => {
+                if (k === currentStoryKey) return;
+                const st = storiesDatabase[k];
+                if (st && normalize(st.title).includes(q)) {
+                    results.push({
+                        group: 'Trocar história',
+                        icon: '📚',
+                        label: `História: ${st.title || k}`,
+                        hint: `${(st.sheets || []).length} abas`,
+                        action: () => switchStory(k),
+                        enabled: true
+                    });
+                }
+            });
+        }
+
+        return results;
+    }
+
+    function matchCommandScore(cmd, query) {
+        if (!query) return 0;
+        const candidates = [
+            fuzzyScore(cmd.label, query),
+            (() => { const s = fuzzyScore(cmd.group + ' ' + cmd.label, query); return s < 0 ? -1 : s + 20; })(),
+            cmd.keywords ? (() => { const s = fuzzyScore(cmd.keywords, query); return s < 0 ? -1 : s + 35; })() : -1,
+            cmd.hint ? (() => { const s = fuzzyScore(cmd.hint, query); return s < 0 ? -1 : s + 120; })() : -1
+        ].filter(s => s >= 0);
+        return candidates.length > 0 ? Math.min(...candidates) : -1;
     }
 
     function buildCommandList(query) {
         const staticCmds = getStaticCommands();
         const dynamicCmds = getDynamicNodeCommands(query);
 
-        // Pontua cada comando
-        const scored = staticCmds.map(cmd => {
-            const score = query
-                ? Math.min(
-                    fuzzyScore(cmd.label, query),
-                    fuzzyScore(cmd.group + ' ' + cmd.label, query) + 20,
-                    cmd.hint ? fuzzyScore(cmd.hint, query) + 200 : 999
-                )
-                : 0;
-            return { cmd, score: score < 0 ? 9999 : score };
-        }).filter(x => x.score < 9999);
+        const scored = staticCmds
+            .map(cmd => ({ cmd, score: matchCommandScore(cmd, query) }))
+            .filter(x => x.score >= 0);
 
         scored.sort((a, b) => {
             if (a.cmd.enabled !== b.cmd.enabled) return a.cmd.enabled ? -1 : 1;
@@ -16388,8 +16598,6 @@ window.getStaticCommands = getStaticCommands;
         });
 
         const all = [...dynamicCmds.map(cmd => ({ cmd, score: 0 })), ...scored];
-
-        // Remove duplicatas de "Ir para" que tenham a mesma label que um comando estático
         const seenLabels = new Set();
         return all.filter(({ cmd }) => {
             const key = cmd.group + '::' + cmd.label;
