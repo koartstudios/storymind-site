@@ -7,8 +7,20 @@
     if (window.SM_STORY_SHEET) return;
 
     const $ = id => document.getElementById(id);
+    const DB_KEY = 'storymind_database_v2'; // Mesma chave do app
 
-    // Cria o HTML do modal dinamicamente para não poluir o app.html
+    // Função que ajusta a altura das textareas para o conteúdo
+    function autoResizeTextareas() {
+        const modal = $('sm-ss-modal');
+        if (!modal) return;
+        modal.querySelectorAll('textarea').forEach(ta => {
+            if (ta.offsetParent !== null) {
+                ta.style.height = 'auto';
+                ta.style.height = ta.scrollHeight + 'px';
+            }
+        });
+    }
+
     function injectModal() {
         if ($('sm-ss-overlay')) return;
 
@@ -60,7 +72,7 @@
                             </div>
                             <div class="sm-ss-field">
                                 <label>Logline / Sinopse Curta</label>
-                                <textarea id="ss-logline" rows="3" placeholder="Ex: Um ferreiro descobre ser o herdeiro de um império caído..."></textarea>
+                                <textarea id="ss-logline" rows="3" placeholder="Nenhuma logline definida..."></textarea>
                             </div>
                         </div>
 
@@ -68,7 +80,7 @@
                         <div class="sm-ss-pane" data-pane="ideia">
                             <div class="sm-ss-field">
                                 <label>Ideia Controladora (Robert McKee)</label>
-                                <textarea id="ss-controlling" rows="6" placeholder="A história prova que [Valor] é alcançado/negado quando [Causa]...\nEx: O amor verdadeiro vence a morte quando o herói se sacrifica pelo outro."></textarea>
+                                <textarea id="ss-controlling" rows="6" placeholder="Nenhuma ideia controladora definida..."></textarea>
                             </div>
                         </div>
 
@@ -77,27 +89,27 @@
                             <div class="sm-ss-grid">
                                 <div class="sm-ss-field">
                                     <label>1. Quem é o protagonista?</label>
-                                    <input type="text" id="ss-q1" placeholder="Nome e breve descrição">
+                                    <textarea id="ss-q1" rows="1" placeholder="Não definido..."></textarea>
                                 </div>
                                 <div class="sm-ss-field">
                                     <label>2. Qual é o conflito?</label>
-                                    <input type="text" id="ss-q2" placeholder="O que impede o protagonista?">
+                                    <textarea id="ss-q2" rows="1" placeholder="Não definido..."></textarea>
                                 </div>
                                 <div class="sm-ss-field">
                                     <label>3. Qual é o valor central em jogo?</label>
-                                    <input type="text" id="ss-q3" placeholder="Ex: Liberdade vs. Tirania">
+                                    <textarea id="ss-q3" rows="1" placeholder="Não definido..."></textarea>
                                 </div>
                                 <div class="sm-ss-field">
                                     <label>4. Qual a condição antes da mudança?</label>
-                                    <input type="text" id="ss-q4" placeholder="Como era o mundo/ele antes?">
+                                    <textarea id="ss-q4" rows="1" placeholder="Não definido..."></textarea>
                                 </div>
                                 <div class="sm-ss-field">
                                     <label>5. Qual a condição depois da mudança?</label>
-                                    <input type="text" id="ss-q5" placeholder="Como é o mundo/ele no final?">
+                                    <textarea id="ss-q5" rows="1" placeholder="Não definido..."></textarea>
                                 </div>
                                 <div class="sm-ss-field">
                                     <label>6. Qual é a causa da mudança?</label>
-                                    <input type="text" id="ss-q6" placeholder="O evento ou escolha que gerou a virada.">
+                                    <textarea id="ss-q6" rows="1" placeholder="Não definido..."></textarea>
                                 </div>
                             </div>
                         </div>
@@ -105,40 +117,46 @@
                         <!-- ABA: STORY SPINE -->
                         <div class="sm-ss-pane" data-pane="spine">
                             <div class="sm-ss-spine">
-                                <div class="sm-ss-field"><label>Era uma vez...</label><input type="text" id="ss-s1" placeholder="O status quo inicial."></div>
-                                <div class="sm-ss-field"><label>Todos os dias...</label><input type="text" id="ss-s2" placeholder="A rotina do personagem."></div>
-                                <div class="sm-ss-field"><label>Mas um dia...</label><input type="text" id="ss-s3" placeholder="O incidente incitante."></div>
-                                <div class="sm-ss-field"><label>Por causa disso...</label><input type="text" id="ss-s4" placeholder="A primeira consequência."></div>
-                                <div class="sm-ss-field"><label>Por causa disso...</label><input type="text" id="ss-s5" placeholder="O escalonamento do conflito."></div>
-                                <div class="sm-ss-field"><label>Até que finalmente...</label><input type="text" id="ss-s6" placeholder="O clímax e a resolução."></div>
+                                <div class="sm-ss-field"><label>Era uma vez...</label><textarea id="ss-s1" rows="1" placeholder="Não definido..."></textarea></div>
+                                <div class="sm-ss-field"><label>Todos os dias...</label><textarea id="ss-s2" rows="1" placeholder="Não definido..."></textarea></div>
+                                <div class="sm-ss-field"><label>Mas um dia...</label><textarea id="ss-s3" rows="1" placeholder="Não definido..."></textarea></div>
+                                <div class="sm-ss-field"><label>Por causa disso...</label><textarea id="ss-s4" rows="1" placeholder="Não definido..."></textarea></div>
+                                <div class="sm-ss-field"><label>Por causa disso...</label><textarea id="ss-s5" rows="1" placeholder="Não definido..."></textarea></div>
+                                <div class="sm-ss-field"><label>Até que finalmente...</label><textarea id="ss-s6" rows="1" placeholder="Não definido..."></textarea></div>
                             </div>
                         </div>
                     </div>
 
                     <div class="sm-ss-footer">
-                        <button class="sm-ss-btn ghost" onclick="SM_STORY_SHEET.close()">Cancelar</button>
-                        <button class="sm-ss-btn primary" onclick="SM_STORY_SHEET.save()"><i class="fa-solid fa-floppy-disk"></i> Salvar Ficha</button>
+                        <button class="sm-ss-btn ghost" onclick="SM_STORY_SHEET.close()">Fechar</button>
+                        <button class="sm-ss-btn primary" id="sm-ss-btn-edit" onclick="SM_STORY_SHEET.setEditMode(true)">
+                            <i class="fa-solid fa-pen"></i> Editar Ficha
+                        </button>
+                        <button class="sm-ss-btn primary" id="sm-ss-btn-save" onclick="SM_STORY_SHEET.save()">
+                            <i class="fa-solid fa-floppy-disk"></i> Salvar Alterações
+                        </button>
                     </div>
                 </div>
             </div>
         `);
 
-        // Lógica das Abas
         document.querySelectorAll('.sm-ss-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 document.querySelectorAll('.sm-ss-tab').forEach(t => t.classList.remove('active'));
                 document.querySelectorAll('.sm-ss-pane').forEach(p => p.classList.remove('active'));
                 tab.classList.add('active');
                 document.querySelector(`.sm-ss-pane[data-pane="${tab.dataset.tab}"]`).classList.add('active');
+                
+                if (!document.getElementById('sm-ss-modal').classList.contains('is-editing')) {
+                    autoResizeTextareas();
+                }
             });
         });
     }
 
-    // Abre o Modal e preenche os dados
     function open() {
         injectModal();
         
-        // Verifica se a história está carregada no app
         if (typeof currentStory === 'undefined' || !currentStory) {
             if (typeof showToast === 'function') showToast('Nenhuma história aberta no momento.', 'error');
             return;
@@ -148,7 +166,6 @@
         const six = meta.sixQuestions || {};
         const spine = meta.storySpine || {};
 
-        // Preenche os campos
         $('ss-genre').value = meta.genre || '';
         $('ss-status').value = meta.status || '';
         $('ss-logline').value = meta.logline || '';
@@ -168,18 +185,31 @@
         $('ss-s5').value = spine.becauseOfThat2 || '';
         $('ss-s6').value = spine.untilFinally || '';
 
-        // Abre com a primeira aba ativa
-        document.querySelectorAll('.sm-ss-tab')[0].click();
         $('sm-ss-overlay').classList.add('open');
+        setEditMode(false);
+        document.querySelectorAll('.sm-ss-tab')[0].click();
     }
 
-    // Fecha o Modal
     function close() {
         const el = $('sm-ss-overlay');
         if (el) el.classList.remove('open');
     }
 
-    // Salva os dados no objeto da história e sincroniza
+    function setEditMode(isEditing) {
+        const modal = $('sm-ss-modal');
+        if (!modal) return;
+
+        if (isEditing) {
+            modal.classList.add('is-editing');
+            modal.querySelectorAll('textarea').forEach(ta => { ta.style.height = ''; });
+            setTimeout(() => { $('ss-genre').focus(); }, 100);
+        } else {
+            modal.classList.remove('is-editing');
+            // Um pequeno delay garante que o CSS de leitura foi aplicado antes de medir a altura
+            setTimeout(autoResizeTextareas, 10); 
+        }
+    }
+
     function save() {
         if (typeof currentStory === 'undefined' || !currentStory) return;
 
@@ -208,24 +238,26 @@
             untilFinally: $('ss-s6').value.trim()
         };
 
-        // 1. Salva no localStorage (Banco local)
-        if (typeof save === 'function') {
-            const db = typeof load === 'function' ? load() : {};
+        // 1. Salva no localStorage DIRETAMENTE (evita conflito com a função global save)
+        try {
+            const db = JSON.parse(localStorage.getItem(DB_KEY)) || {};
             db[currentStoryKey] = currentStory;
-            save(db);
+            localStorage.setItem(DB_KEY, JSON.stringify(db));
+        } catch (e) {
+            console.error('Erro ao salvar localmente:', e);
         }
 
-        // 2. Sincroniza com a Nuvem (Supabase)
+        // 2. Sincroniza com a Nuvem
         if (window.SM_CLOUD && typeof SM_CLOUD.push === 'function') {
             SM_CLOUD.push(currentStoryKey, currentStory);
             if (SM_CLOUD.flush) SM_CLOUD.flush();
         }
 
-        close();
-        if (typeof showToast === 'function') showToast('Ficha da História salva!', 'success');
+        // 3. Volta ao modo de leitura
+        setEditMode(false);
+        
+        if (typeof showToast === 'function') showToast('Ficha da História atualizada!', 'success');
     }
 
-    // Expõe globalmente
-    window.SM_STORY_SHEET = { open, close, save };
-
+    window.SM_STORY_SHEET = { open, close, save, setEditMode };
 })();

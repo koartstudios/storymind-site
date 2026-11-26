@@ -110,3 +110,51 @@ body.app-theme-dark .sm-ss-spine::before { background: #475569; }
     #sm-ss-modal { height: 100dvh; max-height: 100dvh; border-radius: 0; margin: 0; }
     #sm-ss-overlay { padding: 0; }
 }
+/* ==================== MODO DE LEITURA (Read-Only) ==================== */
+#sm-ss-modal:not(.is-editing) .sm-ss-field input,
+#sm-ss-modal:not(.is-editing) .sm-ss-field textarea,
+#sm-ss-modal:not(.is-editing) .sm-ss-field select {
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+    padding-left: 0;
+    padding-right: 0;
+    cursor: default;
+    resize: none;
+    pointer-events: none; /* Impede a interação */
+}
+
+/* Esconde a setinha do select no modo de leitura */
+#sm-ss-modal:not(.is-editing) .sm-ss-field select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+/* Se o campo estiver vazio, mostra um texto fantasma (ex: Não definido) */
+#sm-ss-modal:not(.is-editing) .sm-ss-field input:placeholder-shown,
+#sm-ss-modal:not(.is-editing) .sm-ss-field textarea:placeholder-shown {
+    color: var(--mut, #94a3b8);
+    font-style: italic;
+}
+
+/* Ajusta o layout das perguntas no modo leitura */
+#sm-ss-modal:not(.is-editing) .sm-ss-field {
+    gap: 2px;
+}
+
+/* Botões do Footer (Mostrar/Esconder) */
+#sm-ss-modal:not(.is-editing) #sm-ss-btn-save { display: none; }
+#sm-ss-modal.is-editing #sm-ss-btn-edit { display: none; }
+/* Ajustes para expansão automática */
+.sm-ss-field textarea {
+    overflow-y: hidden; /* Esconde a barra de rolagem vertical */
+    resize: none;       /* Impede o usuário de redimensionar manualmente no modo de edição */
+    min-height: 38px;   /* Altura mínima para 1 linha */
+}
+
+/* No modo de leitura, garante que a caixa não tenha bordas que quebrem o visual */
+#sm-ss-modal:not(.is-editing) .sm-ss-field textarea {
+    border-color: transparent !important;
+    background: transparent !important;
+}
