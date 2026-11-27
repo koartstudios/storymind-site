@@ -23,6 +23,41 @@ const loadMeta = () => { try { return JSON.parse(localStorage.getItem(META_KEY))
 const saveMeta = m => localStorage.setItem(META_KEY, JSON.stringify(m));
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+// Função para ajustar a altura das textareas no modo leitura
+function autoResizeMetaTextareas() {
+    const modal = document.getElementById('meta-modal');
+    if (!modal) return;
+    modal.querySelectorAll('textarea').forEach(ta => {
+        if (ta.offsetParent !== null) {
+            ta.style.height = 'auto';
+            ta.style.height = ta.scrollHeight + 'px';
+        }
+    });
+}
+
+// Função para alternar entre Visualizar e Editar
+window.setMetaEditMode = function(isEditing) {
+    const modal = document.getElementById('meta-modal');
+    const btnEdit = document.getElementById('meta-btn-edit');
+    const btnSave = document.getElementById('meta-btn-save');
+    
+    if (!modal) return;
+
+    if (isEditing) {
+        modal.classList.add('is-editing');
+        if (btnEdit) btnEdit.style.display = 'none';
+        if (btnSave) btnSave.style.display = 'inline-block';
+        // Foca no primeiro campo
+        setTimeout(() => { document.getElementById('meta-genre').focus(); }, 100);
+    } else {
+        modal.classList.remove('is-editing');
+        if (btnEdit) btnEdit.style.display = 'inline-block';
+        if (btnSave) btnSave.style.display = 'none';
+        // Ajusta a altura dos textos
+        setTimeout(autoResizeMetaTextareas, 10);
+    }
+};
+
 function fmt(t) {
   if (!t) return '—';
   const d = new Date(t), h = new Date(), dia = x => new Date(x.getFullYear(), x.getMonth(), x.getDate());
@@ -158,16 +193,51 @@ $('list').onclick = e => {
   
   document.querySelectorAll('.menu').forEach(m => m.remove());
 
-  // ✅ 1. Abrir Modal de Metadados
+    // ✅ 1. Abrir Modal de Metadados
   if (metaBtn) {
     const k = metaBtn.dataset.meta;
     const s = load()[k];
+    const meta = s.meta || {};
+    
     $('meta-key').value = k;
-    $('meta-genre').value = s.meta?.genre || '';
-    $('meta-status').value = s.meta?.status || '';
-    $('meta-logline').value = s.meta?.logline || '';
-    $('meta-audience').value = s.meta?.audience || '';
+    
+    // Aba Geral
+    $('meta-genre').value = meta.genre || '';
+    $('meta-status').value = meta.status || '';
+    $('meta-logline').value = meta.logline || '';
+    $('meta-audience').value = meta.audience || '';
+    
+    // Aba Ideia
+    $('meta-controlling').value = meta.controllingIdea || '';
+
+    // Aba 6 Perguntas
+    const six = meta.sixQuestions || {};
+    $('meta-q1').value = six.protagonist || '';
+    $('meta-q2').value = six.conflict || '';
+    $('meta-q3').value = six.value || '';
+    $('meta-q4').value = six.before || '';
+    $('meta-q5').value = six.after || '';
+    $('meta-q6').value = six.cause || '';
+
+    // Aba Story Spine
+    const spine = meta.storySpine || {};
+    $('meta-s1').value = spine.onceUpon || '';
+    $('meta-s2').value = spine.everyday || '';
+    $('meta-s3').value = spine.untilOneDay || spine.butOneDay || ''; 
+    $('meta-s4').value = spine.becauseOfThat || '';
+    $('meta-s5').value = spine.becauseOfThat2 || '';
+    $('meta-s6').value = spine.becauseOfThat3 || '';
+    $('meta-s7').value = spine.untilFinally || '';
+    $('meta-s8').value = spine.sinceThen || '';
+
+    // Reseta para a primeira aba
+    const firstTab = document.querySelector('#meta-modal .sm-ss-tab');
+    if (firstTab) firstTab.click();
+    
+    // Abre o modal no modo leitura
     document.getElementById('meta-modal').style.display = 'flex';
+    setMetaEditMode(false);
+    
     return e.stopPropagation();
   }
 
@@ -352,10 +422,32 @@ window.saveStoryMeta = function() {
     if (!db[k]) return;
 
     if (!db[k].meta) db[k].meta = {};
-    db[k].meta.genre = document.getElementById('meta-genre').value;
-    db[k].meta.status = document.getElementById('meta-status').value;
-    db[k].meta.logline = document.getElementById('meta-logline').value.trim();
-    db[k].meta.audience = document.getElementById('meta-audience').value;
+    
+    db[k].meta.genre = $('meta-genre').value;
+    db[k].meta.status = $('meta-status').value;
+    db[k].meta.logline = $('meta-logline').value.trim();
+    db[k].meta.audience = $('meta-audience').value;
+    db[k].meta.controllingIdea = $('meta-controlling').value.trim();
+
+    db[k].meta.sixQuestions = {
+        protagonist: $('meta-q1').value.trim(),
+        conflict: $('meta-q2').value.trim(),
+        value: $('meta-q3').value.trim(),
+        before: $('meta-q4').value.trim(),
+        after: $('meta-q5').value.trim(),
+        cause: $('meta-q6').value.trim()
+    };
+
+    db[k].meta.storySpine = {
+        onceUpon: $('meta-s1').value.trim(),
+        everyday: $('meta-s2').value.trim(),
+        untilOneDay: $('meta-s3').value.trim(),
+        becauseOfThat: $('meta-s4').value.trim(),
+        becauseOfThat2: $('meta-s5').value.trim(),
+        becauseOfThat3: $('meta-s6').value.trim(),
+        untilFinally: $('meta-s7').value.trim(),
+        sinceThen: $('meta-s8').value.trim()
+    };
 
     save(db);
     
@@ -364,12 +456,48 @@ window.saveStoryMeta = function() {
         if (SM_CLOUD.flush) SM_CLOUD.flush();
     }
     
-    document.getElementById('meta-modal').style.display = 'none';
+    // Volta ao modo leitura
+    setMetaEditMode(false);
     render();
-    if (window.SM_TOAST) window.SM_TOAST('Detalhes da história salvos!', 'success');
+    if (window.SM_TOAST) window.SM_TOAST('Ficha da História salva!', 'success');
 };
 // 🔼 FIM 🔼
 
 window.SM_NODE_TYPES = NODE_TYPE_CONFIG; // Expõe os tipos para a Bíblia
+
+// Lógica para as abas do Modal de Metadados
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('meta-modal');
+    if (modal) {
+        modal.querySelectorAll('.sm-ss-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                modal.querySelectorAll('.sm-ss-tab').forEach(t => t.classList.remove('active'));
+                modal.querySelectorAll('.sm-ss-pane').forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                modal.querySelector(`.sm-ss-pane[data-pane="${tab.dataset.tab}"]`).classList.add('active');
+            });
+        });
+    }
+});
+
+// Lógica para as abas do Modal de Metadados
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('meta-modal');
+    if (modal) {
+        modal.querySelectorAll('.sm-ss-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                modal.querySelectorAll('.sm-ss-tab').forEach(t => t.classList.remove('active'));
+                modal.querySelectorAll('.sm-ss-pane').forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                modal.querySelector(`.sm-ss-pane[data-pane="${tab.dataset.tab}"]`).classList.add('active');
+                
+                // Se estiver no modo leitura, ajusta a altura dos textos
+                if (!modal.classList.contains('is-editing')) {
+                    autoResizeMetaTextareas();
+                }
+            });
+        });
+    }
+});
 
 render();
