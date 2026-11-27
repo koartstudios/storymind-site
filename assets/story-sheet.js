@@ -84,45 +84,71 @@
                             </div>
                         </div>
 
-                        <!-- ABA: 6 PERGUNTAS -->
+                        <!-- ABA: 6 PERGUNTAS (Com Tooltips) -->
                         <div class="sm-ss-pane" data-pane="perguntas">
                             <div class="sm-ss-grid">
                                 <div class="sm-ss-field">
-                                    <label>1. Quem é o protagonista?</label>
+                                    <label class="flex items-center gap-1">1. Quem é o protagonista? <i class="fa-solid fa-circle-question text-slate-400 text-[10px] cursor-help" title="Quem é o personagem principal que guia a história?"></i></label>
                                     <textarea id="ss-q1" rows="1" placeholder="Não definido..."></textarea>
                                 </div>
                                 <div class="sm-ss-field">
-                                    <label>2. Qual é o conflito?</label>
+                                    <label class="flex items-center gap-1">2. Qual é o conflito? <i class="fa-solid fa-circle-question text-slate-400 text-[10px] cursor-help" title="Qual é o principal obstáculo que impede o protagonista de atingir seu objetivo?"></i></label>
                                     <textarea id="ss-q2" rows="1" placeholder="Não definido..."></textarea>
                                 </div>
                                 <div class="sm-ss-field">
-                                    <label>3. Qual é o valor central em jogo?</label>
+                                    <label class="flex items-center gap-1">3. Qual é o valor central em jogo? <i class="fa-solid fa-circle-question text-slate-400 text-[10px] cursor-help" title="O que está em jogo? (Ex: Amor vs. Ódio, Liberdade vs. Tirania)"></i></label>
                                     <textarea id="ss-q3" rows="1" placeholder="Não definido..."></textarea>
                                 </div>
                                 <div class="sm-ss-field">
-                                    <label>4. Qual a condição antes da mudança?</label>
+                                    <label class="flex items-center gap-1">4. Qual a condição antes da mudança? <i class="fa-solid fa-circle-question text-slate-400 text-[10px] cursor-help" title="Qual é o estado inicial do mundo ou do personagem antes da jornada?"></i></label>
                                     <textarea id="ss-q4" rows="1" placeholder="Não definido..."></textarea>
                                 </div>
                                 <div class="sm-ss-field">
-                                    <label>5. Qual a condição depois da mudança?</label>
+                                    <label class="flex items-center gap-1">5. Qual a condição depois da mudança? <i class="fa-solid fa-circle-question text-slate-400 text-[10px] cursor-help" title="Como o mundo ou o personagem mudou ao final da história?"></i></label>
                                     <textarea id="ss-q5" rows="1" placeholder="Não definido..."></textarea>
                                 </div>
                                 <div class="sm-ss-field">
-                                    <label>6. Qual é a causa da mudança?</label>
+                                    <label class="flex items-center gap-1">6. Qual é a causa da mudança? <i class="fa-solid fa-circle-question text-slate-400 text-[10px] cursor-help" title="Qual evento ou escolha chave desencadeou essa transformação?"></i></label>
                                     <textarea id="ss-q6" rows="1" placeholder="Não definido..."></textarea>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- ABA: STORY SPINE -->
+                        <!-- ABA: STORY SPINE (Com novos campos e Tooltips) -->
                         <div class="sm-ss-pane" data-pane="spine">
                             <div class="sm-ss-spine">
-                                <div class="sm-ss-field"><label>Era uma vez...</label><textarea id="ss-s1" rows="1" placeholder="Não definido..."></textarea></div>
-                                <div class="sm-ss-field"><label>Todos os dias...</label><textarea id="ss-s2" rows="1" placeholder="Não definido..."></textarea></div>
-                                <div class="sm-ss-field"><label>Mas um dia...</label><textarea id="ss-s3" rows="1" placeholder="Não definido..."></textarea></div>
-                                <div class="sm-ss-field"><label>Por causa disso...</label><textarea id="ss-s4" rows="1" placeholder="Não definido..."></textarea></div>
-                                <div class="sm-ss-field"><label>Por causa disso...</label><textarea id="ss-s5" rows="1" placeholder="Não definido..."></textarea></div>
-                                <div class="sm-ss-field"><label>Até que finalmente...</label><textarea id="ss-s6" rows="1" placeholder="Não definido..."></textarea></div>
+                                <div class="sm-ss-field">
+                                    <label class="flex items-center gap-1">Era uma vez... <i class="fa-solid fa-circle-question text-slate-400 text-[10px] cursor-help" title="Estabelece o cenário e o status quo inicial."></i></label>
+                                    <textarea id="ss-s1" rows="1" placeholder="Não definido..."></textarea>
+                                </div>
+                                <div class="sm-ss-field">
+                                    <label class="flex items-center gap-1">Todos os dias... <i class="fa-solid fa-circle-question text-slate-400 text-[10px] cursor-help" title="A rotina do personagem e como as coisas são normalmente."></i></label>
+                                    <textarea id="ss-s2" rows="1" placeholder="Não definido..."></textarea>
+                                </div>
+                                <div class="sm-ss-field">
+                                    <label class="flex items-center gap-1">Até que um dia... <i class="fa-solid fa-circle-question text-slate-400 text-[10px] cursor-help" title="O incidente incitante que quebra a rotina."></i></label>
+                                    <textarea id="ss-s3" rows="1" placeholder="Não definido..."></textarea>
+                                </div>
+                                <div class="sm-ss-field">
+                                    <label class="flex items-center gap-1">Por causa disso... <i class="fa-solid fa-circle-question text-slate-400 text-[10px] cursor-help" title="A primeira consequência do incidente incitante."></i></label>
+                                    <textarea id="ss-s4" rows="1" placeholder="Não definido..."></textarea>
+                                </div>
+                                <div class="sm-ss-field">
+                                    <label class="flex items-center gap-1">Por causa disso... <i class="fa-solid fa-circle-question text-slate-400 text-[10px] cursor-help" title="O conflito se intensifica e as apostas aumentam."></i></label>
+                                    <textarea id="ss-s5" rows="1" placeholder="Não definido..."></textarea>
+                                </div>
+                                <div class="sm-ss-field">
+                                    <label class="flex items-center gap-1">Por causa disso... <i class="fa-solid fa-circle-question text-slate-400 text-[10px] cursor-help" title="A crise final antes do clímax."></i></label>
+                                    <textarea id="ss-s6" rows="1" placeholder="Não definido..."></textarea>
+                                </div>
+                                <div class="sm-ss-field">
+                                    <label class="flex items-center gap-1">Até que finalmente... <i class="fa-solid fa-circle-question text-slate-400 text-[10px] cursor-help" title="O clímax e a resolução do conflito principal."></i></label>
+                                    <textarea id="ss-s7" rows="1" placeholder="Não definido..."></textarea>
+                                </div>
+                                <div class="sm-ss-field">
+                                    <label class="flex items-center gap-1">Desde então... <i class="fa-solid fa-circle-question text-slate-400 text-[10px] cursor-help" title="O novo status quo, a lição aprendida ou a mudança permanente."></i></label>
+                                    <textarea id="ss-s8" rows="1" placeholder="Não definido..."></textarea>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -178,12 +204,15 @@
         $('ss-q5').value = six.after || '';
         $('ss-q6').value = six.cause || '';
 
+        // Carrega Story Spine (com migração do campo 'butOneDay' antigo para 'untilOneDay')
         $('ss-s1').value = spine.onceUpon || '';
         $('ss-s2').value = spine.everyday || '';
-        $('ss-s3').value = spine.butOneDay || '';
+        $('ss-s3').value = spine.untilOneDay || spine.butOneDay || ''; 
         $('ss-s4').value = spine.becauseOfThat || '';
         $('ss-s5').value = spine.becauseOfThat2 || '';
-        $('ss-s6').value = spine.untilFinally || '';
+        $('ss-s6').value = spine.becauseOfThat3 || ''; 
+        $('ss-s7').value = spine.untilFinally || '';
+        $('ss-s8').value = spine.sinceThen || '';
 
         $('sm-ss-overlay').classList.add('open');
         setEditMode(false);
@@ -205,7 +234,6 @@
             setTimeout(() => { $('ss-genre').focus(); }, 100);
         } else {
             modal.classList.remove('is-editing');
-            // Um pequeno delay garante que o CSS de leitura foi aplicado antes de medir a altura
             setTimeout(autoResizeTextareas, 10); 
         }
     }
@@ -229,16 +257,19 @@
             cause: $('ss-q6').value.trim()
         };
 
+        // Salva o novo Story Spine com os 8 campos
         currentStory.meta.storySpine = {
             onceUpon: $('ss-s1').value.trim(),
             everyday: $('ss-s2').value.trim(),
-            butOneDay: $('ss-s3').value.trim(),
+            untilOneDay: $('ss-s3').value.trim(),
             becauseOfThat: $('ss-s4').value.trim(),
             becauseOfThat2: $('ss-s5').value.trim(),
-            untilFinally: $('ss-s6').value.trim()
+            becauseOfThat3: $('ss-s6').value.trim(),
+            untilFinally: $('ss-s7').value.trim(),
+            sinceThen: $('ss-s8').value.trim()
         };
 
-        // 1. Salva no localStorage DIRETAMENTE (evita conflito com a função global save)
+        // 1. Salva no localStorage
         try {
             const db = JSON.parse(localStorage.getItem(DB_KEY)) || {};
             db[currentStoryKey] = currentStory;
