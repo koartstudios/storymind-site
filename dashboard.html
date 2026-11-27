@@ -842,6 +842,156 @@
     resize: none;
     min-height: 38px;
 }
+/* ==================== MODO ESCURO EXCLUSIVO DO MODAL METADADOS ==================== */
+
+/* Fundo principal do modal */
+body.app-theme-dark #meta-modal > div {
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+    box-shadow: 0 24px 60px rgba(0,0,0,.5) !important;
+}
+
+/* Cabeçalho */
+body.app-theme-dark #meta-modal > div > div:first-child {
+    background: #0f172a !important;
+    border-bottom: 1px solid #334155 !important;
+}
+body.app-theme-dark #meta-modal > div > div:first-child h3 {
+    color: #f1f5f9 !important;
+}
+body.app-theme-dark #meta-modal > div > div:first-child button {
+    color: #94a3b8 !important;
+}
+
+/* Rodapé */
+body.app-theme-dark #meta-modal > div > div:last-child {
+    background: #0f172a !important;
+    border-top: 1px solid #334155 !important;
+}
+
+/* Botão de Fechar (Ghost) no rodapé */
+body.app-theme-dark #meta-btn-edit ~ button,
+body.app-theme-dark #meta-modal > div > div:last-child button:first-child {
+    color: #cbd5e1 !important;
+}
+
+/* Hover dos botões do rodapé (opcional, para ficar mais elegante) */
+body.app-theme-dark #meta-modal > div > div:last-child button:hover {
+    filter: brightness(1.2);
+}
+
+/* Ajustes finos nos inputs, selects e textareas dentro do modal */
+body.app-theme-dark #meta-modal .sm-ss-field input,
+body.app-theme-dark #meta-modal .sm-ss-field textarea,
+body.app-theme-dark #meta-modal .sm-ss-field select {
+    background: #0f172a !important;
+    border-color: #475569 !important;
+    color: #e2e8f0 !important;
+}
+
+body.app-theme-dark #meta-modal .sm-ss-field input:focus,
+body.app-theme-dark #meta-modal .sm-ss-field textarea:focus,
+body.app-theme-dark #meta-modal .sm-ss-field select:focus {
+    border-color: #818cf8 !important;
+    box-shadow: 0 0 0 3px rgba(99,102,241,.2) !important;
+}
+
+/* Cor dos placeholders no escuro */
+body.app-theme-dark #meta-modal .sm-ss-field input::placeholder,
+body.app-theme-dark #meta-modal .sm-ss-field textarea::placeholder {
+    color: #64748b !important;
+}
+/* ==================== MODO ESCURO DO MODAL METADADOS (DASHBOARD) ==================== */
+
+/* 1. Força o fundo do modal e das seções a ficarem escuros */
+#meta-modal > div {
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+    box-shadow: 0 24px 60px rgba(0,0,0,.5) !important;
+}
+#meta-modal > div > div:nth-child(1), /* Header */
+#meta-modal > div > div:last-child {  /* Footer */
+    background: #0f172a !important;
+    border-color: #334155 !important;
+}
+#meta-modal > div > div:nth-child(1) h3 {
+    color: #f1f5f9 !important;
+}
+
+/* 2. Abas do modal */
+#meta-modal .sm-ss-tabs {
+    background: #0f172a !important;
+    border-bottom: 1px solid #334155 !important;
+}
+#meta-modal .sm-ss-tab {
+    color: #94a3b8 !important;
+}
+#meta-modal .sm-ss-tab.active {
+    color: #a5b4fc !important;
+    border-bottom-color: #818cf8 !important;
+}
+
+/* 3. Labels dos campos */
+#meta-modal .sm-ss-field label {
+    color: #94a3b8 !important;
+}
+
+/* 4. Campos no MODO EDIÇÃO */
+#meta-modal.is-editing .sm-ss-field input,
+#meta-modal.is-editing .sm-ss-field textarea,
+#meta-modal.is-editing .sm-ss-field select {
+    background: #0f172a !important;
+    border-color: #475569 !important;
+    color: #e2e8f0 !important;
+}
+
+/* 5. Campos no MODO VISUALIZAÇÃO (Leitura) */
+#meta-modal:not(.is-editing) .sm-ss-field input,
+#meta-modal:not(.is-editing) .sm-ss-field textarea,
+#meta-modal:not(.is-editing) .sm-ss-field select {
+    background: transparent !important;
+    border-color: transparent !important;
+    color: #e2e8f0 !important; /* Texto claro para contrastar com o fundo escuro */
+    pointer-events: none;
+}
+
+/* 6. Placeholders no Modo Visualização */
+#meta-modal:not(.is-editing) .sm-ss-field input::placeholder,
+#meta-modal:not(.is-editing) .sm-ss-field textarea::placeholder {
+    color: #64748b !important;
+    font-style: italic;
+}
+
+/* 7. Ajuste do botão Fechar no rodapé */
+#meta-modal > div > div:last-child button:first-child {
+    color: #cbd5e1 !important;
+}
+/* ==================== RODAPÉ DO MODAL METADADOS (MODO ESCURO) ==================== */
+
+/* Força o fundo do rodapé a ser escuro */
+#meta-modal > div > div:last-child {
+    background-color: #0f172a !important; 
+    border-top: 1px solid #334155 !important; 
+}
+
+/* Ajusta a cor do botão "Fechar" (que é ghost/transparente) */
+#meta-modal > div > div:last-child button:first-child {
+    color: #cbd5e1 !important;
+}
+#meta-modal > div > div:last-child button:first-child:hover {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Garante que o botão "Editar Ficha" e "Salvar" continuem com o azul/roxo bonito */
+#meta-modal #meta-btn-edit,
+#meta-modal #meta-btn-save {
+    background-color: #6366f1 !important;
+    color: #ffffff !important;
+}
+#meta-modal #meta-btn-edit:hover,
+#meta-modal #meta-btn-save:hover {
+    background-color: #4f46e5 !important;
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="assets/config.js"></script><script src="assets/auth.js"></script><script src="assets/store.js"></script>
@@ -2146,7 +2296,7 @@
         </div>
 
          <!-- Footer -->
-        <div style="padding:14px 20px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:flex-end; gap:10px; flex-shrink:0;">
+        <div style="padding:14px 20px; border-top:1px solid #334155; background:#0f172a; display:flex; justify-content:flex-end; gap:10px; flex-shrink:0;">
             <button onclick="document.getElementById('meta-modal').style.display='none'" style="background:transparent; color:#64748b; border:none; padding:10px 20px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer;">Fechar</button>
             
             <!-- Botão de Editar -->
