@@ -24,7 +24,7 @@
     let activeStory = 'all';
     let activeSearch = '';
     let viewGroup = 'type';    // 'type' | 'story'
-    let viewLayout = 'grid';   // 'grid' | 'gallery' | 'list'
+    let viewLayout = 'gallery'; // 🔽 MUDOU DE 'grid' PARA 'gallery'
 
     const $ = id => document.getElementById(id);
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -92,17 +92,224 @@
     }
 
     // ---------- Injeção do botão + overlay ----------
-    function injectButton() {
+             function injectButton() {
         if ($('sm-bible-btn')) return;
+        
+        // 1. Tenta injetar no dashboard (onde existe .hero-actions)
         const heroActions = document.querySelector('.hero-actions');
-        if (!heroActions) return;
-        const btn = document.createElement('button');
-        btn.id = 'sm-bible-btn';
-        btn.className = 'btn-hero';
-        btn.style.cssText = 'background:linear-gradient(135deg,#8b5cf6,#6366f1); color:#fff; border-color:transparent; box-shadow:0 6px 16px -8px rgba(139,92,246,.55);';
-        btn.innerHTML = '<i class="fa-solid fa-book-skull"></i> Bíblia do Universo';
-        btn.addEventListener('click', open);
-        heroActions.prepend(btn);
+        if (heroActions) {
+            const btn = document.createElement('button');
+            btn.id = 'sm-bible-btn';
+            btn.className = 'btn-hero';
+            btn.style.cssText = 'background:linear-gradient(135deg,#8b5cf6,#6366f1); color:#fff; border-color:transparent; box-shadow:0 6px 16px -8px rgba(139,92,246,.55);';
+            btn.innerHTML = '<i class="fa-solid fa-book-skull"></i> Bíblia do Universo';
+            btn.addEventListener('click', open);
+            heroActions.prepend(btn);
+            return;
+        }
+
+        // 2. Se estamos no app.html, cria o botão flutuante arrastável
+        const fabWrap = document.createElement('div');
+        fabWrap.id = 'sm-bible-fab-wrap';
+        fabWrap.style.cssText = `
+            position: fixed;
+            top: 85px;
+            left: 16px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        `;
+
+        const fab = document.createElement('button');
+        fab.id = 'sm-bible-btn';
+        fab.title = 'Clique para abrir ou arraste para mover';
+        
+        // Ícone principal + SETAS AO REDOR (saindo para fora)
+        fab.innerHTML = `
+            <i class="fa-solid fa-book-skull"></i>
+            <span class="sm-bible-arrow up"><i class="fa-solid fa-chevron-up"></i></span>
+            <span class="sm-bible-arrow down"><i class="fa-solid fa-chevron-down"></i></span>
+            <span class="sm-bible-arrow left"><i class="fa-solid fa-chevron-left"></i></span>
+            <span class="sm-bible-arrow right"><i class="fa-solid fa-chevron-right"></i></span>
+        `;
+
+        fab.style.cssText = `
+            position: relative;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #8b5cf6, #6366f1);
+            color: #fff;
+            border: 2px solid rgba(255,255,255,0.2);
+            box-shadow: 0 8px 20px rgba(99,102,241,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            cursor: grab;
+            transition: transform 0.1s, box-shadow 0.1s;
+            touch-action: none;
+            user-select: none;
+            animation: sm-bible-wiggle 1s ease-in-out 2; 
+            flex-shrink: 0;
+            overflow: visible;
+        `;
+
+        // Balão de Fala (Speech Bubble)
+        const bubble = document.createElement('div');
+        bubble.className = 'sm-bible-bubble';
+        bubble.innerHTML = `
+            <div style="font-weight:800; font-size:11px; color:#a5b4fc; margin-bottom:2px; text-transform:uppercase; letter-spacing:0.05em;">Bíblia do Universo</div>
+            <div>Você pode me <b>arrastar</b> para qualquer lugar!</div>
+        `;
+
+        // Adiciona as animações e o estilo no head (se não existir)
+        if (!document.getElementById('sm-bible-wiggle-css')) {
+            const style = document.createElement('style');
+            style.id = 'sm-bible-wiggle-css';
+            style.textContent = `
+                @keyframes sm-bible-wiggle {
+                    0%, 100% { transform: rotate(0) scale(1); }
+                    20% { transform: rotate(-10deg) scale(1.05); }
+                    40% { transform: rotate(10deg) scale(1.05); }
+                    60% { transform: rotate(-5deg) scale(1); }
+                    80% { transform: rotate(5deg) scale(1); }
+                }
+                
+                .sm-bible-bubble {
+                    position: relative;
+                    background: #1e293b;
+                    color: #e2e8f0;
+                    padding: 10px 14px;
+                    border-radius: 12px;
+                    font-size: 12px;
+                    line-height: 1.4;
+                    white-space: nowrap;
+                    pointer-events: none;
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05) inset;
+                    animation: sm-bubble-in 0.4s cubic-bezier(.16,1,.3,1);
+                    transition: opacity 0.3s;
+                }
+                
+                .sm-bible-bubble::before {
+                    content: '';
+                    position: absolute;
+                    left: -6px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    border-width: 6px 6px 6px 0;
+                    border-style: solid;
+                    border-color: transparent #1e293b transparent transparent;
+                }
+
+                .sm-bible-bubble.flip::before {
+                    left: auto;
+                    right: -6px;
+                    border-width: 6px 0 6px 6px;
+                    border-color: transparent transparent transparent #1e293b;
+                }
+
+                @keyframes sm-bubble-in {
+                    from { opacity: 0; transform: translateX(-10px) scale(0.9); }
+                    to { opacity: 1; transform: translateX(0) scale(1); }
+                }
+
+                /* ===== SETAS INDICADORAS DE MOVIMENTO ===== */
+                .sm-bible-arrow {
+                    position: absolute;
+                    color: #312e81; /* 🔽 COR ESCURA (Índigo escuro) */
+                    font-size: 9px;
+                    font-weight: 900;
+                    pointer-events: none;
+                    opacity: 1; /* 🔽 SEMPRE VISÍVEL */
+                    filter: drop-shadow(0 1px 2px rgba(255,255,255,0.3)); /* Sombra clara para destacar no escuro */
+                }
+                
+                .sm-bible-arrow.up { top: -15px; left: 50%; margin-left: -5px; animation: sm-arrow-up 1.8s ease-in-out infinite; }
+                .sm-bible-arrow.down { bottom: -15px; left: 50%; margin-left: -5px; animation: sm-arrow-down 1.8s ease-in-out infinite; }
+                .sm-bible-arrow.left { left: -15px; top: 50%; margin-top: -5px; animation: sm-arrow-left 1.8s ease-in-out infinite; }
+                .sm-bible-arrow.right { right: -15px; top: 50%; margin-top: -5px; animation: sm-arrow-right 1.8s ease-in-out infinite; }
+
+                /* A animação agora só mexe na posição, mantendo a opacidade no máximo */
+                @keyframes sm-arrow-up { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+                @keyframes sm-arrow-down { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
+                @keyframes sm-arrow-left { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-4px); } }
+                @keyframes sm-arrow-right { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(4px); } }
+            `;
+            document.head.appendChild(style);
+        }
+
+        fabWrap.appendChild(fab);
+        fabWrap.appendChild(bubble);
+        document.body.appendChild(fabWrap);
+
+        let isDragging = false;
+        let startX, startY, startLeft, startTop;
+        let hasMoved = false;
+
+        // O balão de fala ainda some para não atrapalhar a tela
+        setTimeout(() => { if (!hasMoved) bubble.style.opacity = '0'; }, 6000);
+
+        fab.addEventListener('pointerdown', (e) => {
+            isDragging = false;
+            startX = e.clientX;
+            startY = e.clientY;
+            const rect = fabWrap.getBoundingClientRect();
+            startLeft = rect.left;
+            startTop = rect.top;
+            
+            fab.style.cursor = 'grabbing';
+            fab.style.animation = 'none'; 
+            fab.setPointerCapture(e.pointerId);
+        });
+
+        fab.addEventListener('pointermove', (e) => {
+            if (!fab.hasPointerCapture(e.pointerId)) return;
+            
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            
+            if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+                isDragging = true;
+                hasMoved = true;
+                bubble.style.opacity = '0'; 
+            }
+
+            if (isDragging) {
+                let newLeft = startLeft + dx;
+                let newTop = startTop + dy;
+                
+                newLeft = Math.max(15, Math.min(window.innerWidth - 63, newLeft));
+                newTop = Math.max(15, Math.min(window.innerHeight - 63, newTop));
+                
+                fabWrap.style.left = newLeft + 'px';
+                fabWrap.style.top = newTop + 'px';
+
+                if (newLeft > window.innerWidth - 250) {
+                    bubble.classList.add('flip');
+                    fabWrap.style.flexDirection = 'row-reverse';
+                } else {
+                    bubble.classList.remove('flip');
+                    fabWrap.style.flexDirection = 'row';
+                }
+            }
+        });
+
+        fab.addEventListener('pointerup', (e) => {
+            fab.style.cursor = 'grab';
+            fab.releasePointerCapture(e.pointerId);
+        });
+
+        fab.addEventListener('click', (e) => {
+            if (isDragging) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+            bubble.style.opacity = '0';
+            open();
+        });
     }
 
        function injectOverlay() {
@@ -147,8 +354,8 @@
                             <div class="sm-bible-control-group">
                                 <span class="sm-bible-control-label">Visualizar:</span>
                                 <div class="sm-bible-view-toggle" id="sm-bible-layout-toggle">
-                                    <button data-mode="grid" class="on" title="Grade"><i class="fa-solid fa-table-cells-large"></i> Grade</button>
-                                    <button data-mode="gallery" title="Galeria"><i class="fa-solid fa-image"></i> Galeria</button>
+                                    <button data-mode="grid" title="Grade"><i class="fa-solid fa-table-cells-large"></i> Grade</button>
+                                    <button data-mode="gallery" class="on" title="Galeria"><i class="fa-solid fa-image"></i> Galeria</button>
                                     <button data-mode="list" title="Lista"><i class="fa-solid fa-list"></i> Lista</button>
                                 </div>
                             </div>
