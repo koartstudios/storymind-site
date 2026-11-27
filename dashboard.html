@@ -6,7 +6,8 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="assets/style.css">
 <link rel="stylesheet" href="assets/profile.css">
-<link rel="stylesheet" href="assets/dashboard-bible.css"> <!-- 🔽 NOVO -->
+<link rel="stylesheet" href="assets/dashboard-bible.css">
+<link rel="stylesheet" href="assets/story-sheet.css">
 <style>
     /* ========= Hero ========= */
     .hero {
@@ -801,6 +802,45 @@
     #node-types-container.open .sm-node-types-chevron {
         transform: rotate(180deg);
     }
+}
+/* ==================== MODO DE LEITURA (Dashboard) ==================== */
+#meta-modal:not(.is-editing) .sm-ss-field input,
+#meta-modal:not(.is-editing) .sm-ss-field textarea,
+#meta-modal:not(.is-editing) .sm-ss-field select {
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+    padding-left: 0;
+    padding-right: 0;
+    cursor: default;
+    resize: none;
+    pointer-events: none; /* Impede a interação */
+}
+
+/* Esconde a setinha do select no modo de leitura */
+#meta-modal:not(.is-editing) .sm-ss-field select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+/* Se o campo estiver vazio, mostra um texto fantasma */
+#meta-modal:not(.is-editing) .sm-ss-field input:placeholder-shown,
+#meta-modal:not(.is-editing) .sm-ss-field textarea:placeholder-shown {
+    color: #94a3b8;
+    font-style: italic;
+}
+
+/* Ajusta o layout das perguntas no modo leitura */
+#meta-modal:not(.is-editing) .sm-ss-field {
+    gap: 2px;
+}
+
+/* Esconde a barra de rolagem das textareas no modo leitura */
+#meta-modal textarea {
+    overflow-y: hidden;
+    resize: none;
+    min-height: 38px;
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -2000,63 +2040,125 @@
     window.SM_HUD = { refresh: renderHudStats };
 })();
 </script>
-<!-- 🔽 MODAL DE METADADOS 🔽 -->
+<!-- 🔽 MODAL DE METADADOS (EXPANDIDO COM ABAS) 🔽 -->
 <div id="meta-modal" style="position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); z-index:9999; display:none; align-items:center; justify-content:center; padding:16px;">
-    <div style="background:#fff; border-radius:16px; width:100%; max-width:420px; overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,.3);">
-        <div style="padding:16px 20px; border-bottom:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:space-between; align-items:center;">
-            <h3 style="font-weight:800; font-size:14px; color:#0f172a; display:flex; align-items:center; gap:8px;">
-                <i class="fa-solid fa-sliders" style="color:#6366f1;"></i> Detalhes da História
+    <div style="background:#fff; border-radius:16px; width:100%; max-width:800px; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,.3);">
+        
+        <!-- Header -->
+        <div style="padding:16px 20px; border-bottom:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+            <h3 style="font-weight:800; font-size:16px; color:#0f172a; display:flex; align-items:center; gap:8px; margin:0;">
+                <i class="fa-solid fa-file-lines" style="color:#6366f1;"></i> Ficha da História
             </h3>
             <button onclick="document.getElementById('meta-modal').style.display='none'" style="background:none; border:none; color:#94a3b8; cursor:pointer; font-size:16px;"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
+
+        <!-- Abas -->
+        <div class="sm-ss-tabs" style="flex-shrink:0;">
+            <button class="sm-ss-tab active" data-tab="geral">Visão Geral</button>
+            <button class="sm-ss-tab" data-tab="ideia">Ideia Governante</button>
+            <button class="sm-ss-tab" data-tab="perguntas">As 6 Perguntas</button>
+            <button class="sm-ss-tab" data-tab="spine">Story Spine</button>
+        </div>
+
+        <!-- Corpo (Scrollable) -->
+        <div class="sm-ss-body" style="overflow-y:auto; flex:1;">
             <input type="hidden" id="meta-key">
-            <div>
-                <label style="display:block; font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Gênero Literário</label>
-                <select id="meta-genre" style="width:100%; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:10px; font-size:13px; outline:none;">
-                    <option value="">Não definido</option>
-                    <option value="Fantasia">Fantasia</option>
-                    <option value="Ficção Científica">Ficção Científica</option>
-                    <option value="Romance">Romance</option>
-                    <option value="Suspense/Mistério">Suspense/Mistério</option>
-                    <option value="Drama">Drama</option>
-                    <option value="Terror">Terror</option>
-                    <option value="Aventura">Aventura</option>
-                    <option value="Histórico">Histórico</option>
-                    <option value="Outro">Outro</option>
-                </select>
+            
+            <!-- ABA: GERAL -->
+            <div class="sm-ss-pane active" data-pane="geral">
+                <div class="sm-ss-grid">
+                    <div class="sm-ss-field">
+                        <label>Gênero Literário</label>
+                        <select id="meta-genre">
+                            <option value="">Não definido</option>
+                            <option value="Fantasia">Fantasia</option>
+                            <option value="Ficção Científica">Ficção Científica</option>
+                            <option value="Romance">Romance</option>
+                            <option value="Suspense/Mistério">Suspense/Mistério</option>
+                            <option value="Drama">Drama</option>
+                            <option value="Terror">Terror</option>
+                            <option value="Aventura">Aventura</option>
+                            <option value="Histórico">Histórico</option>
+                            <option value="Outro">Outro</option>
+                        </select>
+                    </div>
+                    <div class="sm-ss-field">
+                        <label>Status</label>
+                        <select id="meta-status">
+                            <option value="">Não definido</option>
+                            <option value="Ideia">Ideia / Brainstorm</option>
+                            <option value="Planejamento">Planejamento / Mapa</option>
+                            <option value="Rascunho">Rascunho</option>
+                            <option value="Revisão">Revisão</option>
+                            <option value="Concluído">Concluído</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="sm-ss-field">
+                    <label>Logline / Sinopse Curta</label>
+                    <textarea id="meta-logline" rows="3" placeholder="Ex: Um ferreiro descobre ser o herdeiro de um império caído..."></textarea>
+                </div>
+                <div class="sm-ss-field">
+                    <label>Público-Alvo</label>
+                    <select id="meta-audience">
+                        <option value="">Não definido</option>
+                        <option value="Infantil">Infantil</option>
+                        <option value="Juvenil">Juvenil (YA)</option>
+                        <option value="Adulto">Adulto</option>
+                        <option value="Novo Adulto">Novo Adulto (NA)</option>
+                    </select>
+                </div>
             </div>
-            <div>
-                <label style="display:block; font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Status do Projeto</label>
-                <select id="meta-status" style="width:100%; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:10px; font-size:13px; outline:none;">
-                    <option value="">Não definido</option>
-                    <option value="Ideia">Ideia / Brainstorm</option>
-                    <option value="Planejamento">Planejamento / Mapa</option>
-                    <option value="Rascunho">Rascunho</option>
-                    <option value="Revisão">Revisão</option>
-                    <option value="Concluído">Concluído</option>
-                </select>
+
+            <!-- ABA: IDEIA GOVERNANTE -->
+            <div class="sm-ss-pane" data-pane="ideia">
+                <div class="sm-ss-field">
+                    <label>Ideia Controladora (Robert McKee)</label>
+                    <textarea id="meta-controlling" rows="6" placeholder="A história prova que [Valor] é alcançado/negado quando [Causa]..."></textarea>
+                </div>
             </div>
-            <div>
-                <label style="display:block; font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Logline / Sinopse Curta</label>
-                <textarea id="meta-logline" rows="3" placeholder="Ex: Um ferreiro descobre ser o herdeiro de um império caído..." style="width:100%; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:10px; font-size:13px; outline:none; resize:none; font-family:inherit;"></textarea>
+
+            <!-- ABA: 6 PERGUNTAS -->
+            <div class="sm-ss-pane" data-pane="perguntas">
+                <div class="sm-ss-grid">
+                    <div class="sm-ss-field"><label>1. Quem é o protagonista?</label><textarea id="meta-q1" rows="1" placeholder="Não definido..."></textarea></div>
+                    <div class="sm-ss-field"><label>2. Qual é o conflito?</label><textarea id="meta-q2" rows="1" placeholder="Não definido..."></textarea></div>
+                    <div class="sm-ss-field"><label>3. Qual é o valor central em jogo?</label><textarea id="meta-q3" rows="1" placeholder="Não definido..."></textarea></div>
+                    <div class="sm-ss-field"><label>4. Qual a condição antes da mudança?</label><textarea id="meta-q4" rows="1" placeholder="Não definido..."></textarea></div>
+                    <div class="sm-ss-field"><label>5. Qual a condição depois da mudança?</label><textarea id="meta-q5" rows="1" placeholder="Não definido..."></textarea></div>
+                    <div class="sm-ss-field"><label>6. Qual é a causa da mudança?</label><textarea id="meta-q6" rows="1" placeholder="Não definido..."></textarea></div>
+                </div>
             </div>
-            <div>
-                <label style="display:block; font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Público-Alvo</label>
-                <select id="meta-audience" style="width:100%; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:10px; font-size:13px; outline:none;">
-                    <option value="">Não definido</option>
-                    <option value="Infantil">Infantil</option>
-                    <option value="Juvenil">Juvenil (YA)</option>
-                    <option value="Adulto">Adulto</option>
-                    <option value="Novo Adulto">Novo Adulto (NA)</option>
-                </select>
+
+            <!-- ABA: STORY SPINE -->
+            <div class="sm-ss-pane" data-pane="spine">
+                <div class="sm-ss-spine">
+                    <div class="sm-ss-field"><label>Era uma vez...</label><textarea id="meta-s1" rows="1" placeholder="Não definido..."></textarea></div>
+                    <div class="sm-ss-field"><label>Todos os dias...</label><textarea id="meta-s2" rows="1" placeholder="Não definido..."></textarea></div>
+                    <div class="sm-ss-field"><label>Até que um dia...</label><textarea id="meta-s3" rows="1" placeholder="Não definido..."></textarea></div>
+                    <div class="sm-ss-field"><label>Por causa disso...</label><textarea id="meta-s4" rows="1" placeholder="Não definido..."></textarea></div>
+                    <div class="sm-ss-field"><label>Por causa disso...</label><textarea id="meta-s5" rows="1" placeholder="Não definido..."></textarea></div>
+                    <div class="sm-ss-field"><label>Por causa disso...</label><textarea id="meta-s6" rows="1" placeholder="Não definido..."></textarea></div>
+                    <div class="sm-ss-field"><label>Até que finalmente...</label><textarea id="meta-s7" rows="1" placeholder="Não definido..."></textarea></div>
+                    <div class="sm-ss-field"><label>Desde então...</label><textarea id="meta-s8" rows="1" placeholder="Não definido..."></textarea></div>
+                </div>
             </div>
         </div>
-        <div style="padding:14px 20px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:flex-end;">
-            <button onclick="saveStoryMeta()" style="background:#6366f1; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer;">Salvar Detalhes</button>
+
+         <!-- Footer -->
+        <div style="padding:14px 20px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:flex-end; gap:10px; flex-shrink:0;">
+            <button onclick="document.getElementById('meta-modal').style.display='none'" style="background:transparent; color:#64748b; border:none; padding:10px 20px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer;">Fechar</button>
+            
+            <!-- Botão de Editar -->
+            <button id="meta-btn-edit" onclick="setMetaEditMode(true)" style="background:#6366f1; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer;">
+                <i class="fa-solid fa-pen"></i> Editar Ficha
+            </button>
+            
+            <!-- Botão de Salvar -->
+            <button id="meta-btn-save" onclick="saveStoryMeta()" style="background:#6366f1; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; display:none;">
+                <i class="fa-solid fa-floppy-disk"></i> Salvar Alterações
+            </button>
         </div>
-    </div>
-</div>
 <!-- 🔼 FIM DO MODAL 🔼 -->
 
 <!-- 🔽 ADICIONE O PROFILE.JS AQUI (junto aos outros scripts) 🔽 -->
